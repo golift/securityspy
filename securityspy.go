@@ -15,7 +15,7 @@ import (
 func Handle(user, pass, url string, verifySSL bool) (SecuritySpy, error) {
 	c := &concourse{
 		EventBinds: make(map[EventName][]func(Event)),
-		Config: Config{
+		Config: &Config{
 			BaseURL:   url,
 			AuthB64:   base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
 			Username:  user,
@@ -25,7 +25,7 @@ func Handle(user, pass, url string, verifySSL bool) (SecuritySpy, error) {
 	return c, c.Refresh()
 }
 
-// Refresh gets fresh camera data from SecuritySpy
+// Refresh gets fresh camera data from SecuritySpy, maybe run this after every action.
 func (c *concourse) Refresh() error {
 	if xmldata, err := c.secReqXML("/++systemInfo", nil); err != nil {
 		return err
@@ -33,41 +33,6 @@ func (c *concourse) Refresh() error {
 		return errors.Wrap(err, "xml.Unmarshal(++systemInfo)")
 	}
 	return nil
-}
-
-// secReq is a helper function that formats the http request to SecuritySpy
-func (c *concourse) secReq(apiPath string, params url.Values) (resp *http.Response, err error) {
-	a := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.Config.VerifySSL}}}
-	req, err := http.NewRequest("GET", c.Config.BaseURL+apiPath, nil)
-	if err != nil {
-		return resp, errors.Wrap(err, "http.NewRequest()")
-	}
-	params.Set("auth", c.Config.AuthB64)
-	params.Set("format", "xml")
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Accept", "application/xml")
-	resp, err = a.Do(req)
-	if err != nil {
-		return resp, errors.Wrap(err, "http.Do(req)")
-	}
-	return resp, nil
-}
-
-func (c *concourse) secReqXML(apiPath string, params url.Values) (xmldata []byte, err error) {
-	resp, err := c.secReq(apiPath, params)
-	if err != nil {
-		return xmldata, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	if resp.StatusCode != http.StatusOK {
-		return xmldata, errors.Errorf("authentication failed (%v): %v (status: %v/%v)",
-			c.Config.Username, c.Config.BaseURL+apiPath, resp.StatusCode, resp.Status)
-	} else if xmldata, err = ioutil.ReadAll(resp.Body); err == nil {
-		return xmldata, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
-	}
-	return xmldata, nil
 }
 
 // ServerInfo returns the server name and version.
@@ -103,4 +68,41 @@ func (c *concourse) Sounds() ([]string, error) {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++sounds)")
 	}
 	return s.Names, nil
+}
+
+/* INTERFACE HELPER METHODS FOLLOW */
+
+// secReq is a helper function that formats the http request to SecuritySpy
+func (c *concourse) secReq(apiPath string, params url.Values) (resp *http.Response, err error) {
+	a := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.Config.VerifySSL}}}
+	req, err := http.NewRequest("GET", c.Config.BaseURL+apiPath, nil)
+	if err != nil {
+		return resp, errors.Wrap(err, "http.NewRequest()")
+	}
+	params.Set("auth", c.Config.AuthB64)
+	params.Set("format", "xml")
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Accept", "application/xml")
+	resp, err = a.Do(req)
+	if err != nil {
+		return resp, errors.Wrap(err, "http.Do(req)")
+	}
+	return resp, nil
+}
+
+func (c *concourse) secReqXML(apiPath string, params url.Values) (xmldata []byte, err error) {
+	resp, err := c.secReq(apiPath, params)
+	if err != nil {
+		return xmldata, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		return xmldata, errors.Errorf("authentication failed (%v): %v (status: %v/%v)",
+			c.Config.Username, c.Config.BaseURL+apiPath, resp.StatusCode, resp.Status)
+	} else if xmldata, err = ioutil.ReadAll(resp.Body); err == nil {
+		return xmldata, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
+	}
+	return xmldata, nil
 }

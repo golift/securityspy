@@ -17,23 +17,24 @@ type CameraArmOrDisarm int
 
 // Arming is either 0 or 1.
 const (
-	CameraDisarm CameraArmOrDisarm = 0
-	CameraArm                      = 1
+	CameraDisarm CameraArmOrDisarm = iota
+	CameraArm
 )
 
-// Presets locks our poresets to a max of 8
-type Presets int
+// Preset locks our poresets to a max of 8
+type Preset int
 
 // Arming is either 0 or 1.
 const (
-	preset1 Presets = 1
-	Preset2         = 2
-	Preset3         = 3
-	Preset4         = 4
-	Preset5         = 5
-	Preset6         = 6
-	Preset7         = 7
-	Preset8         = 8
+	_ Preset = iota
+	Preset1
+	Preset2
+	Preset3
+	Preset4
+	Preset5
+	Preset6
+	Preset7
+	Preset8
 )
 
 // PTZcommand are the possible PTZ commands.
@@ -167,8 +168,8 @@ type Camera interface {
 	PTUpRight() error
 	PTDownRight() error
 	PTZoom(in bool) error
-	PTZPreset(preset int) error
-	PTZPresetSave(preset int) error
+	PTZPreset(preset Preset) error
+	PTZPresetSave(preset Preset) error
 	PTZStop() error
 	ContinuousCapture(arm CameraArmOrDisarm) error
 	Actions(arm CameraArmOrDisarm) error

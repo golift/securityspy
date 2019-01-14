@@ -52,7 +52,7 @@ type FileInterface interface {
 
 // Files returns a Files interface, used to retreive file listings.
 func (c *concourse) Files() Files {
-	return FilesData{config: &c.Config}
+	return FilesData{config: c.Config}
 }
 
 // GetSavePhotos returns a list of links to captured images.

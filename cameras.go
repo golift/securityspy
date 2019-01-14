@@ -180,46 +180,46 @@ func (c *CameraInterface) PTZoom(in bool) error {
 }
 
 // PTZPreset instructs a preset to be used. it just might work!
-func (c *CameraInterface) PTZPreset(preset int) error {
+func (c *CameraInterface) PTZPreset(preset Preset) error {
 	switch preset {
-	case 1:
+	case Preset1:
 		return c.ptzReq(PTZcommandSavePreset1)
-	case 2:
+	case Preset2:
 		return c.ptzReq(PTZcommandSavePreset2)
-	case 3:
+	case Preset3:
 		return c.ptzReq(PTZcommandSavePreset3)
-	case 4:
+	case Preset4:
 		return c.ptzReq(PTZcommandSavePreset4)
-	case 5:
+	case Preset5:
 		return c.ptzReq(PTZcommandSavePreset5)
-	case 6:
+	case Preset6:
 		return c.ptzReq(PTZcommandSavePreset6)
-	case 7:
+	case Preset7:
 		return c.ptzReq(PTZcommandSavePreset7)
-	case 8:
+	case Preset8:
 		return c.ptzReq(PTZcommandSavePreset8)
 	}
 	return ErrorPTZRange
 }
 
 // PTZPresetSave instructs a preset to be saved. good luck!
-func (c *CameraInterface) PTZPresetSave(preset int) error {
+func (c *CameraInterface) PTZPresetSave(preset Preset) error {
 	switch preset {
-	case 1:
+	case Preset1:
 		return c.ptzReq(PTZcommandPreset1)
-	case 2:
+	case Preset2:
 		return c.ptzReq(PTZcommandPreset2)
-	case 3:
+	case Preset3:
 		return c.ptzReq(PTZcommandPreset3)
-	case 4:
+	case Preset4:
 		return c.ptzReq(PTZcommandPreset4)
-	case 5:
+	case Preset5:
 		return c.ptzReq(PTZcommandPreset5)
-	case 6:
+	case Preset6:
 		return c.ptzReq(PTZcommandPreset6)
-	case 7:
+	case Preset7:
 		return c.ptzReq(PTZcommandPreset7)
-	case 8:
+	case Preset8:
 		return c.ptzReq(PTZcommandPreset8)
 	}
 	return ErrorPTZRange

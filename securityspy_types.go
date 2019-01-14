@@ -17,7 +17,7 @@ func (e Error) Error() string {
 
 // concourse is the main interface.
 type concourse struct {
-	Config     Config
+	Config     *Config
 	SystemInfo *SystemInfo
 	EventBinds map[EventName][]func(Event)
 	StopChan   chan bool
