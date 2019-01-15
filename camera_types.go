@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// Encoder is the path to ffmpeg.
 var Encoder = "/usr/local/bin/ffmpeg"
 
 // ARM or DISARM a trigger
@@ -46,33 +47,33 @@ type PTZcommand int
 // PTZcommand in list form
 const (
 	PTZcommandLeft         PTZcommand = 1
-	PTZcommandRight                   = 2
-	PTZcommandUp                      = 3
-	PTZcommandDown                    = 4
-	PTZcommandZoomIn                  = 5
-	PTZcommandZoomOut                 = 6
-	PTZcommandHome                    = 7
-	PTZcommandUpLeft                  = 8
-	PTZcommandUpRight                 = 9
-	PTZcommandDownLeft                = 10
-	PTZcommandDownRight               = 11
-	PTZcommandPreset1                 = 12
-	PTZcommandPreset2                 = 13
-	PTZcommandPreset3                 = 14
-	PTZcommandPreset4                 = 15
-	PTZcommandPreset5                 = 16
-	PTZcommandPreset6                 = 17
-	PTZcommandPreset7                 = 18
-	PTZcommandPreset8                 = 19
-	PTZcommandStopMovement            = 99
-	PTZcommandSavePreset1             = 112
-	PTZcommandSavePreset2             = 113
-	PTZcommandSavePreset3             = 114
-	PTZcommandSavePreset4             = 115
-	PTZcommandSavePreset5             = 116
-	PTZcommandSavePreset6             = 117
-	PTZcommandSavePreset7             = 118
-	PTZcommandSavePreset8             = 119
+	PTZcommandRight        PTZcommand = 2
+	PTZcommandUp           PTZcommand = 3
+	PTZcommandDown         PTZcommand = 4
+	PTZcommandZoomIn       PTZcommand = 5
+	PTZcommandZoomOut      PTZcommand = 6
+	PTZcommandHome         PTZcommand = 7
+	PTZcommandUpLeft       PTZcommand = 8
+	PTZcommandUpRight      PTZcommand = 9
+	PTZcommandDownLeft     PTZcommand = 10
+	PTZcommandDownRight    PTZcommand = 11
+	PTZcommandPreset1      PTZcommand = 12
+	PTZcommandPreset2      PTZcommand = 13
+	PTZcommandPreset3      PTZcommand = 14
+	PTZcommandPreset4      PTZcommand = 15
+	PTZcommandPreset5      PTZcommand = 16
+	PTZcommandPreset6      PTZcommand = 17
+	PTZcommandPreset7      PTZcommand = 18
+	PTZcommandPreset8      PTZcommand = 19
+	PTZcommandStopMovement PTZcommand = 99
+	PTZcommandSavePreset1  PTZcommand = 112
+	PTZcommandSavePreset2  PTZcommand = 113
+	PTZcommandSavePreset3  PTZcommand = 114
+	PTZcommandSavePreset4  PTZcommand = 115
+	PTZcommandSavePreset5  PTZcommand = 116
+	PTZcommandSavePreset6  PTZcommand = 117
+	PTZcommandSavePreset7  PTZcommand = 118
+	PTZcommandSavePreset8  PTZcommand = 119
 )
 
 // PTZCapabilities are what "things" a camera can do.
@@ -86,8 +87,8 @@ type PTZCapabilities struct {
 
 // CameraInterface defines all the public and private elements of a camera.
 type CameraInterface struct {
-	Cam    CameraDevice
-	config *Config // Server url, auth, ssl, etc
+	Camera CameraDevice
+	config *config // Server url, auth, ssl, etc
 }
 
 // CameraDevice defines the data returned from the SecuritySpy API.
@@ -102,8 +103,8 @@ type CameraDevice struct {
 	ModeA               YesNoBool `xml:"mode-a"`              // armed, armed, armed, arme...
 	HasAudio            YesNoBool `xml:"hasaudio"`            // yes, yes, no, yes, yes, y...
 	PTZcapabilities     int       `xml:"ptzcapabilities"`     // 0, 0, 31, 0, 0, 0, 0
-	TimeSinceLastFrame  int64     `xml:"timesincelastframe"`  // 0, 0, 0, 0, 0, 0, 0
-	TimeSinceLastMotion int64     `xml:"timesincelastmotion"` // 689, 3796, 201, 12477, 15...
+	TimeSinceLastFrame  Duration  `xml:"timesincelastframe"`  // 0, 0, 0, 0, 0, 0, 0
+	TimeSinceLastMotion Duration  `xml:"timesincelastmotion"` // 689, 3796, 201, 12477, 15...
 	DeviceName          string    `xml:"devicename"`          // ONVIF, ONVIF, ONVIF, ONVI...
 	DeviceType          string    `xml:"devicetype"`          // Network, Network, Network...
 	Address             string    `xml:"address"`             // 192.168.69.12, 192.168.69...
@@ -116,13 +117,13 @@ type CameraDevice struct {
 	Transformation      int       `xml:"transformation"` // 0, 0, 0, 0, 0, 0, 0
 	AudioNetwork        YesNoBool `xml:"audio_network"`  // yes, yes, yes, yes, yes, ...
 	AudioDeviceName     string    `xml:"audio_devicename"`
-	MDenabled           string    `xml:"md_enabled"`        // yes, yes, yes, yes, yes, ...
+	MDenabled           YesNoBool `xml:"md_enabled"`        // yes, yes, yes, yes, yes, ...
 	MDsensitivity       int       `xml:"md_sensitivity"`    // 51, 50, 47, 50, 50, 50, 5...  - this got returned twice under different key names.
-	MDtriggerTimeX2     int64     `xml:"md_triggertime_x2"` // 2, 2, 1, 2, 2, 2, 2
+	MDtriggerTimeX2     Duration  `xml:"md_triggertime_x2"` // 2, 2, 1, 2, 2, 2, 2
 	MDcapture           YesNoBool `xml:"md_capture"`        // yes, yes, yes, yes, yes, ...
 	MDcaptureFPS        int       `xml:"md_capturefps"`     // 20, 20, 20, 20, 20, 20, 2...
-	MDpreCapture        int       `xml:"md_precapture"`     // 3, 4, 3, 3, 3, 2, 0
-	MDpostCapture       int       `xml:"md_postcapture"`    // 10, 5, 5, 5, 5, 20, 15
+	MDpreCapture        Duration  `xml:"md_precapture"`     // 3, 4, 3, 3, 3, 2, 0
+	MDpostCapture       Duration  `xml:"md_postcapture"`    // 10, 5, 5, 5, 5, 20, 15
 	MDcaptureImages     YesNoBool `xml:"md_captureimages"`  // no, no, no, no, no, no, n...
 	MDuploadImages      YesNoBool `xml:"md_uploadimages"`   // no, no, no, no, no, no, n...
 	MDeecordAudio       YesNoBool `xml:"md_recordaudio"`    // yes, yes, yes, yes, yes, ...
@@ -130,7 +131,7 @@ type CameraDevice struct {
 	MDaudioThreshold    int       `xml:"md_audiothreshold"` // 50, 50, 50, 50, 50, 50, 5...
 	ActionScriptName    string    `xml:"action_scriptname"` // SS_SendiMessages.scpt, SS...
 	ActionSoundName     string    `xml:"action_soundname"`
-	ActionResettime     int       `xml:"action_resettime"`     // 60, 60, 60, 60, 60, 60, 4...
+	ActionResetTime     Duration  `xml:"action_resettime"`     // 60, 60, 60, 60, 60, 60, 4...
 	TLcapture           YesNoBool `xml:"tl_capture"`           // no, no, no, no, no, no, n...
 	TLrecordAudio       YesNoBool `xml:"tl_recordaudio"`       // yes, yes, yes, yes, yes, ...
 	CurrentFPS          float64   `xml:"current-fps"`          // 20.000, 20.000, 20.000, 2...
@@ -153,8 +154,11 @@ type CameraDevice struct {
 
 // The Camera interface is used to manipulate and acquire data from cameras.
 type Camera interface {
-	Conf() CameraDevice
+	Cam() CameraDevice
 	Name() (name string)
+	Number() int
+	Num() string
+	Size() string
 	StreamMJPG(ops *VidOps) (video io.ReadCloser, err error)
 	StreamH264(ops *VidOps) (video io.ReadCloser, err error)
 	StreamG711() (audio io.ReadCloser, err error)
@@ -179,6 +183,5 @@ type Camera interface {
 	ContinuousCapture(arm CameraArmOrDisarm) error
 	Actions(arm CameraArmOrDisarm) error
 	MotionCapture(arm CameraArmOrDisarm) error
-	Modes() (continous, motion, actions bool)
 	TriggerMotion() error
 }

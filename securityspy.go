@@ -12,19 +12,24 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Handle returns an iterface to interact with SecuritySpy.
-func Handle(user, pass, url string, verifySSL bool) (SecuritySpy, error) {
+// GetServer returns an iterface to interact with SecuritySpy.
+func GetServer(user, pass, url string, verifySSL bool) (Server, error) {
 	c := &concourse{
-		SystemInfo: new(SystemInfo),
+		SystemInfo: new(systemInfo),
 		EventBinds: make(map[EventName][]func(Event)),
-		Config: &Config{
+		Config: &config{
 			BaseURL:   url,
 			AuthB64:   base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
 			Username:  user,
 			VerifySSL: verifySSL,
 		},
 	}
-	return c, c.Refresh()
+	if err := c.Refresh(); err != nil {
+		return c, err
+	} else if err := c.RefreshScripts(); err != nil {
+		return c, err
+	}
+	return c, c.RefreshSounds()
 }
 
 // Refresh gets fresh camera data from SecuritySpy, maybe run this after every action.
@@ -37,39 +42,31 @@ func (c *concourse) Refresh() error {
 	return nil
 }
 
-// ServerInfo returns the server name and version.
-func (c *concourse) ServerInfo() Server {
+// Info returns the server name and version.
+func (c *concourse) Info() ServerInfo {
 	return c.SystemInfo.Server
 }
 
-// Scripts returns a list of scripts.
-func (c *concourse) Scripts() ([]string, error) {
-	type Scripts struct {
-		XMLName xml.Name `xml:"scripts"`
-		Names   []string `xml:"name"`
-	}
-	var s Scripts
+// RefreshScripts refreshes the list of script files. Probably doesn't change much.
+// Retreivable as server.Info().Scripts.Names
+func (c *concourse) RefreshScripts() error {
 	if xmldata, err := c.secReqXML("/++scripts", nil); err != nil {
-		return nil, err
-	} else if err := xml.Unmarshal(xmldata, s); err != nil {
-		return nil, errors.Wrap(err, "xml.Unmarshal(++scripts)")
+		return err
+	} else if err := xml.Unmarshal(xmldata, &c.SystemInfo.Server.Scripts); err != nil {
+		return errors.Wrap(err, "xml.Unmarshal(++scripts)")
 	}
-	return s.Names, nil
+	return nil
 }
 
-// Sounds returns a list of sounds.
-func (c *concourse) Sounds() ([]string, error) {
-	type Sounds struct {
-		XMLName xml.Name `xml:"sounds"`
-		Names   []string `xml:"name"`
-	}
-	var s Sounds
+// RefreshSounds refreshes the list of sound files. Probably doesn't change much.
+// Retreivable as server.Info().Sounds.Names
+func (c *concourse) RefreshSounds() error {
 	if xmldata, err := c.secReqXML("/++sounds", nil); err != nil {
-		return nil, err
-	} else if err := xml.Unmarshal(xmldata, s); err != nil {
-		return nil, errors.Wrap(err, "xml.Unmarshal(++sounds)")
+		return err
+	} else if err := xml.Unmarshal(xmldata, &c.SystemInfo.Server.Sounds); err != nil {
+		return errors.Wrap(err, "xml.Unmarshal(++sounds)")
 	}
-	return s.Names, nil
+	return nil
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */

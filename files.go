@@ -18,7 +18,7 @@ type Files interface {
 
 // FilesData powers the Files interface.
 type FilesData struct {
-	config *Config
+	config *config
 }
 
 // Feed represents the XML data from /++download
@@ -42,7 +42,7 @@ type FileEntry struct {
 	} `xml:"link"`
 	Updated   time.Time `xml:"updated"`   // 2019-01-12T08:57:58Z, 201...
 	CameraNum int       `xml:"cameraNum"` // 0, 1, 2, 4, 5, 7, 9, 10, 11, 12, 13
-	config    *Config
+	config    *config
 }
 
 // FileInterface is used to do something with a FileEntry.
