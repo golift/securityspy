@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const Encoder = "/usr/local/bin/ffmpeg"
+var Encoder = "/usr/local/bin/ffmpeg"
 
 // ARM or DISARM a trigger
 const (

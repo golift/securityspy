@@ -28,6 +28,7 @@ type Config struct {
 
 func main() {
 	config := parseFlags()
+	securityspy.Encoder = "/usr/local/bin/ffmpg"
 
 	switch config.Cmd {
 

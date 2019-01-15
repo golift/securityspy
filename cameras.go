@@ -65,7 +65,7 @@ func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
-	_, video, err := e.GetVideo(url+"?"+params.Encode(), "-", c.Cam.Name)
+	_, video, err := e.GetVideo(url+"?"+params.Encode(), c.Cam.Name)
 	return video, err
 }
 
