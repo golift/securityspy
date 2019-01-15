@@ -19,7 +19,7 @@ import (
 // GetCameras returns interfaces for every camera.
 func (c *concourse) GetCameras() (cams []Camera) {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
-		cams = append(cams, &CameraInterface{Cam: cam, config: c.Config})
+		cams = append(cams, &CameraInterface{Camera: cam, config: c.Config})
 	}
 	return
 }
@@ -28,7 +28,7 @@ func (c *concourse) GetCameras() (cams []Camera) {
 func (c *concourse) GetCamera(number int) Camera {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		if cam.Number == number {
-			return &CameraInterface{Cam: cam, config: c.Config}
+			return &CameraInterface{Camera: cam, config: c.Config}
 		}
 	}
 	return nil
@@ -38,15 +38,15 @@ func (c *concourse) GetCamera(number int) Camera {
 func (c *concourse) GetCameraByName(name string) Camera {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		if cam.Name == name {
-			return &CameraInterface{Cam: cam, config: c.Config}
+			return &CameraInterface{Camera: cam, config: c.Config}
 		}
 	}
 	return nil
 }
 
-// Conf returns the camera's configuration from the server.
-func (c *CameraInterface) Conf() CameraDevice {
-	return c.Cam
+// Cam returns the camera's configuration from the server.
+func (c *CameraInterface) Cam() CameraDevice {
+	return c.Camera
 }
 
 // StreamVideo streams a segment of video from a camera using FFMPEG.
@@ -59,11 +59,12 @@ func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
 	params := makeQualityParams(ops)
-	params.Set("cameraNum", strconv.Itoa(c.Cam.Number))
+	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
+	params.Set("auth", c.config.AuthB64)
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
-	_, video, err := e.GetVideo(url+"?"+params.Encode(), c.Cam.Name)
+	_, video, err := e.GetVideo(url+"?"+params.Encode(), c.Camera.Name)
 	return video, err
 }
 
@@ -77,11 +78,12 @@ func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
 	params := makeQualityParams(ops)
-	params.Set("cameraNum", strconv.Itoa(c.Cam.Number))
+	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
+	params.Set("auth", c.config.AuthB64)
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
-	_, _, err := e.SaveVideo(url+"?"+params.Encode(), outputFile, c.Cam.Name)
+	_, _, err := e.SaveVideo(url+"?"+params.Encode(), outputFile, c.Camera.Name)
 	return err
 }
 
@@ -110,7 +112,7 @@ func (c *CameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 // StreamG711 makes a web request to retreive an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *CameraInterface) StreamG711() (io.ReadCloser, error) {
-	resp, err := c.camReq("/++audio", nil)
+	resp, err := c.camReq("/++audio", make(url.Values))
 	if err != nil {
 		return nil, err
 	}
@@ -294,28 +296,28 @@ func (c *CameraInterface) MotionCapture(arm CameraArmOrDisarm) error {
 
 // Size returns the camera frame size as a string.
 func (c *CameraInterface) Size() string {
-	return strconv.Itoa(c.Cam.Width) + "x" + strconv.Itoa(c.Cam.Height)
+	return strconv.Itoa(c.Camera.Width) + "x" + strconv.Itoa(c.Camera.Height)
 }
 
 // Name returns the camera name.
 func (c *CameraInterface) Name() string {
-	return c.Cam.Name
+	return c.Camera.Name
 }
 
 // Number returns the camera number.
 func (c *CameraInterface) Number() int {
-	return c.Cam.Number
+	return c.Camera.Number
 }
 
 // Num returns the camera number as a string.
 func (c *CameraInterface) Num() string {
-	return strconv.Itoa(c.Cam.Number)
+	return strconv.Itoa(c.Camera.Number)
 }
 
 // TriggerMotion sets a camera as currently seeing motion.
 // Other actions likely occur because of this!
 func (c *CameraInterface) TriggerMotion() error {
-	return c.simpleReq("/++triggermd", nil)
+	return c.simpleReq("/++triggermd", make(url.Values))
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
@@ -327,10 +329,7 @@ func (c *CameraInterface) camReq(apiPath string, params url.Values) (*http.Respo
 	if err != nil {
 		return nil, err
 	}
-	if params == nil {
-		params = make(url.Values)
-	}
-	params.Set("cameraNum", strconv.Itoa(c.Cam.Number))
+	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
 	params.Set("auth", c.config.AuthB64)
 	req.URL.RawQuery = params.Encode()
 	resp, err := client.Do(req)

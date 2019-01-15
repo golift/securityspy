@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// Encoder is the path to ffmpeg.
 var Encoder = "/usr/local/bin/ffmpeg"
 
 // ARM or DISARM a trigger
@@ -86,7 +87,7 @@ type PTZCapabilities struct {
 
 // CameraInterface defines all the public and private elements of a camera.
 type CameraInterface struct {
-	Cam    CameraDevice
+	Camera CameraDevice
 	config *config // Server url, auth, ssl, etc
 }
 
@@ -130,7 +131,7 @@ type CameraDevice struct {
 	MDaudioThreshold    int       `xml:"md_audiothreshold"` // 50, 50, 50, 50, 50, 50, 5...
 	ActionScriptName    string    `xml:"action_scriptname"` // SS_SendiMessages.scpt, SS...
 	ActionSoundName     string    `xml:"action_soundname"`
-	ActionResettime     Duration  `xml:"action_resettime"`     // 60, 60, 60, 60, 60, 60, 4...
+	ActionResetTime     Duration  `xml:"action_resettime"`     // 60, 60, 60, 60, 60, 60, 4...
 	TLcapture           YesNoBool `xml:"tl_capture"`           // no, no, no, no, no, no, n...
 	TLrecordAudio       YesNoBool `xml:"tl_recordaudio"`       // yes, yes, yes, yes, yes, ...
 	CurrentFPS          float64   `xml:"current-fps"`          // 20.000, 20.000, 20.000, 2...
@@ -153,7 +154,7 @@ type CameraDevice struct {
 
 // The Camera interface is used to manipulate and acquire data from cameras.
 type Camera interface {
-	Conf() CameraDevice
+	Cam() CameraDevice
 	Name() (name string)
 	Number() int
 	Num() string

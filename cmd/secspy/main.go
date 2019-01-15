@@ -114,14 +114,14 @@ func (c *Config) showEvents(e securityspy.Event) {
 
 func (c *Config) printCamData() {
 	for _, cam := range c.getServer().GetCameras() {
-		c := cam.Conf()
+		c := cam.Cam()
 		fmt.Printf("%2v: %-10v (%-9v %5v/%-7v %v) connected: %3v, down %v, modes: C:%-8v M:%-8v A:%-8v "+
 			"%2vFPS, Audio:%3v, MD: %3v/pre:%v/post:%3v idle %-10v Script: %v (reset %v)\n",
 			cam.Num(), c.Name, cam.Size(), c.DeviceName, c.DeviceType, c.Address,
-			c.Connected.Val, c.TimeSinceLastFrame.Dur.String(),
-			c.ModeC.Txt, c.ModeM.Txt, c.ModeA.Txt+",", int(c.CurrentFPS), c.HasAudio.Txt, c.MDenabled.Txt, c.MDpreCapture.Dur.String(), c.MDpostCapture.Dur.String(),
-			c.TimeSinceLastMotion.Dur.String(), c.ActionScriptName,
-			c.ActionResettime.Dur.String())
+			c.Connected.Val, c.TimeSinceLastFrame.Dur.String(), c.ModeC.Txt, c.ModeM.Txt,
+			c.ModeA.Txt+",", int(c.CurrentFPS), c.HasAudio.Txt, c.MDenabled.Txt,
+			c.MDpreCapture.Dur.String(), c.MDpostCapture.Dur.String(),
+			c.TimeSinceLastMotion.Dur.String(), c.ActionScriptName, c.ActionResetTime.Dur.String())
 	}
 }
 
