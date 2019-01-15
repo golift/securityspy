@@ -13,22 +13,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	encode "github.com/davidnewhall/go-securityspy/ffmpegencode"
 )
 
-// Cameras returns interfaces for every camera.
-func (c *concourse) Cameras() (cams []Camera) {
-	for _, cam := range c.SystemInfo.CameraContainer.Cameras {
+// GetCameras returns interfaces for every camera.
+func (c *concourse) GetCameras() (cams []Camera) {
+	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		cams = append(cams, &CameraInterface{Cam: cam, config: c.Config})
 	}
 	return
 }
 
-// Camera returns an interface for a single camera.
-func (c *concourse) Camera(number int) Camera {
-	for _, cam := range c.SystemInfo.CameraContainer.Cameras {
+// GetCamera returns an interface for a single camera.
+func (c *concourse) GetCamera(number int) Camera {
+	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		if cam.Number == number {
 			return &CameraInterface{Cam: cam, config: c.Config}
 		}
@@ -36,9 +34,9 @@ func (c *concourse) Camera(number int) Camera {
 	return nil
 }
 
-// CameraByName returns an interface for a single camera, using the name.
-func (c *concourse) CameraByName(name string) Camera {
-	for _, cam := range c.SystemInfo.CameraContainer.Cameras {
+// GetCameraByName returns an interface for a single camera, using the name.
+func (c *concourse) GetCameraByName(name string) Camera {
+	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		if cam.Name == name {
 			return &CameraInterface{Cam: cam, config: c.Config}
 		}
@@ -294,14 +292,24 @@ func (c *CameraInterface) MotionCapture(arm CameraArmOrDisarm) error {
 	return c.simpleReq("/++ssControlMotionCapture", params)
 }
 
-// Modes shows current modes for a camera.
-func (c *CameraInterface) Modes() (continous, motion, actions bool) {
-	return bool(c.Cam.ModeC), bool(c.Cam.ModeM), bool(c.Cam.ModeA)
+// Size returns the camera frame size as a string.
+func (c *CameraInterface) Size() string {
+	return strconv.Itoa(c.Cam.Width) + "x" + strconv.Itoa(c.Cam.Height)
 }
 
 // Name returns the camera name.
 func (c *CameraInterface) Name() string {
 	return c.Cam.Name
+}
+
+// Number returns the camera number.
+func (c *CameraInterface) Number() int {
+	return c.Cam.Number
+}
+
+// Num returns the camera number as a string.
+func (c *CameraInterface) Num() string {
+	return strconv.Itoa(c.Cam.Number)
 }
 
 // TriggerMotion sets a camera as currently seeing motion.
@@ -312,24 +320,22 @@ func (c *CameraInterface) TriggerMotion() error {
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
-// secReq is a helper function that formats the http request to SecuritySpy
+// camReq is a helper function that formats the http request to SecuritySpy
 func (c *CameraInterface) camReq(apiPath string, params url.Values) (*http.Response, error) {
-	a := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.config.VerifySSL}}}
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.config.VerifySSL}}}
 	req, err := http.NewRequest("GET", c.config.BaseURL+apiPath, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "http.NewRequest()")
+		return nil, err
 	}
 	if params == nil {
 		params = make(url.Values)
 	}
 	params.Set("cameraNum", strconv.Itoa(c.Cam.Number))
 	params.Set("auth", c.config.AuthB64)
-	params.Set("format", "xml")
 	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Accept", "application/xml")
-	resp, err := a.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "http.Do(req)")
+		return nil, err
 	}
 	return resp, nil
 }
@@ -356,6 +362,7 @@ func (c *CameraInterface) simpleReq(apiURI string, params url.Values) error {
 	return nil
 }
 
+// makeQualityParams converts passed in ops to url.Values
 func makeQualityParams(ops *VidOps) url.Values {
 	params := make(url.Values)
 	if ops.Width != 0 {
@@ -364,10 +371,10 @@ func makeQualityParams(ops *VidOps) url.Values {
 	if ops.Height != 0 {
 		params.Set("height", strconv.Itoa(ops.Height))
 	}
+	if ops.Quality > 100 {
+		ops.Quality = 100
+	}
 	if ops.Quality > 0 {
-		if ops.Quality > 100 {
-			ops.Quality = 100
-		}
 		params.Set("quality", strconv.Itoa(ops.Quality))
 	}
 	if ops.FPS > 0 {

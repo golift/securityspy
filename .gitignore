@@ -1,3 +1,4 @@
 *~
 /vendors
-secspy
+/cmd/secspy/secspy
+/secspy
