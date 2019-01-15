@@ -3,8 +3,8 @@ package ffmpegencode
 /* Encode videos from RTSP URLs using FFMPEG */
 
 import (
+	"bytes"
 	"io"
-	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -49,7 +49,7 @@ func (e Error) Error() string {
 // Encoder provides an inteface to mock.
 type Encoder interface {
 	Values() *VidOps
-	GetVideo(input, output, title string) (cmd string, cmdout io.ReadCloser, err error)
+	GetVideo(input, title string) (cmd string, cmdout io.ReadCloser, err error)
 	SaveVideo(input, output, title string) (cmd string, out string, err error)
 	SetAudio(audio string) (value bool)
 	SetRate(rate string) (value int)
@@ -91,7 +91,7 @@ func Get(v *VidOps) Encoder {
 	encoder.SetLevel(v.Level)
 	encoder.SetProfile(v.Prof)
 	encoder.fixValues()
-	return &EncodeInterface{ops: v}
+	return encoder
 }
 
 // Values returns the current values in the encoder.
@@ -164,15 +164,8 @@ func (v *EncodeInterface) SetSize(size string) int64 {
 	return v.ops.Size
 }
 
-// GetVideo retreives video from an input and returns a Reader to consume the output.
-// The Reader contains output messages if output is a filepath.
-// The Reader contains the video if the output is "-"
-func (v *EncodeInterface) GetVideo(input, output, title string) (string, io.ReadCloser, error) {
-	if input == "" {
-		return "", nil, ErrorInvalidInput
-	} else if output == "" {
-		return "", nil, ErrorInvalidOutput
-	} else if title == "" {
+func (v *EncodeInterface) getVideoHandle(input, output, title string) (string, *exec.Cmd) {
+	if title == "" {
 		title = filepath.Base(output)
 	}
 	arg := []string{
@@ -210,30 +203,42 @@ func (v *EncodeInterface) GetVideo(input, output, title string) (string, io.Read
 	}
 	arg = append(arg, output)
 	cmd := exec.Command(arg[0], arg[1:]...)
+
+	return strings.Join(arg, " "), cmd
+}
+
+// GetVideo retreives video from an input and returns a Reader to consume the output.
+// The Reader contains output messages if output is a filepath.
+// The Reader contains the video if the output is "-"
+func (v *EncodeInterface) GetVideo(input, title string) (string, io.ReadCloser, error) {
+	if input == "" {
+		return "", nil, ErrorInvalidInput
+	}
+	cmdStr, cmd := v.getVideoHandle(input, "-", title)
 	stdoutpipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return strings.Join(arg, " "), stdoutpipe, err
+		return cmdStr, nil, err
 	}
-	return strings.Join(arg, " "), stdoutpipe, cmd.Start()
+	return cmdStr, stdoutpipe, cmd.Run()
 }
 
 // SaveVideo saves a video snippet to a file.
 func (v *EncodeInterface) SaveVideo(input, output, title string) (string, string, error) {
-	if output == "-" {
+	if input == "" {
+		return "", "", ErrorInvalidInput
+	} else if output == "" || output == "-" {
 		return "", "", ErrorInvalidOutput
 	}
-	cmd, videoReader, err := v.GetVideo(input, output, title)
-	if err != nil {
-		return cmd, "", err
+	cmdStr, cmd := v.getVideoHandle(input, output, title)
+	// log.Println(cmdStr) // DEBUG
+	var out bytes.Buffer
+	cmd.Stderr = &out
+	cmd.Stdout = &out
+	if err := cmd.Start(); err != nil {
+		return cmdStr, "", err
 	}
-	defer func() {
-		_ = videoReader.Close()
-	}()
-	out, err := ioutil.ReadAll(videoReader)
-	if err != nil {
-		return cmd, "", err
-	}
-	return cmd, string(out), nil
+	err := cmd.Wait()
+	return cmdStr, out.String(), err
 }
 
 // fixValues makes sure video request values are sane.

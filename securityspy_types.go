@@ -22,7 +22,7 @@ type concourse struct {
 	EventBinds map[EventName][]func(Event)
 	StopChan   chan bool
 	Running    bool
-	*sync.RWMutex
+	sync.RWMutex
 }
 
 // Config is the data passed into the Handler function.
@@ -33,7 +33,7 @@ type Config struct {
 	Username  string
 }
 
-// VidOps are the options for a video that can be request from SecuritySpy
+// VidOps are the options for a video that can be requested from SecuritySpy
 type VidOps struct {
 	Width   int
 	Height  int
@@ -83,7 +83,7 @@ type SystemInfo struct {
 	XMLName         xml.Name `xml:"system"`
 	Server          Server   `xml:"server"`
 	CameraContainer struct {
-		Cameras []CameraInterface `xml:"camera"`
+		Cameras []CameraDevice `xml:"camera"`
 	} `xml:"cameralist"`
 	Schedulelist struct {
 		Schedules []Schedule `xml:"schedule"`
@@ -96,10 +96,12 @@ type SystemInfo struct {
 // YesNoBool is used to capture strings into boolean format.
 type YesNoBool bool
 
-// UnmarshalJSON method converts armed/disarmed, yes/no or 0/1 to true/false.
-func (bit *YesNoBool) UnmarshalJSON(data []byte) error {
-	s := string(data)
-	*bit = YesNoBool(s == "1" || strings.EqualFold(s, "true") || strings.EqualFold(s, "yes") ||
-		strings.EqualFold(s, "armed") || strings.EqualFold(s, "active"))
+// UnmarshalXML method converts armed/disarmed, yes/no or 0/1 to true/false.
+func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	var s string
+	_ = d.DecodeElement(&s, &start)
+	yes := s == "1" || strings.EqualFold(s, "true") || strings.EqualFold(s, "yes") ||
+		strings.EqualFold(s, "armed") || strings.EqualFold(s, "active")
+	*bit = YesNoBool(yes)
 	return nil
 }

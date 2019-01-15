@@ -21,7 +21,7 @@ import (
 // Cameras returns interfaces for every camera.
 func (c *concourse) Cameras() (cams []Camera) {
 	for _, cam := range c.SystemInfo.CameraContainer.Cameras {
-		cams = append(cams, &cam)
+		cams = append(cams, &CameraInterface{Cam: cam, config: c.Config})
 	}
 	return
 }
@@ -29,8 +29,8 @@ func (c *concourse) Cameras() (cams []Camera) {
 // Camera returns an interface for a single camera.
 func (c *concourse) Camera(number int) Camera {
 	for _, cam := range c.SystemInfo.CameraContainer.Cameras {
-		if cam.Cam.Number == number {
-			return &cam
+		if cam.Number == number {
+			return &CameraInterface{Cam: cam, config: c.Config}
 		}
 	}
 	return nil
@@ -39,15 +39,15 @@ func (c *concourse) Camera(number int) Camera {
 // CameraByName returns an interface for a single camera, using the name.
 func (c *concourse) CameraByName(name string) Camera {
 	for _, cam := range c.SystemInfo.CameraContainer.Cameras {
-		if cam.Cam.Name == name {
-			return &cam
+		if cam.Name == name {
+			return &CameraInterface{Cam: cam, config: c.Config}
 		}
 	}
 	return nil
 }
 
 // Conf returns the camera's configuration from the server.
-func (c *CameraInterface) Conf() *CameraDevice {
+func (c *CameraInterface) Conf() CameraDevice {
 	return c.Cam
 }
 
@@ -60,15 +60,12 @@ func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	var params url.Values
-	params.Set("camNumber", strconv.Itoa(c.Cam.Number))
-	params.Set("width", strconv.Itoa(ops.Width))
-	params.Set("heigth", strconv.Itoa(ops.Height))
-	params.Set("req_fps", strconv.Itoa(ops.FPS))
+	params := makeQualityParams(ops)
+	params.Set("cameraNum", strconv.Itoa(c.Cam.Number))
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
-	_, video, err := e.GetVideo(url+params.Encode(), "-", c.Cam.Name)
+	_, video, err := e.GetVideo(url+"?"+params.Encode(), "-", c.Cam.Name)
 	return video, err
 }
 
@@ -81,15 +78,12 @@ func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	var params url.Values
-	params.Set("camNumber", strconv.Itoa(c.Cam.Number))
-	params.Set("width", strconv.Itoa(ops.Width))
-	params.Set("heigth", strconv.Itoa(ops.Height))
-	params.Set("req_fps", strconv.Itoa(ops.FPS))
+	params := makeQualityParams(ops)
+	params.Set("cameraNum", strconv.Itoa(c.Cam.Number))
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
-	_, _, err := e.SaveVideo(url+params.Encode(), outputFile, c.Cam.Name)
+	_, _, err := e.SaveVideo(url+"?"+params.Encode(), outputFile, c.Cam.Name)
 	return err
 }
 
@@ -281,21 +275,21 @@ func (c *CameraInterface) PTZStop() error {
 
 // ContinuousCapture arms (true) or disarms (false).
 func (c *CameraInterface) ContinuousCapture(arm CameraArmOrDisarm) error {
-	var params url.Values
+	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("/++ssControlContinuous", params)
 }
 
 // Actions arms (true) or disarms (false).
 func (c *CameraInterface) Actions(arm CameraArmOrDisarm) error {
-	var params url.Values
+	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("/++ssControlActions", params)
 }
 
 // MotionCapture arms (true) or disarms (false).
 func (c *CameraInterface) MotionCapture(arm CameraArmOrDisarm) error {
-	var params url.Values
+	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("/++ssControlMotionCapture", params)
 }
@@ -325,6 +319,9 @@ func (c *CameraInterface) camReq(apiPath string, params url.Values) (*http.Respo
 	if err != nil {
 		return nil, errors.Wrap(err, "http.NewRequest()")
 	}
+	if params == nil {
+		params = make(url.Values)
+	}
 	params.Set("cameraNum", strconv.Itoa(c.Cam.Number))
 	params.Set("auth", c.config.AuthB64)
 	params.Set("format", "xml")
@@ -338,7 +335,7 @@ func (c *CameraInterface) camReq(apiPath string, params url.Values) (*http.Respo
 }
 
 func (c *CameraInterface) ptzReq(command PTZcommand) error {
-	var params url.Values
+	params := make(url.Values)
 	params.Set("command", strconv.Itoa(int(command)))
 	return c.simpleReq("/++ptz/command", params)
 }

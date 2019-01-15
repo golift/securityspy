@@ -59,11 +59,11 @@ var events = map[EventName]string{
 	EventDisarmMotion:     "Motion Disarmed",
 	EventArmActions:       "Actions Armed",
 	EventDisarmActions:    "Actions Disarmed",
-	EventSecSpyError:      "A SecuritySpy Error",
+	EventSecSpyError:      "SecuritySpy Error",
 	EventConfigChange:     "Configuration Change",
 	EventMotionDetected:   "Motion Detection",
-	EventOffline:          "SecuritySpy Goes Offline",
-	EventOnline:           "SecuritySpy Comes Online",
+	EventOffline:          "Camera Goes Offline",
+	EventOnline:           "Camera Comes Online",
 	EventStreamDisconnect: "Event Stream Disconnection",
 	EventUnknownEvent:     "Unknown Event",
 	EventAllEvents:        "Any Event",
@@ -112,11 +112,11 @@ func (c *concourse) WatchEvents(retryInterval time.Duration) {
 		if !c.Running {
 			return nil, nil
 		}
-		resp, err := c.secReq("/++eventStream", nil)
+		resp, err := c.secReq("/++eventStream", nil, 0)
 		for err != nil {
 			eventChan <- Event{Event: EventStreamDisconnect, When: time.Now(), Camera: -1, ID: -1, Raw: err.Error()}
 			time.Sleep(retryInterval)
-			resp, err = c.secReq("/++eventStream", nil)
+			resp, err = c.secReq("/++eventStream", nil, 0)
 		}
 		return resp.Body, bufio.NewScanner(resp.Body)
 	}
@@ -222,7 +222,7 @@ func (e *Event) CallBacks(binds map[EventName][]func(Event)) {
 	}
 }
 
-// ScanLinesCR is a custom bufio.Scanner to read SecuritySpy eventStream.
+// scanLinesCR is a custom bufio.Scanner to read SecuritySpy eventStream.
 func scanLinesCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil

@@ -86,7 +86,7 @@ type PTZCapabilities struct {
 
 // CameraInterface defines all the public and private elements of a camera.
 type CameraInterface struct {
-	Cam    *CameraDevice
+	Cam    CameraDevice
 	config *Config // Server url, auth, ssl, etc
 }
 
@@ -153,7 +153,7 @@ type CameraDevice struct {
 
 // The Camera interface is used to manipulate and acquire data from cameras.
 type Camera interface {
-	Conf() *CameraDevice
+	Conf() CameraDevice
 	Name() (name string)
 	StreamMJPG(ops *VidOps) (video io.ReadCloser, err error)
 	StreamH264(ops *VidOps) (video io.ReadCloser, err error)

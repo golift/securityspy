@@ -34,7 +34,7 @@ func TestFixValues(t *testing.T) {
 	a.EqualValues(MinimumFrameSize, v.SetHeight("1"), "Wrong minimum 'height' value!")
 	a.EqualValues(MinimumFrameSize, v.SetWidth("1"), "Wrong minimum 'width' value!")
 	a.EqualValues(MinimumEncodeCRF, v.SetCRF("1"), "Wrong minimum 'CRF' value!")
-	a.EqualValues(MinimumFrameRate, v.SetRate("1"), "Wrong minimum 'rate' value!")
+	a.EqualValues(MinimumFrameRate, v.SetRate("-1"), "Wrong minimum 'rate' value!")
 }
 
 func TestSaveVideo(t *testing.T) {
@@ -58,7 +58,7 @@ func TestSaveVideo(t *testing.T) {
 	a.EqualValues(cmd+"\n", "/bin/echo "+out, "Somehow the wrong value was written")
 	// Make sure audio can be turned on.
 	v = Get(&VidOps{Encoder: "/bin/echo", Audio: true})
-	cmd, _, err = v.GetVideo("INPUT", "OUTPUT", "TITLE")
+	cmd, _, err = v.GetVideo("INPUT", "TITLE")
 	a.Nil(err, "/bin/echo returned an error. Something may be wrong with your environment.")
 	a.Contains(cmd, "-c:a copy", "Audio may not be correctly enabled.")
 }

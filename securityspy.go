@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -14,6 +15,7 @@ import (
 // Handle returns an iterface to interact with SecuritySpy.
 func Handle(user, pass, url string, verifySSL bool) (SecuritySpy, error) {
 	c := &concourse{
+		SystemInfo: new(SystemInfo),
 		EventBinds: make(map[EventName][]func(Event)),
 		Config: &Config{
 			BaseURL:   url,
@@ -73,8 +75,11 @@ func (c *concourse) Sounds() ([]string, error) {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // secReq is a helper function that formats the http request to SecuritySpy
-func (c *concourse) secReq(apiPath string, params url.Values) (resp *http.Response, err error) {
-	a := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.Config.VerifySSL}}}
+func (c *concourse) secReq(apiPath string, params url.Values, timeout time.Duration) (resp *http.Response, err error) {
+	if params == nil {
+		params = make(url.Values)
+	}
+	a := &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.Config.VerifySSL}}}
 	req, err := http.NewRequest("GET", c.Config.BaseURL+apiPath, nil)
 	if err != nil {
 		return resp, errors.Wrap(err, "http.NewRequest()")
@@ -91,7 +96,7 @@ func (c *concourse) secReq(apiPath string, params url.Values) (resp *http.Respon
 }
 
 func (c *concourse) secReqXML(apiPath string, params url.Values) (xmldata []byte, err error) {
-	resp, err := c.secReq(apiPath, params)
+	resp, err := c.secReq(apiPath, params, 15*time.Second)
 	if err != nil {
 		return xmldata, err
 	}
