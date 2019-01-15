@@ -3,7 +3,10 @@ package securityspy
 import (
 	"image"
 	"io"
+	"time"
 )
+
+const Encoder = "/usr/local/bin/ffmpeg"
 
 // ARM or DISARM a trigger
 const (
@@ -24,7 +27,7 @@ const (
 // Preset locks our poresets to a max of 8
 type Preset int
 
-// Arming is either 0 or 1.
+// Presets are 1 through 8.
 const (
 	_ Preset = iota
 	Preset1
@@ -152,12 +155,14 @@ type CameraDevice struct {
 type Camera interface {
 	Conf() *CameraDevice
 	Name() (name string)
-	StreamMJPG(width, height, quality, fps int) (video io.ReadCloser, err error)
-	StreamH264(width, height, quality, fps int) (video io.ReadCloser, err error)
+	StreamMJPG(ops *VidOps) (video io.ReadCloser, err error)
+	StreamH264(ops *VidOps) (video io.ReadCloser, err error)
 	StreamG711() (audio io.ReadCloser, err error)
+	StreamVideo(ops *VidOps, length time.Duration, maxSize int64) (video io.ReadCloser, err error)
+	SaveVideo(ops *VidOps, length time.Duration, maxSize int64, outputFile string) error
 	PostG711(audio io.ReadCloser) error
-	GetJPEG(width, height, quality int) (image.Image, error)
-	SaveJPEG(width, height, quality int, path string) error
+	GetJPEG(ops *VidOps) (image.Image, error)
+	SaveJPEG(ops *VidOps, path string) error
 	GetPTZ() (PTZCapabilities, error)
 	PTLeft() error
 	PTRight() error

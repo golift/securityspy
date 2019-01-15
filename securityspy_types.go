@@ -33,6 +33,14 @@ type Config struct {
 	Username  string
 }
 
+// VidOps are the options for a video that can be request from SecuritySpy
+type VidOps struct {
+	Width   int
+	Height  int
+	FPS     int
+	Quality int
+}
+
 // SecuritySpy is the interface to the Kingdom.
 type SecuritySpy interface {
 	Refresh() error

@@ -2,6 +2,7 @@ package securityspy
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"strconv"
 	"strings"
@@ -135,6 +136,7 @@ func (c *concourse) WatchEvents(retryInterval time.Duration) {
 	}()
 
 	body, scanner := reconnect()
+	scanner.Split(scanLinesCR)
 	defer func() {
 		_ = body.Close()
 	}()
@@ -150,6 +152,7 @@ func (c *concourse) WatchEvents(retryInterval time.Duration) {
 			eventChan <- Event{Event: EventStreamDisconnect, When: time.Now(), Camera: -1, ID: -1, Raw: err.Error()}
 			_ = body.Close()
 			body, scanner = reconnect()
+			scanner.Split(scanLinesCR)
 		}
 	}
 }
@@ -217,4 +220,21 @@ func (e *Event) CallBacks(binds map[EventName][]func(Event)) {
 	if _, ok := binds[EventAllEvents]; ok {
 		callbacks(binds[EventAllEvents])
 	}
+}
+
+// ScanLinesCR is a custom bufio.Scanner to read SecuritySpy eventStream.
+func scanLinesCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexByte(data, '\r'); i >= 0 {
+		// We have a full CR-terminated line.
+		return i + 1, data[0:i], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
 }

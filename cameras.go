@@ -11,8 +11,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+
+	encode "github.com/davidnewhall/go-securityspy/ffmpegencode"
 )
 
 // Cameras returns interfaces for every camera.
@@ -33,7 +36,7 @@ func (c *concourse) Camera(number int) Camera {
 	return nil
 }
 
-// Camera returns an interface for a single camera.
+// CameraByName returns an interface for a single camera, using the name.
 func (c *concourse) CameraByName(name string) Camera {
 	for _, cam := range c.SystemInfo.CameraContainer.Cameras {
 		if cam.Cam.Name == name {
@@ -48,10 +51,52 @@ func (c *CameraInterface) Conf() *CameraDevice {
 	return c.Cam
 }
 
+// StreamVideo streams a segment of video from a camera using FFMPEG.
+func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
+	e := encode.Get(&encode.VidOps{
+		Encoder: Encoder,
+		Time:    int(length.Seconds()),
+		Audio:   true,    // Sure why not.
+		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
+		Copy:    true,    // Always copy securityspy RTSP urls.
+	})
+	var params url.Values
+	params.Set("camNumber", strconv.Itoa(c.Cam.Number))
+	params.Set("width", strconv.Itoa(ops.Width))
+	params.Set("heigth", strconv.Itoa(ops.Height))
+	params.Set("req_fps", strconv.Itoa(ops.FPS))
+	params.Set("codec", "h264")
+	// This is kinda crude, but will handle 99%.
+	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
+	_, video, err := e.GetVideo(url+params.Encode(), "-", c.Cam.Name)
+	return video, err
+}
+
+// SaveVideo saves a segment of video from a camera to a file using FFMPEG.
+func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, outputFile string) error {
+	e := encode.Get(&encode.VidOps{
+		Encoder: Encoder,
+		Time:    int(length.Seconds()),
+		Audio:   true,
+		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
+		Copy:    true,    // Always copy securityspy RTSP urls.
+	})
+	var params url.Values
+	params.Set("camNumber", strconv.Itoa(c.Cam.Number))
+	params.Set("width", strconv.Itoa(ops.Width))
+	params.Set("heigth", strconv.Itoa(ops.Height))
+	params.Set("req_fps", strconv.Itoa(ops.FPS))
+	params.Set("codec", "h264")
+	// This is kinda crude, but will handle 99%.
+	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
+	_, _, err := e.SaveVideo(url+params.Encode(), outputFile, c.Cam.Name)
+	return err
+}
+
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
-func (c *CameraInterface) StreamMJPG(width, height, quality, fps int) (io.ReadCloser, error) {
-	params := makeQualityParams(width, height, quality, fps)
+func (c *CameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
+	params := makeQualityParams(ops)
 	resp, err := c.camReq("/++video", params)
 	if err != nil {
 		return nil, err
@@ -61,8 +106,8 @@ func (c *CameraInterface) StreamMJPG(width, height, quality, fps int) (io.ReadCl
 
 // StreamH264 makes a web request to retreive an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
-func (c *CameraInterface) StreamH264(width, height, quality, fps int) (io.ReadCloser, error) {
-	params := makeQualityParams(width, height, quality, fps)
+func (c *CameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
+	params := makeQualityParams(ops)
 	resp, err := c.camReq("/++stream", params)
 	if err != nil {
 		return nil, err
@@ -93,8 +138,9 @@ func (c *CameraInterface) PostG711(audio io.ReadCloser) error {
 }
 
 // GetJPEG returns a picture from a camera.
-func (c *CameraInterface) GetJPEG(width, height, quality int) (image.Image, error) {
-	params := makeQualityParams(width, height, quality, -1)
+func (c *CameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
+	ops.FPS = -1 // not used for single image
+	params := makeQualityParams(ops)
 	resp, err := c.camReq("/++image", params)
 	if err != nil {
 		return nil, err
@@ -111,8 +157,9 @@ func (c *CameraInterface) GetJPEG(width, height, quality int) (image.Image, erro
 }
 
 // SaveJPEG gets a picture from a camera and puts it in a file.
-func (c *CameraInterface) SaveJPEG(width, height, quality int, path string) error {
-	jpgImage, err := c.GetJPEG(width, height, quality)
+func (c *CameraInterface) SaveJPEG(ops *VidOps, path string) error {
+	ops.FPS = -1 // not used for single image
+	jpgImage, err := c.GetJPEG(ops)
 	if err != nil {
 		return err
 	}
@@ -312,25 +359,25 @@ func (c *CameraInterface) simpleReq(apiURI string, params url.Values) error {
 	return nil
 }
 
-func makeQualityParams(width, height, quality, fps int) url.Values {
+func makeQualityParams(ops *VidOps) url.Values {
 	params := make(url.Values)
-	if width != 0 {
-		params.Set("width", strconv.Itoa(width))
+	if ops.Width != 0 {
+		params.Set("width", strconv.Itoa(ops.Width))
 	}
-	if height != 0 {
-		params.Set("height", strconv.Itoa(height))
+	if ops.Height != 0 {
+		params.Set("height", strconv.Itoa(ops.Height))
 	}
-	if quality > 0 {
-		if quality > 100 {
-			quality = 100
+	if ops.Quality > 0 {
+		if ops.Quality > 100 {
+			ops.Quality = 100
 		}
-		params.Set("quality", strconv.Itoa(quality))
+		params.Set("quality", strconv.Itoa(ops.Quality))
 	}
-	if fps > 0 {
-		if fps > 60 {
-			fps = 60
+	if ops.FPS > 0 {
+		if ops.FPS > 60 {
+			ops.FPS = 60
 		}
-		params.Set("req_fps", strconv.Itoa(fps))
+		params.Set("req_fps", strconv.Itoa(ops.FPS))
 	}
 	return params
 }

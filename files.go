@@ -1,6 +1,7 @@
 package securityspy
 
 // This file handles all file transfers for media saved by security spy.
+// This file and the methods herein: incomplete
 
 import (
 	"encoding/xml"
