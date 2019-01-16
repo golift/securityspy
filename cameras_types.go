@@ -130,22 +130,22 @@ type CameraDevice struct {
 
 // The Camera interface is used to manipulate and acquire data from cameras.
 type Camera interface {
-	Device() CameraDevice
-	Name() (name string)
 	Number() int
 	Num() string
 	Size() string
-	StreamVideo(ops *VidOps, length time.Duration, maxSize int64) (video io.ReadCloser, err error)
-	SaveVideo(ops *VidOps, length time.Duration, maxSize int64, outputFile string) error
-	StreamMJPG(ops *VidOps) (video io.ReadCloser, err error)
-	StreamH264(ops *VidOps) (video io.ReadCloser, err error)
+	PTZ() (ptz PTZ)
+	Name() (name string)
+	Device() CameraDevice
+	TriggerMotion() error
+	Actions(arm CameraArmOrDisarm) error
+	MotionCapture(arm CameraArmOrDisarm) error
+	ContinuousCapture(arm CameraArmOrDisarm) error
 	StreamG711() (audio io.ReadCloser, err error)
 	PostG711(audio io.ReadCloser) error
 	GetJPEG(ops *VidOps) (image.Image, error)
 	SaveJPEG(ops *VidOps, path string) error
-	PTZ() (ptz PTZ)
-	ContinuousCapture(arm CameraArmOrDisarm) error
-	Actions(arm CameraArmOrDisarm) error
-	MotionCapture(arm CameraArmOrDisarm) error
-	TriggerMotion() error
+	StreamMJPG(ops *VidOps) (video io.ReadCloser, err error)
+	StreamH264(ops *VidOps) (video io.ReadCloser, err error)
+	SaveVideo(ops *VidOps, length time.Duration, maxSize int64, outputFile string) error
+	StreamVideo(ops *VidOps, length time.Duration, maxSize int64) (video io.ReadCloser, err error)
 }

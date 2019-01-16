@@ -37,19 +37,23 @@ type config struct {
 
 // Server is the interface to the Kingdom.
 type Server interface {
+	// SecuritySpy
+	Info() ServerInfo
 	Refresh() error
 	RefreshScripts() error
 	RefreshSounds() error
-	Info() ServerInfo
+	// Files
+	Files() (files Files)
+	// Cameras
 	GetCameras() (cams []Camera)
 	GetCamera(camerNum int) (cam Camera)
 	GetCameraByName(name string) (cam Camera)
-	BindEvent(event EventName, callBack func(Event))
-	UnbindEvent(event EventName)
-	UnbindAllEvents()
-	WatchEvents(retryInterval, refreshInterval time.Duration)
+	// Events
 	StopWatch()
-	Files() (files Files) // this still sucks.
+	UnbindAllEvents()
+	UnbindEvent(event EventName)
+	BindEvent(event EventName, callBack func(Event))
+	WatchEvents(retryInterval, refreshInterval time.Duration)
 }
 
 // ServerInfo represents all the SecuritySpy ServerInfo Info
