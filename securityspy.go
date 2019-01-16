@@ -15,6 +15,9 @@ import (
 
 // GetServer returns an iterface to interact with SecuritySpy.
 func GetServer(user, pass, url string, verifySSL bool) (Server, error) {
+	if !strings.HasSuffix(url, "/") {
+		url += "/"
+	}
 	c := &concourse{
 		SystemInfo: new(systemInfo),
 		EventBinds: make(map[EventName][]func(Event)),
@@ -35,7 +38,7 @@ func GetServer(user, pass, url string, verifySSL bool) (Server, error) {
 
 // Refresh gets fresh camera data from SecuritySpy, maybe run this after every action.
 func (c *concourse) Refresh() error {
-	if xmldata, err := c.secReqXML("/++systemInfo", nil); err != nil {
+	if xmldata, err := c.secReqXML("++systemInfo", nil); err != nil {
 		return err
 	} else if err := xml.Unmarshal(xmldata, c.SystemInfo); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++systemInfo)")
@@ -60,7 +63,7 @@ func (c *concourse) Info() ServerInfo {
 // RefreshScripts refreshes the list of script files. Probably doesn't change much.
 // Retreivable as server.Info().Scripts.Names
 func (c *concourse) RefreshScripts() error {
-	if xmldata, err := c.secReqXML("/++scripts", nil); err != nil {
+	if xmldata, err := c.secReqXML("++scripts", nil); err != nil {
 		return err
 	} else if err := xml.Unmarshal(xmldata, &c.SystemInfo.Server.Scripts); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++scripts)")
@@ -71,7 +74,7 @@ func (c *concourse) RefreshScripts() error {
 // RefreshSounds refreshes the list of sound files. Probably doesn't change much.
 // Retreivable as server.Info().Sounds.Names
 func (c *concourse) RefreshSounds() error {
-	if xmldata, err := c.secReqXML("/++sounds", nil); err != nil {
+	if xmldata, err := c.secReqXML("++sounds", nil); err != nil {
 		return err
 	} else if err := xml.Unmarshal(xmldata, &c.SystemInfo.Server.Sounds); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++sounds)")

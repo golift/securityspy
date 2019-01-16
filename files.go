@@ -30,7 +30,7 @@ type FilesData struct {
 	*concourse
 }
 
-// Feed represents the XML data from /++download
+// Feed represents the XML data from ++download
 type Feed struct {
 	XMLName      xml.Name    `xml:"feed"`
 	BSL          string      `xml:"bsl,attr"`     // http://www.bensoftware.com/
@@ -152,7 +152,7 @@ func (f FilesData) getFiles(cameraNums []int, from, to time.Time, fileType, cont
 	var files []FileInterface
 	var feed Feed
 	params := MakeFilesParams(cameraNums, from, to, fileType, continuation)
-	if xmldata, err := f.secReqXML("/++downloads", params); err != nil {
+	if xmldata, err := f.secReqXML("++downloads", params); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &feed); err != nil {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++downloads)")

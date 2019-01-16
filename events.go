@@ -92,7 +92,7 @@ func (c *concourse) eventStreamScanner(retryInterval time.Duration) {
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
 func (c *concourse) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
-	resp, err := c.secReq("/++eventStream", nil, 0)
+	resp, err := c.secReq("++eventStream", nil, 0)
 	for err != nil {
 		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " + EventStreamDisconnect.String() + ": " + err.Error()
 		c.EventChan <- c.parseEvent(raw)
@@ -100,7 +100,7 @@ func (c *concourse) eventStreamConnect(retryInterval time.Duration) (io.ReadClos
 		if !c.Running {
 			return nil, nil
 		}
-		resp, err = c.secReq("/++eventStream", nil, 0)
+		resp, err = c.secReq("++eventStream", nil, 0)
 	}
 	return resp.Body, bufio.NewScanner(resp.Body)
 }
@@ -140,13 +140,17 @@ func (c *concourse) parseEvent(text string) Event {
 		 * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15
 		 * [EVENT] describes the event: ARM_C, DISARM_C, ARM_M, DISARM_M, ARM_A, DISARM_A, ERROR, CONFIGCHANGE, MOTION, OFFLINE, ONLINE
 	     Example Event Stream Flow:
-	     20140927091955 10 CAM0 ARM_C
-	     20140927091955 11 CAM15 ARM_M
-	     20140927092026 12 CAM0 MOTION
-	     20140927091955 13 CAM0 DISARM_M
-	     20140927092031 14 CAM17 OFFLINE
-	     20190113141131 100525 CAM0 MOTION
-	*/
+			 20190114200911 104519 CAM2 MOTION
+			 20190114201129 104520 CAM5 DISARM_C
+			 20190114201129 104521 CAM5 DISARM_M
+			 20190114201129 104522 CAM5 DISARM_A
+			 20190114201129 104523 CAM5 OFFLINE
+			 20190114201139 104524 CAM0 ERROR 10,835 Error communicating with the network device "Porch".
+			 20190114201155 104525 CAM5 ERROR 70900,800 Error communicating with the network device "Pool".
+			 20190114201206 104526 CAM5 ONLINE
+			 20190114201206 104527 CAM5 ARM_C
+			 20190114201206 104528 CAM5 ARM_M
+			 20190114201206 104529 CAM5 ARM_A */
 	var err error
 	parts := strings.SplitN(text, " ", 4)
 	e := Event{Msg: parts[3], Camera: nil, ID: -1, Errors: nil}

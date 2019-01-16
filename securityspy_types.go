@@ -83,7 +83,7 @@ type ServerInfo struct {
 	} `xml:"sounds"`
 }
 
-// systemInfo reresents /++systemInfo
+// systemInfo reresents ++systemInfo
 type systemInfo struct {
 	XMLName    xml.Name   `xml:"system"`
 	Server     ServerInfo `xml:"server"`

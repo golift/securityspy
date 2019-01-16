@@ -213,5 +213,5 @@ func (c *PTZInterface) Stop() error {
 func (c *PTZInterface) ptzReq(command PTZcommand) error {
 	params := make(url.Values)
 	params.Set("command", strconv.Itoa(int(command)))
-	return c.CameraInterface.simpleReq("/++ptz/command", params)
+	return c.CameraInterface.simpleReq("++ptz/command", params)
 }

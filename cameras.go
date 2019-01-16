@@ -67,7 +67,7 @@ func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 	params.Set("auth", c.config.AuthB64)
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
+	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "++stream"
 	_, video, err := e.GetVideo(url+"?"+params.Encode(), c.Camera.Name)
 	return video, err
 }
@@ -89,7 +89,7 @@ func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 	params.Set("auth", c.config.AuthB64)
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "/++stream"
+	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "++stream"
 	_, _, err := e.SaveVideo(url+"?"+params.Encode(), outputFile, c.Camera.Name)
 	return err
 }
@@ -98,7 +98,7 @@ func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *CameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 	params := MakeRequestParams(ops)
-	resp, err := c.camReq("/++video", params)
+	resp, err := c.camReq("++video", params)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (c *CameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *CameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 	params := MakeRequestParams(ops)
-	resp, err := c.camReq("/++stream", params)
+	resp, err := c.camReq("++stream", params)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (c *CameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 // StreamG711 makes a web request to retreive an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *CameraInterface) StreamG711() (io.ReadCloser, error) {
-	resp, err := c.camReq("/++audio", make(url.Values))
+	resp, err := c.camReq("++audio", make(url.Values))
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (c *CameraInterface) PostG711(audio io.ReadCloser) error {
 func (c *CameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
 	params := MakeRequestParams(ops)
-	resp, err := c.camReq("/++image", params)
+	resp, err := c.camReq("++image", params)
 	if err != nil {
 		return nil, err
 	}
@@ -179,21 +179,21 @@ func (c *CameraInterface) SaveJPEG(ops *VidOps, path string) error {
 func (c *CameraInterface) ContinuousCapture(arm CameraArmOrDisarm) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
-	return c.simpleReq("/++ssControlContinuous", params)
+	return c.simpleReq("++ssControlContinuous", params)
 }
 
 // Actions arms (true) or disarms (false).
 func (c *CameraInterface) Actions(arm CameraArmOrDisarm) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
-	return c.simpleReq("/++ssControlActions", params)
+	return c.simpleReq("++ssControlActions", params)
 }
 
 // MotionCapture arms (true) or disarms (false).
 func (c *CameraInterface) MotionCapture(arm CameraArmOrDisarm) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
-	return c.simpleReq("/++ssControlMotionCapture", params)
+	return c.simpleReq("++ssControlMotionCapture", params)
 }
 
 // Size returns the camera frame size as a string.
@@ -219,7 +219,7 @@ func (c *CameraInterface) Num() string {
 // TriggerMotion sets a camera as currently seeing motion.
 // Other actions likely occur because of this!
 func (c *CameraInterface) TriggerMotion() error {
-	return c.simpleReq("/++triggermd", make(url.Values))
+	return c.simpleReq("++triggermd", make(url.Values))
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */

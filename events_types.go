@@ -42,7 +42,7 @@ const (
 	EventMotionDetected   EventName = "MOTION"
 	EventOnline           EventName = "ONLINE"
 	EventOffline          EventName = "OFFLINE"
-	// These belong to the library, not securityspy.
+	// The following belong to the library, not securityspy.
 	EventStreamDisconnect   EventName = "DISCONNECTED"
 	EventUnknownEvent       EventName = "UNKNOWN"
 	EventAllEvents          EventName = "ALL"
@@ -76,7 +76,7 @@ func (e EventName) Event() string {
 		return "Camera Offline"
 	case EventOnline:
 		return "Camera Online"
-	// These belong to the library, not securityspy.
+		// The following belong to the library, not securityspy.
 	case EventStreamDisconnect:
 		return "Event Stream Disconnected"
 	case EventUnknownEvent:
