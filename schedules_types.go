@@ -9,5 +9,7 @@ type Schedule struct {
 }
 
 // SchedulePresets defines the presets for schedules returned from SecuritySpy
-// (I dont have any (yet))
-type SchedulePresets interface{}
+type SchedulePresets struct {
+	Name string `xml:"name"` // MySchedule, NowOnly, Weekends
+	ID   int    `xml:"id"`   // 0, 1, 2, 3
+}

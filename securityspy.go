@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -38,6 +39,15 @@ func (c *concourse) Refresh() error {
 		return err
 	} else if err := xml.Unmarshal(xmldata, c.SystemInfo); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++systemInfo)")
+	}
+	// Add the name to each assigned Camera Schedule.
+	for i, cam := range c.SystemInfo.CameraList.Cameras {
+		c.SystemInfo.CameraList.Cameras[i].ScheduleIDA.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleIDA.ID))
+		c.SystemInfo.CameraList.Cameras[i].ScheduleIDCC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleIDCC.ID))
+		c.SystemInfo.CameraList.Cameras[i].ScheduleIDMC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleIDMC.ID))
+		c.SystemInfo.CameraList.Cameras[i].ScheduleOverrideA.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideA.ID))
+		c.SystemInfo.CameraList.Cameras[i].ScheduleOverrideCC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideCC.ID))
+		c.SystemInfo.CameraList.Cameras[i].ScheduleOverrideMC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideMC.ID))
 	}
 	return nil
 }
@@ -107,4 +117,13 @@ func (c *concourse) secReqXML(apiPath string, params url.Values) (xmldata []byte
 		return xmldata, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
 	}
 	return xmldata, nil
+}
+
+func (c *concourse) getScheduleName(id int) string {
+	for _, schedule := range c.SystemInfo.ScheduleList.Schedules {
+		if schedule.ID == id {
+			return schedule.Name
+		}
+	}
+	return "Unknown Schedule"
 }

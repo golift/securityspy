@@ -9,70 +9,7 @@ import (
 	"time"
 )
 
-// Error strings used in this file.
-const (
-	ErrorUnknownEvent  = Error("unknown event")
-	ErrorCAMParseFail  = Error("CAM parse failed")
-	ErrorIDParseFail   = Error("ID parse failed")
-	ErrorCAMMissing    = Error("CAM missing")
-	ErrorDateParseFail = Error("timestamp parse failed")
-	ErrorUnknownError  = Error("unknown error")
-)
-
-// Event Stream Reply
-type Event struct {
-	When   time.Time
-	ID     int
-	Camera Camera
-	Event  EventName
-	Msg    string
-	Errors []error
-}
-
-// EventName is a set of constants validated with a read-only map.
-type EventName string
-
-// Events
-const (
-	EventArmContinuous    EventName = "ARM_C"
-	EventDisarmContinuous EventName = "DISARM_C"
-	EventArmMotion        EventName = "ARM_M"
-	EventDisarmMotion     EventName = "DISARM_M"
-	EventDisarmActions    EventName = "DISARM_A"
-	EventArmActions       EventName = "ARM_A"
-	EventSecSpyError      EventName = "ERROR"
-	EventConfigChange     EventName = "CONFIGCHANGE"
-	EventMotionDetected   EventName = "MOTION"
-	EventOnline           EventName = "ONLINE"
-	EventOffline          EventName = "OFFLINE"
-	// These belong to the library, not securityspy.
-	EventStreamDisconnect   EventName = "DISCONNECTED"
-	EventUnknownEvent       EventName = "UNKNOWN"
-	EventAllEvents          EventName = "ALL"
-	EventWatcherRefreshed   EventName = "REFRESH"
-	EventWatcherRefreshFail EventName = "REFRESHFAIL"
-)
-
-// events is a read-only mapping of type to human text. Read As: When <event name> Occurs
-var events = map[EventName]string{
-	EventArmContinuous:    "Continuous Capture Armed",
-	EventDisarmContinuous: "Continuous Capture Disarmed",
-	EventArmMotion:        "Motion Capture Armed",
-	EventDisarmMotion:     "Motion Capture Disarmed",
-	EventArmActions:       "Actions Armed",
-	EventDisarmActions:    "Actions Disarmed",
-	EventSecSpyError:      "SecuritySpy Error",
-	EventConfigChange:     "Configuration Change",
-	EventMotionDetected:   "Motion Detection",
-	EventOffline:          "Camera Offline",
-	EventOnline:           "Camera Online",
-	// These belong to the library, not securityspy.
-	EventStreamDisconnect:   "Event Stream Disconnected",
-	EventUnknownEvent:       "Unknown Event",
-	EventAllEvents:          "Any Event",
-	EventWatcherRefreshed:   "SystemInfo Refresh Success",
-	EventWatcherRefreshFail: "SystemInfo Refresh Failure",
-}
+/* Events-specific concourse methods are at the top. */
 
 // BindEvent binds a call-back function to an Event in SecuritySpy.
 func (c *concourse) BindEvent(event EventName, callBack func(Event)) {
@@ -91,7 +28,8 @@ func (c *concourse) BindEvent(event EventName, callBack func(Event)) {
 // StopWatch stops WatchEvents loop
 func (c *concourse) StopWatch() {
 	if c.Running {
-		c.StopChan <- false
+		c.Running = false
+		c.StopChan <- c.Running
 	}
 }
 
@@ -109,69 +47,88 @@ func (c *concourse) UnbindEvent(event EventName) {
 	delete(c.EventBinds, event)
 }
 
-// WatchEvents connects to securityspy and watches for events.
+// WatchEvents kicks off he routines to watch the eventStream and fire callback bindings.
 func (c *concourse) WatchEvents(retryInterval, refreshInterval time.Duration) {
 	c.Running = true
-	eventChan := make(chan Event, 1)
-	reconnect := func() (io.ReadCloser, *bufio.Scanner) {
-		if !c.Running {
-			return nil, nil
-		}
-		resp, err := c.secReq("/++eventStream", nil, 0)
-		for err != nil {
-			raw := time.Now().Format("20060102150405") + " -99 CAM " + EventStreamDisconnect.String() + ": " + err.Error()
-			eventChan <- c.parseEvent(raw)
-			time.Sleep(retryInterval)
-			resp, err = c.secReq("/++eventStream", nil, 0)
-		}
-		return resp.Body, bufio.NewScanner(resp.Body)
+	c.EventChan = make(chan Event, 1)
+	go c.eventChannelSelector(refreshInterval)
+	c.eventStreamScanner(retryInterval)
+}
+
+// NewEvent fires an event into the running event Watcher.
+func (c *concourse) NewEvent(camNumber int, msg string) {
+	if !c.Running {
+		return
 	}
+	c.EventChan <- c.parseEvent(time.Now().Format(eventTimeFormat) +
+		" -11000 CAM" + strconv.Itoa(camNumber) + " " +
+		EventStreamCustom.String() + ": " + msg)
+}
 
-	ticker := time.NewTicker(refreshInterval)
-	// Watch for new events, a stop signal, or a refresh interval.
-	go func() {
-		for {
-			select {
-			case <-c.StopChan:
-				c.Running = false
-				return
-			case <-ticker.C:
-				if refreshInterval == 0 {
-					break
-				}
-				raw := time.Now().Format("20060102150405") + " -98 CAM " + EventWatcherRefreshed.String() + " every " + refreshInterval.String()
-				if err := c.Refresh(); err != nil {
-					raw = time.Now().Format("20060102150405") + " -97 CAM " + EventWatcherRefreshFail.String() + ": " + err.Error()
-				}
-				eventChan <- c.parseEvent(raw)
-			case event := <-eventChan:
-				c.RLock()
-				event.callBacks(c.EventBinds)
-				c.RUnlock()
-			}
-		}
-	}()
+/* INTERFACE HELPER METHODS FOLLOW */
 
-	body, scanner := reconnect()
+// eventStreamScanner connects to the securityspy event stream and fires events into a channel.
+func (c *concourse) eventStreamScanner(retryInterval time.Duration) {
+	body, scanner := c.eventStreamConnect(retryInterval)
 	scanner.Split(scanLinesCR)
-	defer func() {
-		_ = body.Close()
-	}()
-
 	for {
 		if !c.Running {
-			return
+			_ = body.Close()
+			return // we all done here. stop got called
 		}
 		// Constantly scan for new events, then report them to the event channel.
 		if scanner != nil && scanner.Scan() {
-			eventChan <- c.parseEvent(scanner.Text())
+			c.EventChan <- c.parseEvent(scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-			raw := time.Now().Format("20060102150405") + " -99 CAM " + EventStreamDisconnect.String() + ": " + err.Error()
-			eventChan <- c.parseEvent(raw)
+			raw := time.Now().Format(eventTimeFormat) + " -10000 CAM " + EventStreamDisconnect.String() + ": " + err.Error()
+			c.EventChan <- c.parseEvent(raw)
 			_ = body.Close()
-			body, scanner = reconnect()
+			body, scanner = c.eventStreamConnect(retryInterval)
 			scanner.Split(scanLinesCR)
+		}
+	}
+}
+
+// eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
+func (c *concourse) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
+	resp, err := c.secReq("/++eventStream", nil, 0)
+	for err != nil {
+		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " + EventStreamDisconnect.String() + ": " + err.Error()
+		c.EventChan <- c.parseEvent(raw)
+		time.Sleep(retryInterval)
+		if !c.Running {
+			return nil, nil
+		}
+		resp, err = c.secReq("/++eventStream", nil, 0)
+	}
+	return resp.Body, bufio.NewScanner(resp.Body)
+}
+
+// eventChannelSelector watches a few internal channels for events and updates.
+// Fires bound event call back functions.
+func (c *concourse) eventChannelSelector(refreshInterval time.Duration) {
+	ticker := time.NewTicker(refreshInterval)
+	for {
+		// Watch for new events, a stop signal, or a refresh interval.
+		select {
+		case <-c.StopChan:
+			return
+
+		case <-ticker.C:
+			if refreshInterval == 0 {
+				break
+			}
+			raw := time.Now().Format(eventTimeFormat) + " -9998 CAM " + EventWatcherRefreshed.String() + " every " + refreshInterval.String()
+			if err := c.Refresh(); err != nil {
+				raw = time.Now().Format(eventTimeFormat) + " -9997 CAM " + EventWatcherRefreshFail.String() + ": " + err.Error()
+			}
+			c.EventChan <- c.parseEvent(raw)
+
+		case event := <-c.EventChan:
+			c.RLock()
+			event.callBacks(c.EventBinds)
+			c.RUnlock()
 		}
 	}
 }
@@ -213,9 +170,10 @@ func (c *concourse) parseEvent(text string) Event {
 	} else if e.Camera = c.GetCamera(camNum); e.Camera == nil {
 		e.Errors = append(e.Errors, ErrorCAMParseFail)
 	}
-	// Parse the Event Type.
+	// Parse and convert the type string to EventType.
 	e.Event = EventName(strings.Split(parts[3], " ")[0])
-	if _, ok := events[e.Event]; !ok {
+	// Check if the type we just converted is a known event.
+	if e.Event.Event() == EventUnknownEvent.Event() {
 		e.Errors = append(e.Errors, ErrorUnknownEvent)
 		e.Event = EventUnknownEvent
 	}
@@ -239,19 +197,6 @@ func (e *Event) callBacks(binds map[EventName][]func(Event)) {
 	if _, ok := binds[EventAllEvents]; ok {
 		callbacks(binds[EventAllEvents])
 	}
-}
-
-// String turns an event name into a string.
-func (e EventName) String() string {
-	return string(e)
-}
-
-// Event returns the event value for the event.
-func (e EventName) Event() string {
-	if o, ok := events[e]; ok {
-		return o
-	}
-	return e.String()
 }
 
 // scanLinesCR is a custom bufio.Scanner to read SecuritySpy eventStream.

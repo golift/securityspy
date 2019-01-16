@@ -23,6 +23,7 @@ type concourse struct {
 	EventBinds map[EventName][]func(Event)
 	StopChan   chan bool
 	Running    bool
+	EventChan  chan Event
 	sync.RWMutex
 }
 
@@ -32,14 +33,6 @@ type config struct {
 	BaseURL   string
 	AuthB64   string
 	Username  string
-}
-
-// VidOps are the options for a video that can be requested from SecuritySpy
-type VidOps struct {
-	Width   int
-	Height  int
-	FPS     int
-	Quality int
 }
 
 // Server is the interface to the Kingdom.
@@ -111,9 +104,8 @@ type YesNoBool struct {
 // Really it converts armed, yes, active, enabled, 1, true to true. Anything else is false.
 func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	_ = d.DecodeElement(&bit.Txt, &start)
-	yes := bit.Txt == "1" || strings.EqualFold(bit.Txt, "true") || strings.EqualFold(bit.Txt, "yes") ||
+	bit.Val = bit.Txt == "1" || strings.EqualFold(bit.Txt, "true") || strings.EqualFold(bit.Txt, "yes") ||
 		strings.EqualFold(bit.Txt, "armed") || strings.EqualFold(bit.Txt, "active") || strings.EqualFold(bit.Txt, "enabled")
-	bit.Val = yes
 	return nil
 }
 
