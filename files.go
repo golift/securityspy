@@ -27,7 +27,7 @@ type Files interface {
 // FilesData powers the Files interface.
 // It's really an extension of the concourse interface.
 type FilesData struct {
-	Server *concourse
+	*concourse
 }
 
 // Feed represents the XML data from /++download
@@ -70,7 +70,7 @@ type FileInterface interface {
 
 // Files returns a Files interface, used to retreive file listings.
 func (c *concourse) Files() Files {
-	return FilesData{Server: c}
+	return FilesData{c}
 }
 
 /* FileEntry interface for FileInterface follows */
@@ -152,15 +152,15 @@ func (f FilesData) getFiles(cameraNums []int, from, to time.Time, fileType, cont
 	var files []FileInterface
 	var feed Feed
 	params := MakeFilesParams(cameraNums, from, to, fileType, continuation)
-	if xmldata, err := f.Server.secReqXML("/++downloads", params); err != nil {
+	if xmldata, err := f.secReqXML("/++downloads", params); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &feed); err != nil {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++downloads)")
 	}
 	for i, file := range feed.Entry {
 		// Add the camera and server interfaces to every file struct/interface.
-		file.camera = f.Server.GetCamera(file.CameraNum)
-		file.server = f.Server
+		file.camera = f.GetCamera(file.CameraNum)
+		file.server = f.concourse
 		files = append(files, &feed.Entry[i])
 	}
 	// ++downloads automatically paginates. Follow the continuation.

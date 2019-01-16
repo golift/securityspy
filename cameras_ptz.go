@@ -5,6 +5,30 @@ import (
 	"strconv"
 )
 
+// PTZInterface powers the PTZ interface.
+// It's really an extension of the CameraInterface interface.
+type PTZInterface struct {
+	Capabilities PTZCaps
+	*CameraInterface
+}
+
+// PTZ interface provides access to camera PTZ controls.
+type PTZ interface {
+	Left() error
+	Right() error
+	Up() error
+	Down() error
+	UpLeft() error
+	DownLeft() error
+	UpRight() error
+	DownRight() error
+	Zoom(in bool) error
+	Preset(preset Preset) error
+	PresetSave(preset Preset) error
+	Stop() error
+	Caps() PTZCaps
+}
+
 // PTZcommand are the possible PTZ commands.
 type PTZcommand int
 
@@ -49,8 +73,8 @@ const (
 	PTZcommandSavePreset8  PTZcommand = 119
 )
 
-// PTZSupports are what "things" a camera can do.
-type PTZSupports struct {
+// PTZCaps are what "things" a camera can do.
+type PTZCaps struct {
 	PanTilt bool
 	Home    bool
 	Zoom    bool
@@ -60,70 +84,78 @@ type PTZSupports struct {
 
 /* PTZ-specific concourse methods are at the top. */
 
-// GetPTZ provides PTZ capabalities of a camera, such as panning, tilting, zomming, speed control, presets, home, etc.
-func (c *CameraInterface) GetPTZ() PTZSupports {
-	return PTZSupports{
-		// Unmask them bits.
-		PanTilt: c.Camera.PTZcapabilities&PTZPanTilt == PTZPanTilt,
-		Home:    c.Camera.PTZcapabilities&PTZHome == PTZHome,
-		Zoom:    c.Camera.PTZcapabilities&PTZZoom == PTZZoom,
-		Presets: c.Camera.PTZcapabilities&PTZPresets == PTZPresets,
-		Speed:   c.Camera.PTZcapabilities&PTZSpeed == PTZSpeed,
+// PTZ provides PTZ capabalities of a camera, such as panning, tilting, zomming, speed control, presets, home, etc.
+func (c *CameraInterface) PTZ() PTZ {
+	return &PTZInterface{
+		Capabilities: PTZCaps{
+			// Unmask them bits.
+			PanTilt: c.Camera.PTZcapabilities&PTZPanTilt == PTZPanTilt,
+			Home:    c.Camera.PTZcapabilities&PTZHome == PTZHome,
+			Zoom:    c.Camera.PTZcapabilities&PTZZoom == PTZZoom,
+			Presets: c.Camera.PTZcapabilities&PTZPresets == PTZPresets,
+			Speed:   c.Camera.PTZcapabilities&PTZSpeed == PTZSpeed,
+		},
+		CameraInterface: c,
 	}
 }
 
 /* Camera Interface, PTZ-specific methods follow. */
 
-// PTLeft sends a camera to the left one click.
-func (c *CameraInterface) PTLeft() error {
+// Caps returns the supported PTZ methods.
+func (c *PTZInterface) Caps() PTZCaps {
+	return c.Capabilities
+}
+
+// Left sends a camera to the left one click.
+func (c *PTZInterface) Left() error {
 	return c.ptzReq(PTZcommandLeft)
 }
 
-// PTRight sends a camera to the right one click.
-func (c *CameraInterface) PTRight() error {
+// Right sends a camera to the right one click.
+func (c *PTZInterface) Right() error {
 	return c.ptzReq(PTZcommandRight)
 }
 
-// PTUp sends a camera to the sky one click.
-func (c *CameraInterface) PTUp() error {
+// Up sends a camera to the sky one click.
+func (c *PTZInterface) Up() error {
 	return c.ptzReq(PTZcommandUp)
 }
 
-// PTDown puts a camera in time. no, really, it makes it look down one click.
-func (c *CameraInterface) PTDown() error {
+// Down puts a camera in time. no, really, it makes it look down one click.
+func (c *PTZInterface) Down() error {
 	return c.ptzReq(PTZcommandDown)
 }
 
-// PTUpLeft will send a camera up and to the left a click.
-func (c *CameraInterface) PTUpLeft() error {
+// UpLeft will send a camera up and to the left a click.
+func (c *PTZInterface) UpLeft() error {
 	return c.ptzReq(PTZcommandUpLeft)
 }
 
-// PTDownLeft sends a camera down and to the left a click.
-func (c *CameraInterface) PTDownLeft() error {
+// DownLeft sends a camera down and to the left a click.
+func (c *PTZInterface) DownLeft() error {
 	return c.ptzReq(PTZcommandDownLeft)
 }
 
-// PTUpRight sends a camera up and to the right. like it's 1999.
-func (c *CameraInterface) PTUpRight() error {
+// UpRight sends a camera up and to the right. like it's 1999.
+func (c *PTZInterface) UpRight() error {
 	return c.ptzReq(PTZcommandRight)
 }
 
-// PTDownRight is sorta like making the camera do a dab.
-func (c *CameraInterface) PTDownRight() error {
+// DownRight is sorta like making the camera do a dab.
+func (c *PTZInterface) DownRight() error {
 	return c.ptzReq(PTZcommandDownRight)
 }
 
-// PTZoom makes a camera zoom in (true) or out (false).
-func (c *CameraInterface) PTZoom(in bool) error {
+// Zoom makes a camera zoom in (true) or out (false).
+func (c *PTZInterface) Zoom(in bool) error {
 	if in {
 		return c.ptzReq(PTZcommandZoomIn)
 	}
 	return c.ptzReq(PTZcommandZoomOut)
 }
 
-// PTZPreset instructs a preset to be used. it just might work!
-func (c *CameraInterface) PTZPreset(preset Preset) error {
+// Preset instructs a preset to be used. it just might work!
+func (c *PTZInterface) Preset(preset Preset) error {
 	switch preset {
 	case Preset1:
 		return c.ptzReq(PTZcommandSavePreset1)
@@ -145,8 +177,8 @@ func (c *CameraInterface) PTZPreset(preset Preset) error {
 	return ErrorPTZRange
 }
 
-// PTZPresetSave instructs a preset to be saved. good luck!
-func (c *CameraInterface) PTZPresetSave(preset Preset) error {
+// PresetSave instructs a preset to be saved. good luck!
+func (c *PTZInterface) PresetSave(preset Preset) error {
 	switch preset {
 	case Preset1:
 		return c.ptzReq(PTZcommandPreset1)
@@ -168,18 +200,18 @@ func (c *CameraInterface) PTZPresetSave(preset Preset) error {
 	return ErrorPTZRange
 }
 
-// PTZStop instructs a camera to stop moving. That is, if you have a camera
+// Stop instructs a camera to stop moving. That is, if you have a camera
 // cool enough to support continuous motion. Most do not, so sadly this is
 // unlikely to be useful to you.
-func (c *CameraInterface) PTZStop() error {
+func (c *PTZInterface) Stop() error {
 	return c.ptzReq(PTZcommandStopMovement)
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // ptzReq wraps all the ptz-specific calls.
-func (c *CameraInterface) ptzReq(command PTZcommand) error {
+func (c *PTZInterface) ptzReq(command PTZcommand) error {
 	params := make(url.Values)
 	params.Set("command", strconv.Itoa(int(command)))
-	return c.simpleReq("/++ptz/command", params)
+	return c.CameraInterface.simpleReq("/++ptz/command", params)
 }

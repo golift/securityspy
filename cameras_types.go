@@ -143,21 +143,7 @@ type Camera interface {
 	PostG711(audio io.ReadCloser) error
 	GetJPEG(ops *VidOps) (image.Image, error)
 	SaveJPEG(ops *VidOps, path string) error
-	GetPTZ() (ptz PTZSupports)
-	// like concourse.Files():
-	// TODO: make GetPZT() return an interface with the following PTZ methods:
-	PTLeft() error
-	PTRight() error
-	PTUp() error
-	PTDown() error
-	PTUpLeft() error
-	PTDownLeft() error
-	PTUpRight() error
-	PTDownRight() error
-	PTZoom(in bool) error
-	PTZPreset(preset Preset) error
-	PTZPresetSave(preset Preset) error
-	PTZStop() error
+	PTZ() (ptz PTZ)
 	ContinuousCapture(arm CameraArmOrDisarm) error
 	Actions(arm CameraArmOrDisarm) error
 	MotionCapture(arm CameraArmOrDisarm) error
