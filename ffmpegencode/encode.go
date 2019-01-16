@@ -12,7 +12,7 @@ import (
 )
 
 // Default, Maximum and Minimum Values
-const (
+var (
 	DefaultFrameRate   = 5
 	MinimumFrameRate   = 1
 	MaximumFrameRate   = 60
@@ -24,9 +24,9 @@ const (
 	MinimumEncodeCRF   = 16
 	MaximumEncodeCRF   = 30
 	DefaultCaptureTime = 15
-	MaximumCaptureTime = 1200      // 10 minute max.
-	DefaultCaptureSize = 2500000   // 2.5MB default (roughly 5-10 seconds)
-	MaximumCaptureSize = 104857600 // 100MB max.
+	MaximumCaptureTime = 1200             // 10 minute max.
+	DefaultCaptureSize = int64(2500000)   // 2.5MB default (roughly 5-10 seconds)
+	MaximumCaptureSize = int64(104857600) // 100MB max.
 	DefaultFFmpegPath  = "/usr/local/bin/ffmpeg"
 	DefaultProfile     = "main"
 	DefaultLevel       = "3.0"

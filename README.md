@@ -9,8 +9,6 @@ The logic is there, and so are the bugs.
 
 Still working on it. Lots of docs to come. I hope.
 
-The only external vendor (so far) is "github.com/pkg/errors" and we may work this out with custom error types. I dunno.
-
 ffmpeg is also used if you want video snippets.
 
 my server doesn't have auth enabled, so I really have no idea if this works with a password. lemme know?

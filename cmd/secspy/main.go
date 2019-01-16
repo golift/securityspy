@@ -10,13 +10,13 @@ import (
 	"time"
 
 	securityspy "github.com/davidnewhall/go-securityspy"
-	flg "github.com/ogier/pflag"
+	flg "github.com/spf13/pflag"
 )
 
 // Version of the app
 var Version = "1.0.0"
 
-// Config from CLI
+// Config from CLI + securityspy.Server.
 type Config struct {
 	UseSSL bool
 	User   string
@@ -24,7 +24,7 @@ type Config struct {
 	URL    string
 	Cmd    string
 	Arg    string
-	server securityspy.Server
+	Server securityspy.Server
 }
 
 func main() {
@@ -34,8 +34,8 @@ func main() {
 	case "events", "event", "e":
 		config.getServer()
 		log.Println("Watching Event Stream")
-		config.server.BindEvent(securityspy.EventAllEvents, config.showEvents)
-		config.server.WatchEvents(10*time.Second, 4*time.Minute)
+		config.Server.BindEvent(securityspy.EventAllEvents, config.showEvents)
+		config.Server.WatchEvents(10*time.Second, 4*time.Minute)
 	case "cams", "cam", "c":
 		config.printCamData()
 	case "video", "vid", "v":
@@ -74,14 +74,14 @@ func parseFlags() *Config {
 // getServer makes and returns a handle.
 func (c *Config) getServer() securityspy.Server {
 	var err error
-	if c.server, err = securityspy.GetServer(c.User, c.Pass, c.URL, c.UseSSL); err != nil {
+	if c.Server, err = securityspy.GetServer(c.User, c.Pass, c.URL, c.UseSSL); err != nil {
 		log.Fatalln("SecuritySpy Error:", err)
 	}
 	fmt.Printf("%v %v (http://%v:%v/) %d cameras, %d scripts, %d sounds\n",
-		c.server.Info().Name, c.server.Info().Version, c.server.Info().IP1,
-		c.server.Info().HTTPPort, len(c.server.GetCameras()),
-		len(c.server.Info().Scripts.Names), len(c.server.Info().Sounds.Names))
-	return c.server
+		c.Server.Info().Name, c.Server.Info().Version, c.Server.Info().IP1,
+		c.Server.Info().HTTPPort, len(c.Server.GetCameras()),
+		len(c.Server.Info().Scripts.Names), len(c.Server.Info().Sounds.Names))
+	return c.Server
 }
 
 func (c *Config) triggerMotion() {
@@ -113,15 +113,15 @@ func (c *Config) showEvents(e securityspy.Event) {
 }
 
 func (c *Config) printCamData() {
-	for _, cam := range c.getServer().GetCameras() {
-		c := cam.Cam()
-		fmt.Printf("%2v: %-10v (%-9v %5v/%-7v %v) connected: %3v, down %v, modes: C:%-8v M:%-8v A:%-8v "+
+	for _, camera := range c.getServer().GetCameras() {
+		cam := camera.Device()
+		fmt.Printf("%2v: %-14v (%-9v %5v/%-7v %v) connected: %3v, down %v, modes: C:%-8v M:%-8v A:%-8v "+
 			"%2vFPS, Audio:%3v, MD: %3v/pre:%v/post:%3v idle %-10v Script: %v (reset %v)\n",
-			cam.Num(), c.Name, cam.Size(), c.DeviceName, c.DeviceType, c.Address,
-			c.Connected.Val, c.TimeSinceLastFrame.Dur.String(), c.ModeC.Txt, c.ModeM.Txt,
-			c.ModeA.Txt+",", int(c.CurrentFPS), c.HasAudio.Txt, c.MDenabled.Txt,
-			c.MDpreCapture.Dur.String(), c.MDpostCapture.Dur.String(),
-			c.TimeSinceLastMotion.Dur.String(), c.ActionScriptName, c.ActionResetTime.Dur.String())
+			camera.Num(), cam.Name, camera.Size(), cam.DeviceName, cam.DeviceType, cam.Address,
+			cam.Connected.Val, cam.TimeSinceLastFrame.Dur.String(), cam.ModeC.Txt, cam.ModeM.Txt,
+			cam.ModeA.Txt+",", int(cam.CurrentFPS), cam.HasAudio.Txt, cam.MDenabled.Txt,
+			cam.MDpreCapture.Dur.String(), cam.MDpostCapture.Dur.String(),
+			cam.TimeSinceLastMotion.Dur.String(), cam.ActionScriptName, cam.ActionResetTime.Dur.String())
 	}
 }
 

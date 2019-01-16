@@ -16,6 +16,8 @@ import (
 	encode "github.com/davidnewhall/go-securityspy/ffmpegencode"
 )
 
+/* Cameras-specific concourse methods are at the top. */
+
 // GetCameras returns interfaces for every camera.
 func (c *concourse) GetCameras() (cams []Camera) {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
@@ -44,8 +46,10 @@ func (c *concourse) GetCameraByName(name string) Camera {
 	return nil
 }
 
-// Cam returns the camera's configuration from the server.
-func (c *CameraInterface) Cam() CameraDevice {
+/* Camera interface for CameraInterface follows */
+
+// Device returns the camera's configuration from the server.
+func (c *CameraInterface) Device() CameraDevice {
 	return c.Camera
 }
 
@@ -58,7 +62,7 @@ func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	params := makeQualityParams(ops)
+	params := MakeRequestParams(ops)
 	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
 	params.Set("auth", c.config.AuthB64)
 	params.Set("codec", "h264")
@@ -70,6 +74,9 @@ func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 
 // SaveVideo saves a segment of video from a camera to a file using FFMPEG.
 func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, outputFile string) error {
+	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
+		return ErrorPathExists
+	}
 	e := encode.Get(&encode.VidOps{
 		Encoder: Encoder,
 		Time:    int(length.Seconds()),
@@ -77,7 +84,7 @@ func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	params := makeQualityParams(ops)
+	params := MakeRequestParams(ops)
 	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
 	params.Set("auth", c.config.AuthB64)
 	params.Set("codec", "h264")
@@ -90,7 +97,7 @@ func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *CameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	params := makeQualityParams(ops)
+	params := MakeRequestParams(ops)
 	resp, err := c.camReq("/++video", params)
 	if err != nil {
 		return nil, err
@@ -101,7 +108,7 @@ func (c *CameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // StreamH264 makes a web request to retreive an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *CameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	params := makeQualityParams(ops)
+	params := MakeRequestParams(ops)
 	resp, err := c.camReq("/++stream", params)
 	if err != nil {
 		return nil, err
@@ -134,7 +141,7 @@ func (c *CameraInterface) PostG711(audio io.ReadCloser) error {
 // GetJPEG returns a picture from a camera.
 func (c *CameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
-	params := makeQualityParams(ops)
+	params := MakeRequestParams(ops)
 	resp, err := c.camReq("/++image", params)
 	if err != nil {
 		return nil, err
@@ -152,6 +159,9 @@ func (c *CameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
 
 // SaveJPEG gets a picture from a camera and puts it in a file.
 func (c *CameraInterface) SaveJPEG(ops *VidOps, path string) error {
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		return ErrorPathExists
+	}
 	ops.FPS = -1 // not used for single image
 	jpgImage, err := c.GetJPEG(ops)
 	if err != nil {
@@ -163,114 +173,6 @@ func (c *CameraInterface) SaveJPEG(ops *VidOps, path string) error {
 	}
 	defer f.Close()
 	return jpeg.Encode(f, jpgImage, nil)
-}
-
-// GetPTZ provides PTZ capabalities of a camera, such as panning, tilting, zomming, speed control, presets, home, etc.
-func (c *CameraInterface) GetPTZ() (PTZCapabilities, error) {
-	// TODO: Figure out c.ptzcapabilities and bitwise unmask them.
-	return PTZCapabilities{}, nil
-
-}
-
-// PTLeft sends a camera to the left one click.
-func (c *CameraInterface) PTLeft() error {
-	return c.ptzReq(PTZcommandLeft)
-}
-
-// PTRight sends a camera to the right one click.
-func (c *CameraInterface) PTRight() error {
-	return c.ptzReq(PTZcommandRight)
-}
-
-// PTUp sends a camera to the sky one click.
-func (c *CameraInterface) PTUp() error {
-	return c.ptzReq(PTZcommandUp)
-}
-
-// PTDown puts a camera in time. no, really, it makes it look down one click.
-func (c *CameraInterface) PTDown() error {
-	return c.ptzReq(PTZcommandDown)
-}
-
-// PTUpLeft will send a camera up and to the left a click.
-func (c *CameraInterface) PTUpLeft() error {
-	return c.ptzReq(PTZcommandUpLeft)
-}
-
-// PTDownLeft sends a camera down and to the left a click.
-func (c *CameraInterface) PTDownLeft() error {
-	return c.ptzReq(PTZcommandDownLeft)
-}
-
-// PTUpRight sends a camera up and to the right. like it's 1999.
-func (c *CameraInterface) PTUpRight() error {
-	return c.ptzReq(PTZcommandRight)
-}
-
-// PTDownRight is sorta like making the camera do a dab.
-func (c *CameraInterface) PTDownRight() error {
-	return c.ptzReq(PTZcommandDownRight)
-}
-
-// PTZoom makes a camera zoom in (true) or out (false).
-func (c *CameraInterface) PTZoom(in bool) error {
-	if in {
-		return c.ptzReq(PTZcommandZoomIn)
-	}
-	return c.ptzReq(PTZcommandZoomOut)
-}
-
-// PTZPreset instructs a preset to be used. it just might work!
-func (c *CameraInterface) PTZPreset(preset Preset) error {
-	switch preset {
-	case Preset1:
-		return c.ptzReq(PTZcommandSavePreset1)
-	case Preset2:
-		return c.ptzReq(PTZcommandSavePreset2)
-	case Preset3:
-		return c.ptzReq(PTZcommandSavePreset3)
-	case Preset4:
-		return c.ptzReq(PTZcommandSavePreset4)
-	case Preset5:
-		return c.ptzReq(PTZcommandSavePreset5)
-	case Preset6:
-		return c.ptzReq(PTZcommandSavePreset6)
-	case Preset7:
-		return c.ptzReq(PTZcommandSavePreset7)
-	case Preset8:
-		return c.ptzReq(PTZcommandSavePreset8)
-	}
-	return ErrorPTZRange
-}
-
-// PTZPresetSave instructs a preset to be saved. good luck!
-func (c *CameraInterface) PTZPresetSave(preset Preset) error {
-	switch preset {
-	case Preset1:
-		return c.ptzReq(PTZcommandPreset1)
-	case Preset2:
-		return c.ptzReq(PTZcommandPreset2)
-	case Preset3:
-		return c.ptzReq(PTZcommandPreset3)
-	case Preset4:
-		return c.ptzReq(PTZcommandPreset4)
-	case Preset5:
-		return c.ptzReq(PTZcommandPreset5)
-	case Preset6:
-		return c.ptzReq(PTZcommandPreset6)
-	case Preset7:
-		return c.ptzReq(PTZcommandPreset7)
-	case Preset8:
-		return c.ptzReq(PTZcommandPreset8)
-	}
-	return ErrorPTZRange
-}
-
-// PTZStop instructs a camera to stop moving. That is, if you have a camera
-// cool enough to support continuous motion. Most do not, so sadly this is
-// unlikely to be useful to you.
-func (c *CameraInterface) PTZStop() error {
-	return c.ptzReq(PTZcommandStopMovement)
 }
 
 // ContinuousCapture arms (true) or disarms (false).
@@ -339,12 +241,6 @@ func (c *CameraInterface) camReq(apiPath string, params url.Values) (*http.Respo
 	return resp, nil
 }
 
-func (c *CameraInterface) ptzReq(command PTZcommand) error {
-	params := make(url.Values)
-	params.Set("command", strconv.Itoa(int(command)))
-	return c.simpleReq("/++ptz/command", params)
-}
-
 func (c *CameraInterface) simpleReq(apiURI string, params url.Values) error {
 	resp, err := c.camReq(apiURI, params)
 	if err != nil {
@@ -356,13 +252,14 @@ func (c *CameraInterface) simpleReq(apiURI string, params url.Values) error {
 	if body, err := ioutil.ReadAll(resp.Body); err != nil {
 		return err
 	} else if !strings.HasSuffix(string(body), "OK") {
-		return ErrorARMNotOK
+		return ErrorCmdNotOK
 	}
 	return nil
 }
 
-// makeQualityParams converts passed in ops to url.Values
-func makeQualityParams(ops *VidOps) url.Values {
+// MakeRequestParams converts passed in ops to url.Values
+// it's only public in case it's useful.
+func MakeRequestParams(ops *VidOps) url.Values {
 	params := make(url.Values)
 	if ops.Width != 0 {
 		params.Set("width", strconv.Itoa(ops.Width))
