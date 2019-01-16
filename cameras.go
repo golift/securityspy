@@ -21,7 +21,7 @@ import (
 // GetCameras returns interfaces for every camera.
 func (c *concourse) GetCameras() (cams []Camera) {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
-		cams = append(cams, &CameraInterface{Camera: cam, config: c.Config})
+		cams = append(cams, &cameraInterface{Camera: cam, config: c.Config})
 	}
 	return
 }
@@ -30,7 +30,7 @@ func (c *concourse) GetCameras() (cams []Camera) {
 func (c *concourse) GetCamera(number int) Camera {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		if cam.Number == number {
-			return &CameraInterface{Camera: cam, config: c.Config}
+			return &cameraInterface{Camera: cam, config: c.Config}
 		}
 	}
 	return nil
@@ -40,7 +40,7 @@ func (c *concourse) GetCamera(number int) Camera {
 func (c *concourse) GetCameraByName(name string) Camera {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		if cam.Name == name {
-			return &CameraInterface{Camera: cam, config: c.Config}
+			return &cameraInterface{Camera: cam, config: c.Config}
 		}
 	}
 	return nil
@@ -49,12 +49,12 @@ func (c *concourse) GetCameraByName(name string) Camera {
 /* Camera interface for CameraInterface follows */
 
 // Device returns the camera's configuration from the server.
-func (c *CameraInterface) Device() CameraDevice {
+func (c *cameraInterface) Device() CameraDevice {
 	return c.Camera
 }
 
 // StreamVideo streams a segment of video from a camera using FFMPEG.
-func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
+func (c *cameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
 	e := encode.Get(&encode.VidOps{
 		Encoder: Encoder,
 		Time:    int(length.Seconds()),
@@ -73,7 +73,7 @@ func (c *CameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 }
 
 // SaveVideo saves a segment of video from a camera to a file using FFMPEG.
-func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, outputFile string) error {
+func (c *cameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, outputFile string) error {
 	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
 		return ErrorPathExists
 	}
@@ -96,7 +96,7 @@ func (c *CameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
-func (c *CameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
+func (c *cameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 	params := MakeRequestParams(ops)
 	resp, err := c.camReq("++video", params)
 	if err != nil {
@@ -107,7 +107,7 @@ func (c *CameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 
 // StreamH264 makes a web request to retreive an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
-func (c *CameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
+func (c *cameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 	params := MakeRequestParams(ops)
 	resp, err := c.camReq("++stream", params)
 	if err != nil {
@@ -118,7 +118,7 @@ func (c *CameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 
 // StreamG711 makes a web request to retreive an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
-func (c *CameraInterface) StreamG711() (io.ReadCloser, error) {
+func (c *cameraInterface) StreamG711() (io.ReadCloser, error) {
 	resp, err := c.camReq("++audio", make(url.Values))
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (c *CameraInterface) StreamG711() (io.ReadCloser, error) {
 
 // PostG711 makes a POST request to send audio to a camera with a speaker.
 // Accepts an io.ReadCloser that will be closed. Probably an open file.
-func (c *CameraInterface) PostG711(audio io.ReadCloser) error {
+func (c *cameraInterface) PostG711(audio io.ReadCloser) error {
 	if audio == nil {
 		return nil
 	}
@@ -139,7 +139,7 @@ func (c *CameraInterface) PostG711(audio io.ReadCloser) error {
 }
 
 // GetJPEG returns a picture from a camera.
-func (c *CameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
+func (c *cameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
 	params := MakeRequestParams(ops)
 	resp, err := c.camReq("++image", params)
@@ -158,7 +158,7 @@ func (c *CameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
 }
 
 // SaveJPEG gets a picture from a camera and puts it in a file.
-func (c *CameraInterface) SaveJPEG(ops *VidOps, path string) error {
+func (c *cameraInterface) SaveJPEG(ops *VidOps, path string) error {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return ErrorPathExists
 	}
@@ -176,56 +176,56 @@ func (c *CameraInterface) SaveJPEG(ops *VidOps, path string) error {
 }
 
 // ContinuousCapture arms (true) or disarms (false).
-func (c *CameraInterface) ContinuousCapture(arm CameraArmOrDisarm) error {
+func (c *cameraInterface) ContinuousCapture(arm CameraArmOrDisarm) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("++ssControlContinuous", params)
 }
 
 // Actions arms (true) or disarms (false).
-func (c *CameraInterface) Actions(arm CameraArmOrDisarm) error {
+func (c *cameraInterface) Actions(arm CameraArmOrDisarm) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("++ssControlActions", params)
 }
 
 // MotionCapture arms (true) or disarms (false).
-func (c *CameraInterface) MotionCapture(arm CameraArmOrDisarm) error {
+func (c *cameraInterface) MotionCapture(arm CameraArmOrDisarm) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("++ssControlMotionCapture", params)
 }
 
 // Size returns the camera frame size as a string.
-func (c *CameraInterface) Size() string {
+func (c *cameraInterface) Size() string {
 	return strconv.Itoa(c.Camera.Width) + "x" + strconv.Itoa(c.Camera.Height)
 }
 
 // Name returns the camera name.
-func (c *CameraInterface) Name() string {
+func (c *cameraInterface) Name() string {
 	return c.Camera.Name
 }
 
 // Number returns the camera number.
-func (c *CameraInterface) Number() int {
+func (c *cameraInterface) Number() int {
 	return c.Camera.Number
 }
 
 // Num returns the camera number as a string.
-func (c *CameraInterface) Num() string {
+func (c *cameraInterface) Num() string {
 	return strconv.Itoa(c.Camera.Number)
 }
 
 // TriggerMotion sets a camera as currently seeing motion.
 // Other actions likely occur because of this!
-func (c *CameraInterface) TriggerMotion() error {
+func (c *cameraInterface) TriggerMotion() error {
 	return c.simpleReq("++triggermd", make(url.Values))
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // camReq is a helper function that formats the http request to SecuritySpy
-func (c *CameraInterface) camReq(apiPath string, params url.Values) (*http.Response, error) {
+func (c *cameraInterface) camReq(apiPath string, params url.Values) (*http.Response, error) {
 	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.config.VerifySSL}}}
 	req, err := http.NewRequest("GET", c.config.BaseURL+apiPath, nil)
 	if err != nil {
@@ -241,7 +241,7 @@ func (c *CameraInterface) camReq(apiPath string, params url.Values) (*http.Respo
 	return resp, nil
 }
 
-func (c *CameraInterface) simpleReq(apiURI string, params url.Values) error {
+func (c *cameraInterface) simpleReq(apiURI string, params url.Values) error {
 	resp, err := c.camReq(apiURI, params)
 	if err != nil {
 		return err

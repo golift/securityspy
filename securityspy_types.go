@@ -46,7 +46,7 @@ type Server interface {
 	Files() (files Files)
 	// Cameras
 	GetCameras() (cams []Camera)
-	GetCamera(camerNum int) (cam Camera)
+	GetCamera(cameraNum int) (cam Camera)
 	GetCameraByName(name string) (cam Camera)
 	// Events
 	StopWatch()
@@ -54,6 +54,7 @@ type Server interface {
 	UnbindEvent(event EventName)
 	BindEvent(event EventName, callBack func(Event))
 	WatchEvents(retryInterval, refreshInterval time.Duration)
+	NewEvent(cameraNum int, msg string)
 }
 
 // ServerInfo represents all the SecuritySpy ServerInfo Info

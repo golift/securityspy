@@ -42,14 +42,14 @@ const (
 	Preset8
 )
 
-// CameraSchedule contains schedule info for a camera properties.
-type CameraSchedule struct {
+// cameraSchedule contains schedule info for a camera properties.
+type cameraSchedule struct {
 	Name string
 	ID   int
 }
 
-// UnmarshalXML stores a schedule ID into a CameraSchedule type.
-func (bit *CameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+// UnmarshalXML stores a schedule ID into a cameraSchedule type.
+func (bit *cameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return d.DecodeElement(&bit.ID, &start)
 }
 
@@ -61,8 +61,8 @@ type VidOps struct {
 	Quality int
 }
 
-// CameraInterface defines all the public and private elements of a camera.
-type CameraInterface struct {
+// cameraInterface defines all the public and private elements of a camera.
+type cameraInterface struct {
 	Camera CameraDevice
 	config *config // Server url, auth, ssl, etc
 }
@@ -111,12 +111,12 @@ type CameraDevice struct {
 	TLcapture           YesNoBool      `xml:"tl_capture"`           // no, no, no, no, no, no, n...
 	TLrecordAudio       YesNoBool      `xml:"tl_recordaudio"`       // yes, yes, yes, yes, yes, ...
 	CurrentFPS          float64        `xml:"current-fps"`          // 20.000, 20.000, 20.000, 2...
-	ScheduleIDCC        CameraSchedule `xml:"schedule-id-cc"`       // 1, 1, 1, 1, 1, 1, 0
-	ScheduleIDMC        CameraSchedule `xml:"schedule-id-mc"`       // 1, 1, 1, 1, 1, 1, 1
-	ScheduleIDA         CameraSchedule `xml:"schedule-id-a"`        // 1, 1, 1, 1, 1, 1, 1
-	ScheduleOverrideCC  CameraSchedule `xml:"schedule-override-cc"` // 0, 0, 0, 0, 0, 0, 0
-	ScheduleOverrideMC  CameraSchedule `xml:"schedule-override-mc"` // 0, 0, 0, 0, 0, 0, 0
-	ScheduleOverrideA   CameraSchedule `xml:"schedule-override-a"`  // 0, 0, 0, 0, 0, 0, 0
+	ScheduleIDCC        cameraSchedule `xml:"schedule-id-cc"`       // 1, 1, 1, 1, 1, 1, 0
+	ScheduleIDMC        cameraSchedule `xml:"schedule-id-mc"`       // 1, 1, 1, 1, 1, 1, 1
+	ScheduleIDA         cameraSchedule `xml:"schedule-id-a"`        // 1, 1, 1, 1, 1, 1, 1
+	ScheduleOverrideCC  cameraSchedule `xml:"schedule-override-cc"` // 0, 0, 0, 0, 0, 0, 0
+	ScheduleOverrideMC  cameraSchedule `xml:"schedule-override-mc"` // 0, 0, 0, 0, 0, 0, 0
+	ScheduleOverrideA   cameraSchedule `xml:"schedule-override-a"`  // 0, 0, 0, 0, 0, 0, 0
 	PresetName1         string         `xml:"preset-name-1"`
 	PresetName2         string         `xml:"preset-name-2"`
 	PresetName3         string         `xml:"preset-name-3"`

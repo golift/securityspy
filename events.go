@@ -56,12 +56,12 @@ func (c *concourse) WatchEvents(retryInterval, refreshInterval time.Duration) {
 }
 
 // NewEvent fires an event into the running event Watcher.
-func (c *concourse) NewEvent(camNumber int, msg string) {
+func (c *concourse) NewEvent(cameraNum int, msg string) {
 	if !c.Running {
 		return
 	}
 	c.EventChan <- c.parseEvent(time.Now().Format(eventTimeFormat) +
-		" -11000 CAM" + strconv.Itoa(camNumber) + " " +
+		" -11000 CAM" + strconv.Itoa(cameraNum) + " " +
 		EventStreamCustom.String() + ": " + msg)
 }
 
@@ -168,10 +168,10 @@ func (c *concourse) parseEvent(text string) Event {
 	// Parse the camera number.
 	if !strings.HasPrefix(parts[2], "CAM") || len(parts[2]) < 4 {
 		e.Errors = append(e.Errors, ErrorCAMMissing)
-	} else if camNum, err := strconv.Atoi(parts[2][3:]); err != nil {
+	} else if cameraNum, err := strconv.Atoi(parts[2][3:]); err != nil {
 		e.Camera = nil
 		e.Errors = append(e.Errors, ErrorCAMParseFail)
-	} else if e.Camera = c.GetCamera(camNum); e.Camera == nil {
+	} else if e.Camera = c.GetCamera(cameraNum); e.Camera == nil {
 		e.Errors = append(e.Errors, ErrorCAMParseFail)
 	}
 	// Parse and convert the type string to EventType.

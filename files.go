@@ -19,29 +19,29 @@ var fileDateFormat = "02/01/06"
 
 // Files interface allows searching for saved files.
 type Files interface {
-	GetAll(cameraNums []int, from, to time.Time) ([]FileInterface, error)
-	GetPhotos(cameraNums []int, from, to time.Time) ([]FileInterface, error)
-	GetVideos(cameraNums []int, from, to time.Time) ([]FileInterface, error)
+	GetAll(cameraNums []int, from, to time.Time) ([]File, error)
+	GetPhotos(cameraNums []int, from, to time.Time) ([]File, error)
+	GetVideos(cameraNums []int, from, to time.Time) ([]File, error)
 }
 
-// FilesData powers the Files interface.
+// filesData powers the Files interface.
 // It's really an extension of the concourse interface.
-type FilesData struct {
+type filesData struct {
 	*concourse
 }
 
-// Feed represents the XML data from ++download
-type Feed struct {
-	XMLName      xml.Name    `xml:"feed"`
-	BSL          string      `xml:"bsl,attr"`     // http://www.bensoftware.com/
-	Title        string      `xml:"title"`        // Downloads
-	GmtOffset    string      `xml:"gmt-offset"`   // -28800
-	Continuation string      `xml:"continuation"` // 0007E3010C0E1D3A
-	Entry        []FileEntry `xml:"entry"`
+// fileFeed represents the XML data from ++download
+type fileFeed struct {
+	XMLName      xml.Name     `xml:"feed"`
+	BSL          string       `xml:"bsl,attr"`     // http://www.bensoftware.com/
+	Title        string       `xml:"title"`        // Downloads
+	GmtOffset    string       `xml:"gmt-offset"`   // -28800
+	Continuation string       `xml:"continuation"` // 0007E3010C0E1D3A
+	Entry        []filesEntry `xml:"entry"`
 }
 
-// FileEntry represents a saved media file.
-type FileEntry struct {
+// filesEntry represents a saved media file.
+type filesEntry struct {
 	Title string `xml:"title"` // 01-12-2019 M Gate.m4v, 01...
 	Link  struct {
 		Rel    string `xml:"rel,attr"`    // alternate, alternate, alternate
@@ -55,8 +55,8 @@ type FileEntry struct {
 	camera    Camera
 }
 
-// FileInterface is used to do something with a FileEntry.
-type FileInterface interface {
+// File is used to do something with a filesEntry.
+type File interface {
 	Name() string
 	Size() int64
 	Type() string
@@ -70,38 +70,38 @@ type FileInterface interface {
 
 // Files returns a Files interface, used to retreive file listings.
 func (c *concourse) Files() Files {
-	return FilesData{c}
+	return filesData{c}
 }
 
 /* FileEntry interface for FileInterface follows */
 
 // Name returns a file name.
-func (f *FileEntry) Name() string {
+func (f *filesEntry) Name() string {
 	return f.Title
 }
 
 // Size returns a file size in bytes.
-func (f *FileEntry) Size() int64 {
+func (f *filesEntry) Size() int64 {
 	return f.Link.Length
 }
 
 // Type returns the file type. video or photo.
-func (f *FileEntry) Type() string {
+func (f *filesEntry) Type() string {
 	return f.Link.Type
 }
 
 // Date returns the timestamp for a file.
-func (f *FileEntry) Date() time.Time {
+func (f *filesEntry) Date() time.Time {
 	return f.Updated
 }
 
 // Camera returns the Camera interface for a camera.
-func (f *FileEntry) Camera() Camera {
+func (f *filesEntry) Camera() Camera {
 	return f.camera
 }
 
 // Save downloads a link from SecuritySpy and saves it to a file.
-func (f *FileEntry) Save(path string) error {
+func (f *filesEntry) Save(path string) error {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return ErrorPathExists
 	}
@@ -120,7 +120,7 @@ func (f *FileEntry) Save(path string) error {
 }
 
 // Stream opens a file from a SecuritySpy link and returns the http.Body io.ReadCloser.
-func (f *FileEntry) Stream() (io.ReadCloser, error) {
+func (f *filesEntry) Stream() (io.ReadCloser, error) {
 	resp, err := f.server.secReq(f.Link.HREF, make(url.Values), 10*time.Second)
 	if err != nil {
 		return nil, err
@@ -131,26 +131,26 @@ func (f *FileEntry) Stream() (io.ReadCloser, error) {
 /* FilesData interface for Files follows */
 
 // GetPhotos returns a list of links to captured images.
-func (f FilesData) GetPhotos(cameraNums []int, from, to time.Time) ([]FileInterface, error) {
+func (f filesData) GetPhotos(cameraNums []int, from, to time.Time) ([]File, error) {
 	return f.getFiles(cameraNums, from, to, "i", "")
 }
 
 // GetAll returns a list of links to captured videos and images.
-func (f FilesData) GetAll(cameraNums []int, from, to time.Time) ([]FileInterface, error) {
+func (f filesData) GetAll(cameraNums []int, from, to time.Time) ([]File, error) {
 	return f.getFiles(cameraNums, from, to, "b", "")
 }
 
 // GetVideos returns a list of links to captured videos.
-func (f FilesData) GetVideos(cameraNums []int, from, to time.Time) ([]FileInterface, error) {
+func (f filesData) GetVideos(cameraNums []int, from, to time.Time) ([]File, error) {
 	return f.getFiles(cameraNums, from, to, "m", "")
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // getFiles is a helper function to do all the work for GetVideos, GetPhotos & GetAll.
-func (f FilesData) getFiles(cameraNums []int, from, to time.Time, fileType, continuation string) ([]FileInterface, error) {
-	var files []FileInterface
-	var feed Feed
+func (f filesData) getFiles(cameraNums []int, from, to time.Time, fileType, continuation string) ([]File, error) {
+	var files []File
+	var feed fileFeed
 	params := MakeFilesParams(cameraNums, from, to, fileType, continuation)
 	if xmldata, err := f.secReqXML("++downloads", params); err != nil {
 		return nil, err
