@@ -151,7 +151,7 @@ func (f filesData) GetVideos(cameraNums []int, from, to time.Time) ([]File, erro
 func (f filesData) getFiles(cameraNums []int, from, to time.Time, fileType, continuation string) ([]File, error) {
 	var files []File
 	var feed fileFeed
-	params := MakeFilesParams(cameraNums, from, to, fileType, continuation)
+	params := makeFilesParams(cameraNums, from, to, fileType, continuation)
 	if xmldata, err := f.secReqXML("++downloads", params); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &feed); err != nil {
@@ -175,8 +175,8 @@ func (f filesData) getFiles(cameraNums []int, from, to time.Time, fileType, cont
 	return files, nil
 }
 
-// MakeFilesParams makes the url Values for a file retreival.
-func MakeFilesParams(cameraNums []int, from time.Time, to time.Time, fileType string, continuation string) url.Values {
+// makeFilesParams makes the url Values for a file retreival.
+func makeFilesParams(cameraNums []int, from time.Time, to time.Time, fileType string, continuation string) url.Values {
 	params := make(url.Values)
 	params.Set("date2Text", to.Format(fileDateFormat))
 	params.Set("date1Text", from.Format(fileDateFormat))

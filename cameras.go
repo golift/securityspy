@@ -62,7 +62,7 @@ func (c *cameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	params := MakeRequestParams(ops)
+	params := nakeRequestParams(ops)
 	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
 	params.Set("auth", c.config.AuthB64)
 	params.Set("codec", "h264")
@@ -84,7 +84,7 @@ func (c *cameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	params := MakeRequestParams(ops)
+	params := nakeRequestParams(ops)
 	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
 	params.Set("auth", c.config.AuthB64)
 	params.Set("codec", "h264")
@@ -97,7 +97,7 @@ func (c *cameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *cameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	params := MakeRequestParams(ops)
+	params := nakeRequestParams(ops)
 	resp, err := c.camReq("++video", params)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (c *cameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // StreamH264 makes a web request to retreive an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *cameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	params := MakeRequestParams(ops)
+	params := nakeRequestParams(ops)
 	resp, err := c.camReq("++stream", params)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (c *cameraInterface) PostG711(audio io.ReadCloser) error {
 // GetJPEG returns a picture from a camera.
 func (c *cameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
-	params := MakeRequestParams(ops)
+	params := nakeRequestParams(ops)
 	resp, err := c.camReq("++image", params)
 	if err != nil {
 		return nil, err
@@ -176,21 +176,21 @@ func (c *cameraInterface) SaveJPEG(ops *VidOps, path string) error {
 }
 
 // ContinuousCapture arms (true) or disarms (false).
-func (c *cameraInterface) ContinuousCapture(arm CameraArmOrDisarm) error {
+func (c *cameraInterface) ContinuousCapture(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("++ssControlContinuous", params)
 }
 
 // Actions arms (true) or disarms (false).
-func (c *cameraInterface) Actions(arm CameraArmOrDisarm) error {
+func (c *cameraInterface) Actions(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("++ssControlActions", params)
 }
 
 // MotionCapture arms (true) or disarms (false).
-func (c *cameraInterface) MotionCapture(arm CameraArmOrDisarm) error {
+func (c *cameraInterface) MotionCapture(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", strconv.Itoa(int(arm)))
 	return c.simpleReq("++ssControlMotionCapture", params)
@@ -257,9 +257,9 @@ func (c *cameraInterface) simpleReq(apiURI string, params url.Values) error {
 	return nil
 }
 
-// MakeRequestParams converts passed in ops to url.Values
+// nakeRequestParams converts passed in ops to url.Values
 // it's only public in case it's useful.
-func MakeRequestParams(ops *VidOps) url.Values {
+func nakeRequestParams(ops *VidOps) url.Values {
 	params := make(url.Values)
 	if ops.Width != 0 {
 		params.Set("width", strconv.Itoa(ops.Width))
