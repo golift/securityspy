@@ -34,11 +34,11 @@ type PTZcommand int
 
 // Bitmask values for PTZ Capabilities.
 const (
-	PTZPanTilt = 1 << iota // 1
-	PTZHome                // 2
-	PTZZoom                // 4
-	PTZPresets             // 8
-	PTZSpeed               // 16
+	PTZPanTilt int = 1 << iota // 1
+	PTZHome                    // 2
+	PTZZoom                    // 4
+	PTZPresets                 // 8
+	PTZSpeed                   // 16
 )
 
 // PTZcommand in list form
