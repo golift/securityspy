@@ -171,7 +171,9 @@ func (c *cameraInterface) SaveJPEG(ops *VidOps, path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	return jpeg.Encode(f, jpgImage, nil)
 }
 

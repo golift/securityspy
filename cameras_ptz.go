@@ -8,7 +8,7 @@ import (
 // ptzInterface powers the PTZ interface.
 // It's really an extension of the CameraInterface interface.
 type ptzInterface struct {
-	Capabilities PTZCaps
+	Capabilities ptzCapabilities
 	*cameraInterface
 }
 
@@ -26,7 +26,7 @@ type PTZ interface {
 	Preset(preset Preset) error
 	PresetSave(preset Preset) error
 	Stop() error
-	Caps() PTZCaps
+	Caps() ptzCapabilities
 }
 
 // PTZcommand are the possible PTZ commands.
@@ -73,8 +73,8 @@ const (
 	PTZcommandSavePreset8 PTZcommand = 119
 )
 
-// PTZCaps are what "things" a camera can do.
-type PTZCaps struct {
+// ptzCapabilities are what "things" a camera can do.
+type ptzCapabilities struct {
 	PanTilt bool
 	Home    bool
 	Zoom    bool
@@ -87,7 +87,7 @@ type PTZCaps struct {
 // PTZ provides PTZ capabalities of a camera, such as panning, tilting, zomming, speed control, presets, home, etc.
 func (c *cameraInterface) PTZ() PTZ {
 	return &ptzInterface{
-		Capabilities: PTZCaps{
+		Capabilities: ptzCapabilities{
 			// Unmask them bits.
 			PanTilt: c.Camera.PTZcapabilities&ptzPanTilt == ptzPanTilt,
 			Home:    c.Camera.PTZcapabilities&ptzHome == ptzHome,
@@ -102,7 +102,7 @@ func (c *cameraInterface) PTZ() PTZ {
 /* Camera Interface, PTZ-specific methods follow. */
 
 // Caps returns the supported PTZ methods.
-func (c *ptzInterface) Caps() PTZCaps {
+func (c *ptzInterface) Caps() ptzCapabilities {
 	return c.Capabilities
 }
 

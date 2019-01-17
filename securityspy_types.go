@@ -39,16 +39,16 @@ type config struct {
 type Server interface {
 	// SecuritySpy
 	Info() ServerInfo
-	Refresh() error
-	RefreshScripts() error
-	RefreshSounds() error
-	// Files
+	Refresh() error        // call this once in a while if you build a daemon.
+	RefreshScripts() error // probably useless
+	RefreshSounds() error  // same. no documented methods to do anything with this.
+	// Files (2 sub interfaces)
 	Files() (files Files)
-	// Cameras
+	// Cameras (2 sub interfaces)
 	GetCameras() (cams []Camera)
 	GetCamera(cameraNum int) (cam Camera)
 	GetCameraByName(name string) (cam Camera)
-	// Events
+	// Events (no sub interfaces)
 	StopWatch()
 	UnbindAllEvents()
 	UnbindEvent(event EventName)
