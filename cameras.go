@@ -1,19 +1,18 @@
 package securityspy
 
 import (
-	"crypto/tls"
 	"image"
 	"image/jpeg"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	encode "github.com/davidnewhall/go-securityspy/ffmpegencode"
+	// Because I didn't feel like dealing with RTSP in Go. Maybe one day.
+	ffmpeg "github.com/davidnewhall/go-securityspy/ffmpegencode"
 )
 
 /* Cameras-specific concourse methods are at the top. */
@@ -21,7 +20,7 @@ import (
 // GetCameras returns interfaces for every camera.
 func (c *concourse) GetCameras() (cams []Camera) {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
-		cams = append(cams, &cameraInterface{Camera: cam, config: c.Config})
+		cams = append(cams, &cameraInterface{Camera: cam, concourse: c})
 	}
 	return
 }
@@ -30,7 +29,7 @@ func (c *concourse) GetCameras() (cams []Camera) {
 func (c *concourse) GetCamera(number int) Camera {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		if cam.Number == number {
-			return &cameraInterface{Camera: cam, config: c.Config}
+			return &cameraInterface{Camera: cam, concourse: c}
 		}
 	}
 	return nil
@@ -40,7 +39,7 @@ func (c *concourse) GetCamera(number int) Camera {
 func (c *concourse) GetCameraByName(name string) Camera {
 	for _, cam := range c.SystemInfo.CameraList.Cameras {
 		if cam.Name == name {
-			return &cameraInterface{Camera: cam, config: c.Config}
+			return &cameraInterface{Camera: cam, concourse: c}
 		}
 	}
 	return nil
@@ -55,20 +54,20 @@ func (c *cameraInterface) Device() CameraDevice {
 
 // StreamVideo streams a segment of video from a camera using FFMPEG.
 func (c *cameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
-	e := encode.Get(&encode.VidOps{
+	f := ffmpeg.Get(&ffmpeg.VidOps{
 		Encoder: Encoder,
 		Time:    int(length.Seconds()),
 		Audio:   true,    // Sure why not.
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	params := nakeRequestParams(ops)
-	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
-	params.Set("auth", c.config.AuthB64)
+	params := c.nakeRequestParams(ops)
+	params.Set("auth", c.AuthB64)
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "++stream"
-	_, video, err := e.GetVideo(url+"?"+params.Encode(), c.Camera.Name)
+	url := strings.Replace(c.BaseURL, "http", "rtsp", 1) + "++stream"
+	// RTSP doesn't rewally work with HTTPS, and FFMPEG doesn't care about the cert.
+	_, video, err := f.GetVideo(url+"?"+params.Encode(), c.Camera.Name)
 	return video, err
 }
 
@@ -77,28 +76,26 @@ func (c *cameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
 		return ErrorPathExists
 	}
-	e := encode.Get(&encode.VidOps{
+	f := ffmpeg.Get(&ffmpeg.VidOps{
 		Encoder: Encoder,
 		Time:    int(length.Seconds()),
 		Audio:   true,
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	params := nakeRequestParams(ops)
-	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
-	params.Set("auth", c.config.AuthB64)
+	params := c.nakeRequestParams(ops)
+	params.Set("auth", c.AuthB64)
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.config.BaseURL, "http", "rtsp", 1) + "++stream"
-	_, _, err := e.SaveVideo(url+"?"+params.Encode(), outputFile, c.Camera.Name)
+	url := strings.Replace(c.BaseURL, "http", "rtsp", 1) + "++stream"
+	_, _, err := f.SaveVideo(url+"?"+params.Encode(), outputFile, c.Camera.Name)
 	return err
 }
 
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *cameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	params := nakeRequestParams(ops)
-	resp, err := c.camReq("++video", params)
+	resp, err := c.secReq("++video", c.nakeRequestParams(ops), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +105,7 @@ func (c *cameraInterface) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // StreamH264 makes a web request to retreive an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *cameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	params := nakeRequestParams(ops)
-	resp, err := c.camReq("++stream", params)
+	resp, err := c.secReq("++stream", c.nakeRequestParams(ops), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +115,7 @@ func (c *cameraInterface) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 // StreamG711 makes a web request to retreive an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *cameraInterface) StreamG711() (io.ReadCloser, error) {
-	resp, err := c.camReq("++audio", make(url.Values))
+	resp, err := c.secReq("++audio", c.nakeRequestParams(nil), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -136,13 +132,13 @@ func (c *cameraInterface) PostG711(audio io.ReadCloser) error {
 		_ = audio.Close()
 	}()
 	return nil
+	// Incomplete.
 }
 
 // GetJPEG returns a picture from a camera.
 func (c *cameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
-	params := nakeRequestParams(ops)
-	resp, err := c.camReq("++image", params)
+	resp, err := c.secReq("++image", c.nakeRequestParams(ops), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +149,6 @@ func (c *cameraInterface) GetJPEG(ops *VidOps) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	// set the above to resp and turn it into an image.
 	return jpgImage, err
 }
 
@@ -179,23 +174,17 @@ func (c *cameraInterface) SaveJPEG(ops *VidOps, path string) error {
 
 // ContinuousCapture arms (true) or disarms (false).
 func (c *cameraInterface) ContinuousCapture(arm CameraArmMode) error {
-	params := make(url.Values)
-	params.Set("arm", strconv.Itoa(int(arm)))
-	return c.simpleReq("++ssControlContinuous", params)
+	return c.simpleReq("++ssControlContinuous", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
 }
 
 // Actions arms (true) or disarms (false).
 func (c *cameraInterface) Actions(arm CameraArmMode) error {
-	params := make(url.Values)
-	params.Set("arm", strconv.Itoa(int(arm)))
-	return c.simpleReq("++ssControlActions", params)
+	return c.simpleReq("++ssControlActions", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
 }
 
 // MotionCapture arms (true) or disarms (false).
 func (c *cameraInterface) MotionCapture(arm CameraArmMode) error {
-	params := make(url.Values)
-	params.Set("arm", strconv.Itoa(int(arm)))
-	return c.simpleReq("++ssControlMotionCapture", params)
+	return c.simpleReq("++ssControlMotionCapture", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
 }
 
 // Size returns the camera frame size as a string.
@@ -226,25 +215,10 @@ func (c *cameraInterface) TriggerMotion() error {
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
-// camReq is a helper function that formats the http request to SecuritySpy
-func (c *cameraInterface) camReq(apiPath string, params url.Values) (*http.Response, error) {
-	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.config.VerifySSL}}}
-	req, err := http.NewRequest("GET", c.config.BaseURL+apiPath, nil)
-	if err != nil {
-		return nil, err
-	}
-	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
-	params.Set("auth", c.config.AuthB64)
-	req.URL.RawQuery = params.Encode()
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
+// simpleReq performes HTTP req, checks for OK at end of output.
 func (c *cameraInterface) simpleReq(apiURI string, params url.Values) error {
-	resp, err := c.camReq(apiURI, params)
+	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
+	resp, err := c.secReq(apiURI, params, 10*time.Second)
 	if err != nil {
 		return err
 	}
@@ -260,9 +234,12 @@ func (c *cameraInterface) simpleReq(apiURI string, params url.Values) error {
 }
 
 // nakeRequestParams converts passed in ops to url.Values
-// it's only public in case it's useful.
-func nakeRequestParams(ops *VidOps) url.Values {
+func (c *cameraInterface) nakeRequestParams(ops *VidOps) url.Values {
 	params := make(url.Values)
+	params.Set("cameraNum", strconv.Itoa(c.Camera.Number))
+	if ops == nil {
+		return params
+	}
 	if ops.Width != 0 {
 		params.Set("width", strconv.Itoa(ops.Width))
 	}

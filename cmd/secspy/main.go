@@ -29,13 +29,13 @@ type Config struct {
 
 func main() {
 	config := parseFlags()
-	securityspy.Encoder = "/usr/local/bin/ffmpg"
+	securityspy.Encoder = "/usr/local/bin/ffmpeg"
 	switch config.Cmd {
 	case "events", "event", "e":
 		config.getServer()
 		log.Println("Watching Event Stream")
 		config.Server.BindEvent(securityspy.EventAllEvents, config.showEvents)
-		config.Server.WatchEvents(10*time.Second, 4*time.Minute)
+		config.Server.WatchEvents(10*time.Second, true)
 	case "cams", "cam", "c":
 		config.printCamData()
 	case "video", "vid", "v":
@@ -91,14 +91,18 @@ func (c *Config) triggerMotion() {
 		fmt.Println("Example: secspy -c trigger -a Door")
 		fmt.Println("See camera names with -c cams")
 		os.Exit(1)
-	} else if cam := c.getServer().GetCameraByName(c.Arg); cam == nil {
-		fmt.Println("Camera does not exist:", c.Arg)
-		os.Exit(1)
-	} else if err := cam.TriggerMotion(); err != nil {
-		fmt.Printf("Error Trigger Motion for camera '%v': %v", c.Arg, err)
-		os.Exit(1)
 	}
-	fmt.Println("Triggered Motion for Camera:", c.Arg)
+	srv := c.getServer()
+	for _, arg := range strings.Split(c.Arg, ",") {
+		if cam := srv.GetCameraByName(arg); cam == nil {
+			fmt.Println("Camera does not exist:", arg)
+			os.Exit(1)
+		} else if err := cam.TriggerMotion(); err != nil {
+			fmt.Printf("Error Trigger Motion for camera '%v': %v", arg, err)
+			os.Exit(1)
+		}
+		fmt.Println("Triggered Motion for Camera:", arg)
+	}
 }
 
 func (c *Config) showEvents(e securityspy.Event) {

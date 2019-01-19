@@ -1,14 +1,13 @@
 # go-securityspy
-Full Featured Go Library for SecuritySpy
+Full Featured Go Library for [SecuritySpy](https://www.bensoftware.com/securityspy/)
 
-I wrote all this over the weekend, and have only tested the code you see in the provided test app.
+I wrote all this over the weekend, the events feed and much of the camera code is tested and works. Feedback is welcomed!
 
-SecuritySpy and Cameras interfaces are pretty much done. Except PTZCapabilities.
-The EventsStream code is done, and reasonably working.
-The logic is there, and so are the bugs.
+SecuritySpy and Cameras interfaces are complete.
+The EventsStream code is done, and working.
 
 Still working on it. Lots of docs to come. I hope.
 
-ffmpeg is also used if you want video snippets.
+`ffmpeg` is also used if you want video snippets.
 
-my server doesn't have auth enabled, so I really have no idea if this works with a password. lemme know?
+My server doesn't have auth enabled, so I really have no idea if this works with a password. lemme know?

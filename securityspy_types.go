@@ -18,43 +18,16 @@ func (e Error) Error() string {
 
 // concourse is the main interface.
 type concourse struct {
-	Config     *config
 	SystemInfo *systemInfo
-	EventBinds map[EventName][]func(Event)
 	StopChan   chan bool
-	Running    bool
 	EventChan  chan Event
+	Running    bool
+	VerifySSL  bool
+	BaseURL    string
+	AuthB64    string
+	Username   string
+	EventBinds map[EventName][]func(Event)
 	sync.RWMutex
-}
-
-// config is the data passed into the Handler function.
-type config struct {
-	VerifySSL bool
-	BaseURL   string
-	AuthB64   string
-	Username  string
-}
-
-// Server is the interface to the Kingdom.
-type Server interface {
-	// SecuritySpy
-	Info() ServerInfo
-	Refresh() error        // call this once in a while if you build a daemon.
-	RefreshScripts() error // probably useless
-	RefreshSounds() error  // same. no documented methods to do anything with this.
-	// Files (2 sub interfaces)
-	Files() (files Files)
-	// Cameras (2 sub interfaces)
-	GetCameras() (cams []Camera)
-	GetCamera(cameraNum int) (cam Camera)
-	GetCameraByName(name string) (cam Camera)
-	// Events (no sub interfaces)
-	StopWatch()
-	UnbindAllEvents()
-	UnbindEvent(event EventName)
-	BindEvent(event EventName, callBack func(Event))
-	WatchEvents(retryInterval, refreshInterval time.Duration)
-	NewEvent(cameraNum int, msg string)
 }
 
 // ServerInfo represents all the SecuritySpy ServerInfo Info
@@ -126,4 +99,26 @@ func (bit *duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error 
 	r, _ := strconv.Atoi(bit.Sec)
 	bit.Dur = time.Second * time.Duration(r)
 	return nil
+}
+
+// Server is the interface to the Kingdom, ie concourse.
+type Server interface {
+	// SecuritySpy
+	Info() ServerInfo      // This is the server data struct. Has everything about the server.
+	Refresh() error        // call this once in a while if you build a daemon.
+	RefreshScripts() error // probably useless
+	RefreshSounds() error  // same. no documented methods to do anything with this.
+	// Files (2 sub interfaces)
+	Files() (files Files) // Interface into saved/captured vidoes and images.
+	// Cameras (2 sub interfaces)
+	GetCameras() (cams []Camera)
+	GetCamera(cameraNum int) (cam Camera)
+	GetCameraByName(name string) (cam Camera)
+	// Events (no sub interfaces)
+	WatchEvents(retryInterval time.Duration, refreshOnConfigChange bool)
+	StopWatch()
+	BindEvent(event EventName, callBack func(Event))
+	UnbindEvent(event EventName)
+	UnbindAllEvents()
+	CustomEvent(cameraNum int, msg string)
 }
