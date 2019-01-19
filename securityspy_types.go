@@ -42,12 +42,13 @@ type ServerInfo struct {
 	BonjourName      string    `xml:"bonjour-name"`
 	IP1              string    `xml:"ip1"`            // 192.168.3.1
 	IP2              string    `xml:"ip2"`            // 192.168.69.3
-	HTTPEnabled      yesNoBool `xml:"http-enabled"`   // yes
+	HTTPEnabled      YesNoBool `xml:"http-enabled"`   // yes
 	HTTPPort         int       `xml:"http-port"`      // 8000
 	HTTPPortWan      int       `xml:"http-port-wan"`  // 8000
-	HTTPSEnabled     yesNoBool `xml:"https-enabled"`  // no
+	HTTPSEnabled     YesNoBool `xml:"https-enabled"`  // no
 	HTTPSPort        int       `xml:"https-port"`     // 8001
 	HTTPSPortWan     int       `xml:"https-port-wan"` // 8001
+	Refreshed        time.Time // updated by Refresh()
 	// These are shoehorned in.
 	Scripts struct {
 		Names []string `xml:"name"`
@@ -72,29 +73,29 @@ type systemInfo struct {
 	} `xml:"schedulepresetlist"`
 }
 
-// yesNoBool is used to capture strings into boolean format.
-type yesNoBool struct {
+// YesNoBool is used to capture strings into boolean format.
+type YesNoBool struct {
 	Val bool
 	Txt string
 }
 
 // UnmarshalXML method converts armed/disarmed, yes/no, active/inactive or 0/1 to true/false.
 // Really it converts armed, yes, active, enabled, 1, true to true. Anything else is false.
-func (bit *yesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	_ = d.DecodeElement(&bit.Txt, &start)
 	bit.Val = bit.Txt == "1" || strings.EqualFold(bit.Txt, "true") || strings.EqualFold(bit.Txt, "yes") ||
 		strings.EqualFold(bit.Txt, "armed") || strings.EqualFold(bit.Txt, "active") || strings.EqualFold(bit.Txt, "enabled")
 	return nil
 }
 
-// duration is used to convert the "Seconnds" given to us by the securityspy API into a go time.duration.
-type duration struct {
+// Duration is used to convert the "Seconnds" given to us by the securityspy API into a go time.Duration.
+type Duration struct {
 	Dur time.Duration
 	Sec string
 }
 
 // UnmarshalXML method converts seconds to time.Duration.
-func (bit *duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (bit *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	_ = d.DecodeElement(&bit.Sec, &start)
 	r, _ := strconv.Atoi(bit.Sec)
 	bit.Dur = time.Second * time.Duration(r)
