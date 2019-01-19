@@ -14,6 +14,8 @@ import (
 )
 
 // GetServer returns an iterface to interact with SecuritySpy.
+// This is the only exportred function in the library.
+// All of the other interfaces are accessed through this interface.
 func GetServer(user, pass, url string, verifySSL bool) (Server, error) {
 	if !strings.HasSuffix(url, "/") {
 		url += "/"
@@ -27,6 +29,8 @@ func GetServer(user, pass, url string, verifySSL bool) (Server, error) {
 		VerifySSL:  verifySSL,
 	}
 
+	// Run three API methods to fill in the concourse data
+	// structure when a new server is created. Return any error.
 	if err := server.Refresh(); err != nil {
 		return server, err
 	} else if err := server.RefreshScripts(); err != nil {
@@ -51,6 +55,7 @@ func (c *concourse) Refresh() error {
 		c.SystemInfo.CameraList.Cameras[i].ScheduleOverrideCC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideCC.ID))
 		c.SystemInfo.CameraList.Cameras[i].ScheduleOverrideMC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideMC.ID))
 	}
+	c.SystemInfo.Server.Refreshed = time.Now()
 	return nil
 }
 
@@ -104,21 +109,22 @@ func (c *concourse) secReq(apiPath string, params url.Values, timeout time.Durat
 	return resp, nil
 }
 
-func (c *concourse) secReqXML(apiPath string, params url.Values) (xmldata []byte, err error) {
+// secReqXML returns raw http body, so it can be unmarshaled into an xml struct.
+func (c *concourse) secReqXML(apiPath string, params url.Values) (body []byte, err error) {
 	resp, err := c.secReq(apiPath, params, 15*time.Second)
 	if err != nil {
-		return xmldata, err
+		return body, err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode != http.StatusOK {
-		return xmldata, errors.Errorf("authentication failed (%v): %v (status: %v/%v)",
+		return body, errors.Errorf("request failed (%v): %v (status: %v/%v)",
 			c.Username, c.BaseURL+apiPath, resp.StatusCode, resp.Status)
-	} else if xmldata, err = ioutil.ReadAll(resp.Body); err == nil {
-		return xmldata, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
+	} else if body, err = ioutil.ReadAll(resp.Body); err == nil {
+		return body, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
 	}
-	return xmldata, nil
+	return body, nil
 }
 
 func (c *concourse) getScheduleName(id int) string {
