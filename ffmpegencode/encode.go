@@ -5,7 +5,6 @@ package ffmpegencode
 import (
 	"bytes"
 	"io"
-	"log"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -231,7 +230,7 @@ func (v *EncodeInterface) SaveVideo(input, output, title string) (string, string
 		return "", "", ErrorInvalidOutput
 	}
 	cmdStr, cmd := v.getVideoHandle(input, output, title)
-	log.Println(cmdStr) // DEBUG
+	// log.Println(cmdStr) // DEBUG
 	var out bytes.Buffer
 	cmd.Stderr = &out
 	cmd.Stdout = &out
