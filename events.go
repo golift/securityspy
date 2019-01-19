@@ -48,15 +48,15 @@ func (c *concourse) UnbindEvent(event EventName) {
 }
 
 // WatchEvents kicks off he routines to watch the eventStream and fire callback bindings.
-func (c *concourse) WatchEvents(retryInterval, refreshInterval time.Duration) {
+func (c *concourse) WatchEvents(retryInterval time.Duration, refreshOnConfigChange bool) {
 	c.Running = true
 	c.EventChan = make(chan Event, 1)
-	go c.eventChannelSelector(refreshInterval)
+	go c.eventChannelSelector(refreshOnConfigChange)
 	c.eventStreamScanner(retryInterval)
 }
 
-// NewEvent fires an event into the running event Watcher.
-func (c *concourse) NewEvent(cameraNum int, msg string) {
+// CustomEvent fires an event into the running event Watcher.
+func (c *concourse) CustomEvent(cameraNum int, msg string) {
 	if !c.Running {
 		return
 	}
@@ -70,20 +70,28 @@ func (c *concourse) NewEvent(cameraNum int, msg string) {
 // eventStreamScanner connects to the securityspy event stream and fires events into a channel.
 func (c *concourse) eventStreamScanner(retryInterval time.Duration) {
 	body, scanner := c.eventStreamConnect(retryInterval)
-	scanner.Split(scanLinesCR)
+	if scanner != nil {
+		scanner.Split(scanLinesCR)
+	}
 	for {
 		if !c.Running {
-			_ = body.Close()
+			if body != nil {
+				_ = body.Close()
+			}
 			return // we all done here. stop got called
 		}
 		// Constantly scan for new events, then report them to the event channel.
 		if scanner != nil && scanner.Scan() {
-			c.EventChan <- c.parseEvent(scanner.Text())
+			if text := scanner.Text(); strings.Count(text, " ") > 2 {
+				c.EventChan <- c.parseEvent(text)
+			}
 		}
 		if err := scanner.Err(); err != nil {
-			raw := time.Now().Format(eventTimeFormat) + " -10000 CAM " + EventStreamDisconnect.String() + ": " + err.Error()
+			raw := time.Now().Format(eventTimeFormat) + " -10000 CAM " +
+				EventStreamDisconnect.String() + ": " + err.Error()
 			c.EventChan <- c.parseEvent(raw)
 			_ = body.Close()
+			time.Sleep(retryInterval)
 			body, scanner = c.eventStreamConnect(retryInterval)
 			scanner.Split(scanLinesCR)
 		}
@@ -94,7 +102,8 @@ func (c *concourse) eventStreamScanner(retryInterval time.Duration) {
 func (c *concourse) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
 	resp, err := c.secReq("++eventStream", nil, 0)
 	for err != nil {
-		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " + EventStreamDisconnect.String() + ": " + err.Error()
+		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " +
+			EventStreamDisconnect.String() + ": " + err.Error()
 		c.EventChan <- c.parseEvent(raw)
 		time.Sleep(retryInterval)
 		if !c.Running {
@@ -102,33 +111,31 @@ func (c *concourse) eventStreamConnect(retryInterval time.Duration) (io.ReadClos
 		}
 		resp, err = c.secReq("++eventStream", nil, 0)
 	}
+	raw := time.Now().Format(eventTimeFormat) + " -1 CAM " + EventStreamConnect.String()
+	c.EventChan <- c.parseEvent(raw)
 	return resp.Body, bufio.NewScanner(resp.Body)
 }
 
 // eventChannelSelector watches a few internal channels for events and updates.
 // Fires bound event call back functions.
-func (c *concourse) eventChannelSelector(refreshInterval time.Duration) {
-	ticker := time.NewTicker(refreshInterval)
+func (c *concourse) eventChannelSelector(refreshOnConfigChange bool) {
 	for {
 		// Watch for new events, a stop signal, or a refresh interval.
 		select {
 		case <-c.StopChan:
 			return
-
-		case <-ticker.C:
-			if refreshInterval == 0 {
-				break
-			}
-			raw := time.Now().Format(eventTimeFormat) + " -9998 CAM " + EventWatcherRefreshed.String() + " every " + refreshInterval.String()
-			if err := c.Refresh(); err != nil {
-				raw = time.Now().Format(eventTimeFormat) + " -9997 CAM " + EventWatcherRefreshFail.String() + ": " + err.Error()
-			}
-			c.EventChan <- c.parseEvent(raw)
-
 		case event := <-c.EventChan:
 			c.RLock()
 			event.callBacks(c.EventBinds)
 			c.RUnlock()
+			if refreshOnConfigChange && event.Event == EventConfigChange {
+				raw := time.Now().Format(eventTimeFormat) + " -9998 CAM " + EventWatcherRefreshed.String()
+				if err := c.Refresh(); err != nil {
+					raw = time.Now().Format(eventTimeFormat) + " -9997 CAM " +
+						EventWatcherRefreshFail.String() + ": " + err.Error()
+				}
+				c.EventChan <- c.parseEvent(raw)
+			}
 		}
 	}
 }
@@ -155,8 +162,8 @@ func (c *concourse) parseEvent(text string) Event {
 	parts := strings.SplitN(text, " ", 4)
 	e := Event{Msg: parts[3], Camera: nil, ID: -1, Errors: nil}
 	// Parse the time stamp
-	zone, _ := time.Now().Zone() // SecuritySpy does not (really) provide this. :(
-	if e.When, err = time.Parse("20060102150405MST", parts[0]+zone); err != nil {
+	zone, _ := time.Now().Zone() // SecuritySpy only provides this on the ++download method :(
+	if e.When, err = time.Parse(eventTimeFormat+"MST", parts[0]+zone); err != nil {
 		e.When = time.Now()
 		e.Errors = append(e.Errors, ErrorDateParseFail)
 	}
@@ -206,7 +213,7 @@ func (e *Event) callBacks(binds map[EventName][]func(Event)) {
 // scanLinesCR is a custom bufio.Scanner to read SecuritySpy eventStream.
 func scanLinesCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
-		return 0, nil, nil
+		return 0, nil, io.ErrShortBuffer
 	}
 	if i := bytes.IndexByte(data, '\r'); i >= 0 {
 		// We have a full CR-terminated line.
@@ -214,7 +221,7 @@ func scanLinesCR(data []byte, atEOF bool) (advance int, token []byte, err error)
 	}
 	// If we're at EOF, we have a final, non-terminated line. Return it.
 	if atEOF {
-		return len(data), data, nil
+		return len(data), data, ErrorDisconnect
 	}
 	// Request more data.
 	return 0, nil, nil

@@ -64,7 +64,7 @@ type VidOps struct {
 // cameraInterface defines all the public and private elements of a camera.
 type cameraInterface struct {
 	Camera CameraDevice
-	config *config // Server url, auth, ssl, etc
+	*concourse
 }
 
 // CameraDevice defines the data returned from the SecuritySpy API.

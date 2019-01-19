@@ -18,22 +18,21 @@ func GetServer(user, pass, url string, verifySSL bool) (Server, error) {
 	if !strings.HasSuffix(url, "/") {
 		url += "/"
 	}
-	c := &concourse{
+	server := &concourse{
 		SystemInfo: new(systemInfo),
 		EventBinds: make(map[EventName][]func(Event)),
-		Config: &config{
-			BaseURL:   url,
-			AuthB64:   base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
-			Username:  user,
-			VerifySSL: verifySSL,
-		},
+		BaseURL:    url,
+		AuthB64:    base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
+		Username:   user,
+		VerifySSL:  verifySSL,
 	}
-	if err := c.Refresh(); err != nil {
-		return c, err
-	} else if err := c.RefreshScripts(); err != nil {
-		return c, err
+
+	if err := server.Refresh(); err != nil {
+		return server, err
+	} else if err := server.RefreshScripts(); err != nil {
+		return server, err
 	}
-	return c, c.RefreshSounds()
+	return server, server.RefreshSounds()
 }
 
 // Refresh gets fresh camera data from SecuritySpy, maybe run this after every action.
@@ -89,12 +88,12 @@ func (c *concourse) secReq(apiPath string, params url.Values, timeout time.Durat
 	if params == nil {
 		params = make(url.Values)
 	}
-	a := &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.Config.VerifySSL}}}
-	req, err := http.NewRequest("GET", c.Config.BaseURL+apiPath, nil)
+	a := &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.VerifySSL}}}
+	req, err := http.NewRequest("GET", c.BaseURL+apiPath, nil)
 	if err != nil {
 		return resp, errors.Wrap(err, "http.NewRequest()")
 	}
-	params.Set("auth", c.Config.AuthB64)
+	params.Set("auth", c.AuthB64)
 	params.Set("format", "xml")
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Accept", "application/xml")
@@ -115,7 +114,7 @@ func (c *concourse) secReqXML(apiPath string, params url.Values) (xmldata []byte
 	}()
 	if resp.StatusCode != http.StatusOK {
 		return xmldata, errors.Errorf("authentication failed (%v): %v (status: %v/%v)",
-			c.Config.Username, c.Config.BaseURL+apiPath, resp.StatusCode, resp.Status)
+			c.Username, c.BaseURL+apiPath, resp.StatusCode, resp.Status)
 	} else if xmldata, err = ioutil.ReadAll(resp.Body); err == nil {
 		return xmldata, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
 	}

@@ -11,6 +11,7 @@ const (
 	ErrorDateParseFail = Error("timestamp parse failed")
 	ErrorUnknownError  = Error("unknown error")
 	ErrorPathExists    = Error("cannot overwrite existing path")
+	ErrorDisconnect    = Error("event stream disconnected")
 )
 
 // eventTimeFormat is the go-time-format returned by SecuritySpy's eventStream
@@ -44,6 +45,7 @@ const (
 	EventOffline          EventName = "OFFLINE"
 	// The following belong to the library, not securityspy.
 	EventStreamDisconnect   EventName = "DISCONNECTED"
+	EventStreamConnect      EventName = "CONNECTED"
 	EventUnknownEvent       EventName = "UNKNOWN"
 	EventAllEvents          EventName = "ALL"
 	EventWatcherRefreshed   EventName = "REFRESH"
@@ -79,6 +81,8 @@ func (e EventName) Event() string {
 		// The following belong to the library, not securityspy.
 	case EventStreamDisconnect:
 		return "Event Stream Disconnected"
+	case EventStreamConnect:
+		return "Event Stream Connected"
 	case EventUnknownEvent:
 		return "Unknown Event"
 	case EventAllEvents:
