@@ -170,6 +170,7 @@ func (v *EncodeInterface) getVideoHandle(input, output, title string) (string, *
 	}
 	arg := []string{
 		v.ops.Encoder,
+		"-v", "16", // log level
 		"-rtsp_transport", "tcp",
 		"-i", input,
 		"-f", "mov",
@@ -238,7 +239,7 @@ func (v *EncodeInterface) SaveVideo(input, output, title string) (string, string
 		return cmdStr, "", err
 	}
 	err := cmd.Wait()
-	return cmdStr, out.String(), err
+	return cmdStr, strings.TrimSpace(out.String()), err
 }
 
 // fixValues makes sure video request values are sane.

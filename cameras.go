@@ -13,6 +13,7 @@ import (
 
 	// Because I didn't feel like dealing with RTSP in Go. Maybe one day.
 	ffmpeg "github.com/davidnewhall/go-securityspy/ffmpegencode"
+	"github.com/pkg/errors"
 )
 
 /* Cameras-specific concourse methods are at the top. */
@@ -67,8 +68,8 @@ func (c *cameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.BaseURL, "http", "rtsp", 1) + "++stream"
 	// RTSP doesn't rewally work with HTTPS, and FFMPEG doesn't care about the cert.
-	_, video, err := f.GetVideo(url+"?"+params.Encode(), c.Camera.Name)
-	return video, err
+	args, video, err := f.GetVideo(url+"?"+params.Encode(), c.Camera.Name)
+	return video, errors.Wrap(err, strings.Replace(args, "\n", " ", -1))
 }
 
 // SaveVideo saves a segment of video from a camera to a file using FFMPEG.
@@ -88,8 +89,8 @@ func (c *cameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.BaseURL, "http", "rtsp", 1) + "++stream"
-	_, _, err := f.SaveVideo(url+"?"+params.Encode(), outputFile, c.Camera.Name)
-	return err
+	_, out, err := f.SaveVideo(url+"?"+params.Encode(), outputFile, c.Camera.Name)
+	return errors.Wrap(err, strings.Replace(out, "\n", " ", -1))
 }
 
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
