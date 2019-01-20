@@ -11,70 +11,98 @@ import (
 
 /* Events-specific concourse methods are at the top. */
 
-// BindEvent binds a call-back function to an Event in SecuritySpy.
-func (c *concourse) BindEvent(event EventName, callBack func(Event)) {
+// Events returns the Events interface.
+func (c *concourse) Events() Events {
+	return events{c}
+}
+
+/* Events interface for eventsInterfcace follows */
+
+// BindFunc binds a call-back function to an Event in SecuritySpy.
+func (e events) BindFunc(event EventName, callBack func(Event)) {
 	if callBack == nil {
 		return
 	}
-	c.Lock()
-	defer c.Unlock()
-	if val, ok := c.EventBinds[event]; ok {
-		c.EventBinds[event] = append(val, callBack)
+	e.Lock()
+	defer e.Unlock()
+	if val, ok := e.EventBinds[event]; ok {
+		e.EventBinds[event] = append(val, callBack)
 		return
 	}
-	c.EventBinds[event] = []func(Event){callBack}
+	e.EventBinds[event] = []func(Event){callBack}
 }
 
-// StopWatch stops WatchEvents loop
-func (c *concourse) StopWatch() {
-	if c.Running {
-		c.Running = false
-		c.StopChan <- c.Running
-	}
-}
-
-// UnbindAllEvents removes all event bindings.
-func (c *concourse) UnbindAllEvents() {
-	c.Lock()
-	defer c.Unlock()
-	c.EventBinds = make(map[EventName][]func(Event))
-}
-
-// UnbindEvent removes all bound callbacks for a particular event.
-func (c *concourse) UnbindEvent(event EventName) {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.EventBinds, event)
-}
-
-// WatchEvents kicks off he routines to watch the eventStream and fire callback bindings.
-func (c *concourse) WatchEvents(retryInterval time.Duration, refreshOnConfigChange bool) {
-	c.Running = true
-	c.EventChan = make(chan Event, 1)
-	go c.eventChannelSelector(refreshOnConfigChange)
-	c.eventStreamScanner(retryInterval)
-}
-
-// CustomEvent fires an event into the running event Watcher.
-func (c *concourse) CustomEvent(cameraNum int, msg string) {
-	if !c.Running {
+// BindChan binds a receiving channel to an Event in SecuritySpy.
+func (e events) BindChan(event EventName, channel chan Event) {
+	if channel == nil {
 		return
 	}
-	c.EventChan <- c.parseEvent(time.Now().Format(eventTimeFormat) +
+	e.Lock()
+	defer e.Unlock()
+	if val, ok := e.EventChans[event]; ok {
+		e.EventChans[event] = append(val, channel)
+		return
+	}
+	e.EventChans[event] = []chan Event{channel}
+}
+
+// Stop stops Watch() loops
+func (e events) Stop() {
+	if e.Running {
+		e.Running = false
+		e.StopChan <- e.Running
+	}
+}
+
+// UnbindAll removes all event bindings and channels.
+func (e events) UnbindAll() {
+	e.Lock()
+	defer e.Unlock()
+	e.EventBinds = make(map[EventName][]func(Event))
+	e.EventChans = make(map[EventName][]chan Event)
+}
+
+// UnbindChan removes all bound channels for a particular event.
+func (e events) UnbindChan(event EventName) {
+	e.Lock()
+	defer e.Unlock()
+	delete(e.EventChans, event)
+}
+
+// UnbindFunc removes all bound callbacks for a particular event.
+func (e events) UnbindFunc(event EventName) {
+	e.Lock()
+	defer e.Unlock()
+	delete(e.EventBinds, event)
+}
+
+// Watch kicks off the routines to watch the eventStream and fire callback bindings.
+func (e events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
+	e.Running = true
+	go e.eventChannelSelector(refreshOnConfigChange)
+	e.eventStreamScanner(retryInterval)
+}
+
+// Custom fires an event into the running event Watcher.
+func (e events) Custom(cameraNum int, msg string) {
+	if !e.Running {
+		return
+	}
+	e.EventChan <- e.parseEvent(time.Now().Format(eventTimeFormat) +
 		" -11000 CAM" + strconv.Itoa(cameraNum) + " " +
-		EventStreamCustom.String() + ": " + msg)
+		EventStreamCustom.String() + " " + msg)
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // eventStreamScanner connects to the securityspy event stream and fires events into a channel.
-func (c *concourse) eventStreamScanner(retryInterval time.Duration) {
-	body, scanner := c.eventStreamConnect(retryInterval)
+func (e events) eventStreamScanner(retryInterval time.Duration) {
+	body, scanner := e.eventStreamConnect(retryInterval)
 	if scanner != nil {
 		scanner.Split(scanLinesCR)
 	}
 	for {
-		if !c.Running {
+		if !e.Running {
 			if body != nil {
 				_ = body.Close()
 			}
@@ -83,65 +111,66 @@ func (c *concourse) eventStreamScanner(retryInterval time.Duration) {
 		// Constantly scan for new events, then report them to the event channel.
 		if scanner != nil && scanner.Scan() {
 			if text := scanner.Text(); strings.Count(text, " ") > 2 {
-				c.EventChan <- c.parseEvent(text)
+				e.EventChan <- e.parseEvent(text)
 			}
 		}
 		if err := scanner.Err(); err != nil {
 			raw := time.Now().Format(eventTimeFormat) + " -10000 CAM " +
-				EventStreamDisconnect.String() + ": " + err.Error()
-			c.EventChan <- c.parseEvent(raw)
+				EventStreamDisconnect.String() + " " + err.Error()
+			e.EventChan <- e.parseEvent(raw)
 			_ = body.Close()
 			time.Sleep(retryInterval)
-			body, scanner = c.eventStreamConnect(retryInterval)
+			body, scanner = e.eventStreamConnect(retryInterval)
 			scanner.Split(scanLinesCR)
 		}
 	}
 }
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
-func (c *concourse) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
-	resp, err := c.secReq("++eventStream", nil, 0)
+func (e events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
+	resp, err := e.secReq("++eventStream", nil, 0)
 	for err != nil {
 		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " +
-			EventStreamDisconnect.String() + ": " + err.Error()
-		c.EventChan <- c.parseEvent(raw)
+			EventStreamDisconnect.String() + " " + err.Error()
+		e.EventChan <- e.parseEvent(raw)
 		time.Sleep(retryInterval)
-		if !c.Running {
+		if !e.Running {
 			return nil, nil
 		}
-		resp, err = c.secReq("++eventStream", nil, 0)
+		resp, err = e.secReq("++eventStream", nil, 0)
 	}
 	raw := time.Now().Format(eventTimeFormat) + " -1 CAM " + EventStreamConnect.String()
-	c.EventChan <- c.parseEvent(raw)
+	e.EventChan <- e.parseEvent(raw)
 	return resp.Body, bufio.NewScanner(resp.Body)
 }
 
 // eventChannelSelector watches a few internal channels for events and updates.
 // Fires bound event call back functions.
-func (c *concourse) eventChannelSelector(refreshOnConfigChange bool) {
+func (e events) eventChannelSelector(refreshOnConfigChange bool) {
 	for {
 		// Watch for new events, a stop signal, or a refresh interval.
 		select {
-		case <-c.StopChan:
+		case <-e.StopChan:
 			return
-		case event := <-c.EventChan:
-			c.RLock()
-			event.callBacks(c.EventBinds)
-			c.RUnlock()
+		case event := <-e.EventChan:
+			e.RLock()
+			event.callBacks(e.EventBinds)
+			event.eventChans(e.EventChans)
+			e.RUnlock()
 			if refreshOnConfigChange && event.Event == EventConfigChange {
 				raw := time.Now().Format(eventTimeFormat) + " -9998 CAM " + EventWatcherRefreshed.String()
-				if err := c.Refresh(); err != nil {
+				if err := e.Refresh(); err != nil {
 					raw = time.Now().Format(eventTimeFormat) + " -9997 CAM " +
-						EventWatcherRefreshFail.String() + ": " + err.Error()
+						EventWatcherRefreshFail.String() + " " + err.Error()
 				}
-				c.EventChan <- c.parseEvent(raw)
+				e.EventChan <- e.parseEvent(raw)
 			}
 		}
 	}
 }
 
 // parseEvent turns raw text into an Event that can fire callbacks.
-func (c *concourse) parseEvent(text string) Event {
+func (e events) parseEvent(text string) Event {
 	/* [TIME] is specified in the order year, month, day, hour, minute, second and is always 14 characters long
 		 * [EVENT NUMBER] increases by 1 for each subsequent event
 		 * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15
@@ -160,35 +189,35 @@ func (c *concourse) parseEvent(text string) Event {
 			 20190114201206 104529 CAM5 ARM_A */
 	var err error
 	parts := strings.SplitN(text, " ", 4)
-	e := Event{Msg: parts[3], Camera: nil, ID: -1, Errors: nil}
+	newEvent := Event{Msg: parts[3], Camera: nil, ID: -1, Errors: nil}
 	// Parse the time stamp
 	zone, _ := time.Now().Zone() // SecuritySpy only provides this on the ++download method :(
-	if e.When, err = time.Parse(eventTimeFormat+"MST", parts[0]+zone); err != nil {
-		e.When = time.Now()
-		e.Errors = append(e.Errors, ErrorDateParseFail)
+	if newEvent.When, err = time.Parse(eventTimeFormat+"MST", parts[0]+zone); err != nil {
+		newEvent.When = time.Now()
+		newEvent.Errors = append(newEvent.Errors, ErrorDateParseFail)
 	}
 	// Parse the ID
-	if e.ID, err = strconv.Atoi(parts[1]); err != nil {
-		e.ID = -1
-		e.Errors = append(e.Errors, ErrorIDParseFail)
+	if newEvent.ID, err = strconv.Atoi(parts[1]); err != nil {
+		newEvent.ID = -1
+		newEvent.Errors = append(newEvent.Errors, ErrorIDParseFail)
 	}
 	// Parse the camera number.
 	if !strings.HasPrefix(parts[2], "CAM") || len(parts[2]) < 4 {
-		e.Errors = append(e.Errors, ErrorCAMMissing)
+		newEvent.Errors = append(newEvent.Errors, ErrorCAMMissing)
 	} else if cameraNum, err := strconv.Atoi(parts[2][3:]); err != nil {
-		e.Camera = nil
-		e.Errors = append(e.Errors, ErrorCAMParseFail)
-	} else if e.Camera = c.GetCamera(cameraNum); e.Camera == nil {
-		e.Errors = append(e.Errors, ErrorCAMParseFail)
+		newEvent.Camera = nil
+		newEvent.Errors = append(newEvent.Errors, ErrorCAMParseFail)
+	} else if newEvent.Camera = e.GetCamera(cameraNum); newEvent.Camera == nil {
+		newEvent.Errors = append(newEvent.Errors, ErrorCAMParseFail)
 	}
 	// Parse and convert the type string to EventType.
-	e.Event = EventName(strings.Split(parts[3], " ")[0])
+	newEvent.Event = EventName(strings.Split(parts[3], " ")[0])
 	// Check if the type we just converted is a known event.
-	if e.Event.Event() == EventUnknownEvent.Event() {
-		e.Errors = append(e.Errors, ErrorUnknownEvent)
-		e.Event = EventUnknownEvent
+	if newEvent.Event.Event() == EventUnknownEvent.Event() {
+		newEvent.Errors = append(newEvent.Errors, ErrorUnknownEvent)
+		newEvent.Event = EventUnknownEvent
 	}
-	return e
+	return newEvent
 }
 
 // callBacks is run for each event to execute callback functions.
@@ -207,6 +236,20 @@ func (e *Event) callBacks(binds map[EventName][]func(Event)) {
 	}
 	if _, ok := binds[EventAllEvents]; ok {
 		callbacks(binds[EventAllEvents])
+	}
+}
+
+// eventChans is run for each event to notify external channels
+func (e *Event) eventChans(chans map[EventName][]chan Event) {
+	if chans, ok := chans[e.Event]; ok {
+		for i := range chans {
+			chans[i] <- *e
+		}
+	}
+	if chans, ok := chans[EventAllEvents]; ok {
+		for i := range chans {
+			chans[i] <- *e
+		}
 	}
 }
 

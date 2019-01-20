@@ -23,6 +23,9 @@ func GetServer(user, pass, url string, verifySSL bool) (Server, error) {
 	server := &concourse{
 		SystemInfo: new(systemInfo),
 		EventBinds: make(map[EventName][]func(Event)),
+		EventChans: make(map[EventName][]chan Event),
+		EventChan:  make(chan Event, 1),
+		StopChan:   make(chan bool),
 		BaseURL:    url,
 		AuthB64:    base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
 		Username:   user,

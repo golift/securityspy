@@ -27,6 +27,7 @@ type concourse struct {
 	AuthB64    string
 	Username   string
 	EventBinds map[EventName][]func(Event)
+	EventChans map[EventName][]chan Event
 	sync.RWMutex
 }
 
@@ -111,15 +112,10 @@ type Server interface {
 	RefreshSounds() error  // same. no documented methods to do anything with this.
 	// Files (2 sub interfaces)
 	Files() (files Files) // Interface into saved/captured vidoes and images.
-	// Cameras (2 sub interfaces)
-	GetCameras() (cams []Camera)
-	GetCamera(cameraNum int) (cam Camera)
-	GetCameraByName(name string) (cam Camera)
-	// Events (no sub interfaces)
-	WatchEvents(retryInterval time.Duration, refreshOnConfigChange bool)
-	StopWatch()
-	BindEvent(event EventName, callBack func(Event))
-	UnbindEvent(event EventName)
-	UnbindAllEvents()
-	CustomEvent(cameraNum int, msg string)
+	// Camera(s) (2 sub interfaces)
+	GetCameras() (cams []Camera)              // Camera/PTZ interfaces
+	GetCamera(cameraNum int) (cam Camera)     // Camera/PTZ interfaces
+	GetCameraByName(name string) (cam Camera) // Camera/PTZ interfaces
+	// Events (1 sub interface)
+	Events() (events Events) // Interface into eventStream
 }
