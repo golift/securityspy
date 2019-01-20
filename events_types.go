@@ -16,6 +16,22 @@ const (
 // eventTimeFormat is the go-time-format returned by SecuritySpy's eventStream
 var eventTimeFormat = "20060102150405"
 
+type events struct {
+	*concourse
+}
+
+// Events is the interface into the event stream.
+type Events interface {
+	Watch(retryInterval time.Duration, refreshOnConfigChange bool)
+	Stop()
+	BindFunc(event EventName, callBack func(Event))
+	BindChan(event EventName, channel chan Event)
+	UnbindFunc(event EventName)
+	UnbindChan(event EventName)
+	UnbindAll()
+	Custom(cameraNum int, msg string)
+}
+
 // Event Stream Reply
 type Event struct {
 	When   time.Time
