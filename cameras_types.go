@@ -61,8 +61,8 @@ type VidOps struct {
 	Quality int
 }
 
-// cameraInterface defines all the public and private elements of a camera.
-type cameraInterface struct {
+// camera defines all the public and private elements of a camera.
+type camera struct {
 	Camera CameraDevice
 	*Server
 }
