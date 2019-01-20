@@ -100,9 +100,9 @@ func (f files) GetFile(name string) (*File, error) {
 	if newFile.Camera == nil {
 		return nil, ErrorCAMMissing
 	}
-	newFile.Link.HREF += newFile.Camera.Num() + "/" + pathDate + "/" + url.QueryEscape(name)
+	newFile.CameraNum = newFile.Camera.Number
+	newFile.Link.HREF += strconv.Itoa(newFile.CameraNum) + "/" + pathDate + "/" + url.QueryEscape(name)
 	newFile.fileEntry = newFile
-	newFile.CameraNum = newFile.Camera.Number()
 	return newFile, nil
 }
 
@@ -110,7 +110,7 @@ func (f files) GetFile(name string) (*File, error) {
 
 // getFiles is a helper function to do all the work for GetVideos, GetPhotos & GetAll.
 func (f files) getFiles(cameraNums []int, from, to time.Time, fileType, continuation string) ([]*File, error) {
-	var allFiles []*File
+	var entries []*File
 	var feed fileFeed
 	params := makeFilesParams(cameraNums, from, to, fileType, continuation)
 	if xmldata, err := f.secReqXML("++download", params); err != nil {
@@ -124,17 +124,17 @@ func (f files) getFiles(cameraNums []int, from, to time.Time, fileType, continua
 		feed.Entries[i].server = f.Server
 		feed.Entries[i].fileEntry = &feed.Entries[i]
 		feed.Entries[i].GmtOffset, _ = strconv.Atoi(feed.GmtOffset)
-		allFiles = append(allFiles, &feed.Entries[i])
+		entries = append(entries, &feed.Entries[i])
 	}
 	// ++download automatically paginates. Follow the continuation.
 	if feed.Continuation != "" && feed.Continuation != "FFFFFFFFFFFFFFFF" {
 		moreFiles, err := f.getFiles(cameraNums, from, to, fileType, feed.Continuation)
-		if allFiles = append(allFiles, moreFiles...); err != nil {
+		if entries = append(entries, moreFiles...); err != nil {
 			// We got some files, but one of the pages returned an error.
-			return allFiles, err
+			return entries, err
 		}
 	}
-	return allFiles, nil
+	return entries, nil
 }
 
 // makeFilesParams makes the url Values for a file retreival.

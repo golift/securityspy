@@ -47,7 +47,7 @@ type File struct {
 	Updated   time.Time `xml:"updated"`   // 2019-01-12T08:57:58Z, 201...
 	CameraNum int       `xml:"cameraNum"` // 0, 1, 2, 4, 5, 7, 9, 10, 11, 12, 13
 	GmtOffset int
-	Camera    Camera
+	Camera    *Camera
 	server    *Server
 	fileEntry
 }

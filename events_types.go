@@ -43,7 +43,7 @@ type Events interface {
 type Event struct {
 	When   time.Time
 	ID     int
-	Camera Camera
+	Camera *Camera
 	Event  EventName
 	Msg    string
 	Errors []error

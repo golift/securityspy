@@ -1,36 +1,55 @@
 package securityspy
 
 import (
+	"encoding/xml"
 	"net/url"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
 
-// ptzInterface powers the PTZ interface.
-// It's really an extension of the camera interface.
-type ptzInterface struct {
-	Capabilities ptzCapabilities
-	*camera
+// PTZ contains a struct of PTZ capabilities and an interface to control camera PTZ.
+type PTZ struct {
+	ptzCapabilities
+	ptzControls
+	camera *Camera
 }
 
-// PTZ interface provides access to camera PTZ controls.
-type PTZ interface {
+// ptzControls interface provides access to camera ptzControls controls.
+type ptzControls interface {
 	Left() error
 	Right() error
 	Up() error
 	Down() error
+	Zoom(in bool) error
+	Home() error
 	UpLeft() error
 	DownLeft() error
 	UpRight() error
 	DownRight() error
-	Zoom(in bool) error
-	Preset(preset Preset) error
-	PresetSave(preset Preset) error
+	Preset(preset PTZpreset) error
 	Stop() error
-	Caps() ptzCapabilities
+	PresetSave(preset PTZpreset) error
 }
 
-// PTZcommand are the possible PTZ commands.
-type PTZcommand int
+// PTZpreset locks our poresets to a max of 8
+type PTZpreset int
+
+// Presets are 1 through 8.
+const (
+	_ PTZpreset = iota // skip 0
+	PTZpreset1
+	PTZpreset2
+	PTZpreset3
+	PTZpreset4
+	PTZpreset5
+	PTZpreset6
+	PTZpreset7
+	PTZpreset8
+)
+
+// ptzCommand are the possible PTZ commands.
+type ptzCommand int
 
 // Bitmask values for PTZ Capabilities.
 const (
@@ -41,161 +60,145 @@ const (
 	ptzSpeed                   // 16
 )
 
-// PTZcommand in list form
+// ptzCommand in list form
 const (
-	PTZcommandLeft        PTZcommand = 1
-	PTZcommandRight       PTZcommand = 2
-	PTZcommandUp          PTZcommand = 3
-	PTZcommandDown        PTZcommand = 4
-	PTZcommandZoomIn      PTZcommand = 5
-	PTZcommandZoomOut     PTZcommand = 6
-	PTZcommandHome        PTZcommand = 7
-	PTZcommandUpLeft      PTZcommand = 8
-	PTZcommandUpRight     PTZcommand = 9
-	PTZcommandDownLeft    PTZcommand = 10
-	PTZcommandDownRight   PTZcommand = 11
-	PTZcommandPreset1     PTZcommand = 12
-	PTZcommandPreset2     PTZcommand = 13
-	PTZcommandPreset3     PTZcommand = 14
-	PTZcommandPreset4     PTZcommand = 15
-	PTZcommandPreset5     PTZcommand = 16
-	PTZcommandPreset6     PTZcommand = 17
-	PTZcommandPreset7     PTZcommand = 18
-	PTZcommandPreset8     PTZcommand = 19
-	PTZcommandStop        PTZcommand = 99
-	PTZcommandSavePreset1 PTZcommand = 112
-	PTZcommandSavePreset2 PTZcommand = 113
-	PTZcommandSavePreset3 PTZcommand = 114
-	PTZcommandSavePreset4 PTZcommand = 115
-	PTZcommandSavePreset5 PTZcommand = 116
-	PTZcommandSavePreset6 PTZcommand = 117
-	PTZcommandSavePreset7 PTZcommand = 118
-	PTZcommandSavePreset8 PTZcommand = 119
+	ptzCommandLeft        ptzCommand = 1
+	ptzCommandRight       ptzCommand = 2
+	ptzCommandUp          ptzCommand = 3
+	ptzCommandDown        ptzCommand = 4
+	ptzCommandZoomIn      ptzCommand = 5
+	ptzCommandZoomOut     ptzCommand = 6
+	ptzCommandHome        ptzCommand = 7
+	ptzCommandUpLeft      ptzCommand = 8
+	ptzCommandUpRight     ptzCommand = 9
+	ptzCommandDownLeft    ptzCommand = 10
+	ptzCommandDownRight   ptzCommand = 11
+	ptzCommandPreset1     ptzCommand = 12
+	ptzCommandPreset2     ptzCommand = 13
+	ptzCommandPreset3     ptzCommand = 14
+	ptzCommandPreset4     ptzCommand = 15
+	ptzCommandPreset5     ptzCommand = 16
+	ptzCommandPreset6     ptzCommand = 17
+	ptzCommandPreset7     ptzCommand = 18
+	ptzCommandPreset8     ptzCommand = 19
+	ptzCommandStop        ptzCommand = 99
+	ptzCommandSavePreset1 ptzCommand = 112
+	ptzCommandSavePreset2 ptzCommand = 113
+	ptzCommandSavePreset3 ptzCommand = 114
+	ptzCommandSavePreset4 ptzCommand = 115
+	ptzCommandSavePreset5 ptzCommand = 116
+	ptzCommandSavePreset6 ptzCommand = 117
+	ptzCommandSavePreset7 ptzCommand = 118
+	ptzCommandSavePreset8 ptzCommand = 119
 )
 
 // ptzCapabilities are what "things" a camera can do.
 type ptzCapabilities struct {
-	PanTilt bool
-	Home    bool
-	Zoom    bool
-	Presets bool
-	Speed   bool // This is missing full documentation; may not be accurate.
-}
-
-/* PTZ-specific concourse methods are at the top. */
-
-// PTZ provides PTZ capabalities of a camera, such as panning, tilting, zomming, speed control, presets, home, etc.
-func (c *camera) PTZ() PTZ {
-	return &ptzInterface{
-		Capabilities: ptzCapabilities{
-			// Unmask them bits.
-			PanTilt: c.Camera.PTZcapabilities&ptzPanTilt == ptzPanTilt,
-			Home:    c.Camera.PTZcapabilities&ptzHome == ptzHome,
-			Zoom:    c.Camera.PTZcapabilities&ptzZoom == ptzZoom,
-			Presets: c.Camera.PTZcapabilities&ptzPresets == ptzPresets,
-			Speed:   c.Camera.PTZcapabilities&ptzSpeed == ptzSpeed,
-		},
-		camera: c,
-	}
+	HasPanTilt bool
+	HasHome    bool
+	HasZoom    bool
+	HasPresets bool
+	HasSpeed   bool // This is missing full documentation; may not be accurate.
+	rawCaps    int
 }
 
 /* Camera Interface, PTZ-specific methods follow. */
 
-// Caps returns the supported PTZ methods.
-func (c *ptzInterface) Caps() ptzCapabilities {
-	return c.Capabilities
+// Home sends a camera to the home position.
+func (z *PTZ) Home() error {
+	return z.ptzReq(ptzCommandHome)
 }
 
 // Left sends a camera to the left one click.
-func (c *ptzInterface) Left() error {
-	return c.ptzReq(PTZcommandLeft)
+func (z *PTZ) Left() error {
+	return z.ptzReq(ptzCommandLeft)
 }
 
 // Right sends a camera to the right one click.
-func (c *ptzInterface) Right() error {
-	return c.ptzReq(PTZcommandRight)
+func (z *PTZ) Right() error {
+	return z.ptzReq(ptzCommandRight)
 }
 
 // Up sends a camera to the sky one click.
-func (c *ptzInterface) Up() error {
-	return c.ptzReq(PTZcommandUp)
+func (z *PTZ) Up() error {
+	return z.ptzReq(ptzCommandUp)
 }
 
 // Down puts a camera in time. no, really, it makes it look down one click.
-func (c *ptzInterface) Down() error {
-	return c.ptzReq(PTZcommandDown)
+func (z *PTZ) Down() error {
+	return z.ptzReq(ptzCommandDown)
 }
 
 // UpLeft will send a camera up and to the left a click.
-func (c *ptzInterface) UpLeft() error {
-	return c.ptzReq(PTZcommandUpLeft)
+func (z *PTZ) UpLeft() error {
+	return z.ptzReq(ptzCommandUpLeft)
 }
 
 // DownLeft sends a camera down and to the left a click.
-func (c *ptzInterface) DownLeft() error {
-	return c.ptzReq(PTZcommandDownLeft)
+func (z *PTZ) DownLeft() error {
+	return z.ptzReq(ptzCommandDownLeft)
 }
 
 // UpRight sends a camera up and to the right. like it's 1999.
-func (c *ptzInterface) UpRight() error {
-	return c.ptzReq(PTZcommandRight)
+func (z *PTZ) UpRight() error {
+	return z.ptzReq(ptzCommandRight)
 }
 
 // DownRight is sorta like making the camera do a dab.
-func (c *ptzInterface) DownRight() error {
-	return c.ptzReq(PTZcommandDownRight)
+func (z *PTZ) DownRight() error {
+	return z.ptzReq(ptzCommandDownRight)
 }
 
 // Zoom makes a camera zoom in (true) or out (false).
-func (c *ptzInterface) Zoom(in bool) error {
+func (z *PTZ) Zoom(in bool) error {
 	if in {
-		return c.ptzReq(PTZcommandZoomIn)
+		return z.ptzReq(ptzCommandZoomIn)
 	}
-	return c.ptzReq(PTZcommandZoomOut)
+	return z.ptzReq(ptzCommandZoomOut)
 }
 
 // Preset instructs a preset to be used. it just might work!
-func (c *ptzInterface) Preset(preset Preset) error {
+func (z *PTZ) Preset(preset PTZpreset) error {
 	switch preset {
-	case Preset1:
-		return c.ptzReq(PTZcommandSavePreset1)
-	case Preset2:
-		return c.ptzReq(PTZcommandSavePreset2)
-	case Preset3:
-		return c.ptzReq(PTZcommandSavePreset3)
-	case Preset4:
-		return c.ptzReq(PTZcommandSavePreset4)
-	case Preset5:
-		return c.ptzReq(PTZcommandSavePreset5)
-	case Preset6:
-		return c.ptzReq(PTZcommandSavePreset6)
-	case Preset7:
-		return c.ptzReq(PTZcommandSavePreset7)
-	case Preset8:
-		return c.ptzReq(PTZcommandSavePreset8)
+	case PTZpreset1:
+		return z.ptzReq(ptzCommandSavePreset1)
+	case PTZpreset2:
+		return z.ptzReq(ptzCommandSavePreset2)
+	case PTZpreset3:
+		return z.ptzReq(ptzCommandSavePreset3)
+	case PTZpreset4:
+		return z.ptzReq(ptzCommandSavePreset4)
+	case PTZpreset5:
+		return z.ptzReq(ptzCommandSavePreset5)
+	case PTZpreset6:
+		return z.ptzReq(ptzCommandSavePreset6)
+	case PTZpreset7:
+		return z.ptzReq(ptzCommandSavePreset7)
+	case PTZpreset8:
+		return z.ptzReq(ptzCommandSavePreset8)
 	}
 	return ErrorPTZRange
 }
 
 // PresetSave instructs a preset to be saved. good luck!
-func (c *ptzInterface) PresetSave(preset Preset) error {
+func (z *PTZ) PresetSave(preset PTZpreset) error {
 	switch preset {
-	case Preset1:
-		return c.ptzReq(PTZcommandPreset1)
-	case Preset2:
-		return c.ptzReq(PTZcommandPreset2)
-	case Preset3:
-		return c.ptzReq(PTZcommandPreset3)
-	case Preset4:
-		return c.ptzReq(PTZcommandPreset4)
-	case Preset5:
-		return c.ptzReq(PTZcommandPreset5)
-	case Preset6:
-		return c.ptzReq(PTZcommandPreset6)
-	case Preset7:
-		return c.ptzReq(PTZcommandPreset7)
-	case Preset8:
-		return c.ptzReq(PTZcommandPreset8)
+	case PTZpreset1:
+		return z.ptzReq(ptzCommandPreset1)
+	case PTZpreset2:
+		return z.ptzReq(ptzCommandPreset2)
+	case PTZpreset3:
+		return z.ptzReq(ptzCommandPreset3)
+	case PTZpreset4:
+		return z.ptzReq(ptzCommandPreset4)
+	case PTZpreset5:
+		return z.ptzReq(ptzCommandPreset5)
+	case PTZpreset6:
+		return z.ptzReq(ptzCommandPreset6)
+	case PTZpreset7:
+		return z.ptzReq(ptzCommandPreset7)
+	case PTZpreset8:
+		return z.ptzReq(ptzCommandPreset8)
 	}
 	return ErrorPTZRange
 }
@@ -203,15 +206,30 @@ func (c *ptzInterface) PresetSave(preset Preset) error {
 // Stop instructs a camera to stop moving. That is, if you have a camera
 // cool enough to support continuous motion. Most do not, so sadly this is
 // unlikely to be useful to you.
-func (c *ptzInterface) Stop() error {
-	return c.ptzReq(PTZcommandStop)
+func (z *PTZ) Stop() error {
+	return z.ptzReq(ptzCommandStop)
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // ptzReq wraps all the ptz-specific calls.
-func (c *ptzInterface) ptzReq(command PTZcommand) error {
+func (z *PTZ) ptzReq(command ptzCommand) error {
 	params := make(url.Values)
 	params.Set("command", strconv.Itoa(int(command)))
-	return c.simpleReq("++ptz/command", params)
+	return z.camera.simpleReq("++ptz/command", params)
+}
+
+// UnmarshalXML method converts ptzCapbilities bitmask into true/false abilities.
+func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	err := d.DecodeElement(&z.rawCaps, &start)
+	if err != nil {
+		return errors.Wrap(err, "ptz caps")
+	}
+	z.HasPanTilt = z.rawCaps&ptzPanTilt == ptzPanTilt
+	z.HasHome = z.rawCaps&ptzHome == ptzHome
+	z.HasZoom = z.rawCaps&ptzZoom == ptzZoom
+	z.HasPresets = z.rawCaps&ptzPresets == ptzPresets
+	z.HasSpeed = z.rawCaps&ptzSpeed == ptzSpeed
+	z.ptzControls = z // Prime the PTZ interface.
+	return nil
 }

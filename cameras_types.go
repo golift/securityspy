@@ -26,30 +26,14 @@ const (
 	CameraArm
 )
 
-// Preset locks our poresets to a max of 8
-type Preset int
-
-// Presets are 1 through 8.
-const (
-	_ Preset = iota // skip 0
-	Preset1
-	Preset2
-	Preset3
-	Preset4
-	Preset5
-	Preset6
-	Preset7
-	Preset8
-)
-
-// cameraSchedule contains schedule info for a camera properties.
-type cameraSchedule struct {
+// CameraSchedule contains schedule info for a camera properties.
+type CameraSchedule struct {
 	Name string
 	ID   int
 }
 
 // UnmarshalXML stores a schedule ID into a cameraSchedule type.
-func (bit *cameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (bit *CameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return d.DecodeElement(&bit.ID, &start)
 }
 
@@ -61,22 +45,27 @@ type VidOps struct {
 	Quality int
 }
 
-// camera defines all the public and private elements of a camera.
-type camera struct {
-	Camera CameraDevice
-	*Server
+// Camera defines all the public and private elements of a camera.
+type Camera struct {
+	CameraDevice
+	cameraInterface
+	server *Server
 }
 
-// cameras is just a struct for the Cameras interface
-type cameras struct {
-	*Server
+// Cameras is just a struct for the Cameras interface
+type Cameras struct {
+	server *Server
+	camerasInterface
+	Count   int
+	Names   []string
+	Numbers []int
 }
 
-// Cameras is a simple interface to access camera data.
-type Cameras interface {
-	All() (cams []Camera)
-	ByNum(number int) Camera
-	ByName(name string) Camera
+// camerasInterface is a simple interface to access camera data.
+type camerasInterface interface {
+	All() (cams []*Camera)
+	ByNum(number int) *Camera
+	ByName(name string) *Camera
 }
 
 // CameraDevice defines the data returned from the SecuritySpy API.
@@ -90,7 +79,7 @@ type CameraDevice struct {
 	ModeM               YesNoBool      `xml:"mode-m"`               // armed, armed, armed, arme...
 	ModeA               YesNoBool      `xml:"mode-a"`               // armed, armed, armed, arme...
 	HasAudio            YesNoBool      `xml:"hasaudio"`             // yes, yes, no, yes, yes, y...
-	PTZcapabilities     int            `xml:"ptzcapabilities"`      // 0, 0, 31, 0, 0, 0, 0
+	PTZ                 PTZ            `xml:"ptzcapabilities"`      // 0, 0, 31, 0, 0, 0, 0
 	TimeSinceLastFrame  Duration       `xml:"timesincelastframe"`   // 0, 0, 0, 0, 0, 0, 0
 	TimeSinceLastMotion Duration       `xml:"timesincelastmotion"`  // 689, 3796, 201, 12477, 15...
 	DeviceName          string         `xml:"devicename"`           // ONVIF, ONVIF, ONVIF, ONVI...
@@ -123,12 +112,12 @@ type CameraDevice struct {
 	TLcapture           YesNoBool      `xml:"tl_capture"`           // no, no, no, no, no, no, n...
 	TLrecordAudio       YesNoBool      `xml:"tl_recordaudio"`       // yes, yes, yes, yes, yes, ...
 	CurrentFPS          float64        `xml:"current-fps"`          // 20.000, 20.000, 20.000, 2...
-	ScheduleIDCC        cameraSchedule `xml:"schedule-id-cc"`       // 1, 1, 1, 1, 1, 1, 0
-	ScheduleIDMC        cameraSchedule `xml:"schedule-id-mc"`       // 1, 1, 1, 1, 1, 1, 1
-	ScheduleIDA         cameraSchedule `xml:"schedule-id-a"`        // 1, 1, 1, 1, 1, 1, 1
-	ScheduleOverrideCC  cameraSchedule `xml:"schedule-override-cc"` // 0, 0, 0, 0, 0, 0, 0
-	ScheduleOverrideMC  cameraSchedule `xml:"schedule-override-mc"` // 0, 0, 0, 0, 0, 0, 0
-	ScheduleOverrideA   cameraSchedule `xml:"schedule-override-a"`  // 0, 0, 0, 0, 0, 0, 0
+	ScheduleIDCC        CameraSchedule `xml:"schedule-id-cc"`       // 1, 1, 1, 1, 1, 1, 0
+	ScheduleIDMC        CameraSchedule `xml:"schedule-id-mc"`       // 1, 1, 1, 1, 1, 1, 1
+	ScheduleIDA         CameraSchedule `xml:"schedule-id-a"`        // 1, 1, 1, 1, 1, 1, 1
+	ScheduleOverrideCC  CameraSchedule `xml:"schedule-override-cc"` // 0, 0, 0, 0, 0, 0, 0
+	ScheduleOverrideMC  CameraSchedule `xml:"schedule-override-mc"` // 0, 0, 0, 0, 0, 0, 0
+	ScheduleOverrideA   CameraSchedule `xml:"schedule-override-a"`  // 0, 0, 0, 0, 0, 0, 0
 	PresetName1         string         `xml:"preset-name-1"`
 	PresetName2         string         `xml:"preset-name-2"`
 	PresetName3         string         `xml:"preset-name-3"`
@@ -140,18 +129,12 @@ type CameraDevice struct {
 	Permissions         int64          `xml:"permissions"` // 63167, 63167, 62975, 6316...
 }
 
-// The Camera interface is used to manipulate and acquire data from cameras.
-type Camera interface {
-	Number() int
-	Num() string
-	Size() string
-	PTZ() (ptz PTZ)
-	Name() (name string)
-	Device() CameraDevice
+// The cameraInterface interface is used to manipulate and acquire data from cameras.
+type cameraInterface interface {
 	TriggerMotion() error
-	Actions(arm CameraArmMode) error
-	MotionCapture(arm CameraArmMode) error
-	ContinuousCapture(arm CameraArmMode) error
+	ToggleArmActions(arm CameraArmMode) error
+	ToggleArmMotion(arm CameraArmMode) error
+	ToggleArmContinuous(arm CameraArmMode) error
 	StreamG711() (audio io.ReadCloser, err error)
 	PostG711(audio io.ReadCloser) error
 	GetJPEG(ops *VidOps) (image.Image, error)
