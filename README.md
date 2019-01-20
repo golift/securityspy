@@ -2,9 +2,9 @@
 
 Full Featured Go Library for [SecuritySpy](https://www.bensoftware.com/securityspy/)
 
-Feedback is welcomed! A versioned release will be created soon. I'd like to finish testing File and PTZ before a release.
+Feedback is welcomed! A versioned release will be created soon. I'd like to finish testing PTZ before a release.
 
-`SecuritySpy` (including `Events`) and `Camera` interfaces are (mostly) tested and working.
+`Events` and, `Camera` and `Cameras` interfaces are (mostly) tested and working.
 `Files` and `File` interfaces are well tested and working.
 `ptz` interface has received little to no testing, but probably works? :D
 
