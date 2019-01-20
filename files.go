@@ -17,38 +17,8 @@ import (
 
 /* FileEntry interface for FileInterface follows */
 
-// Name returns a file name.
-func (f *filesEntry) Name() string {
-	return f.Title
-}
-
-// Size returns a file size in bytes.
-func (f *filesEntry) Size() int64 {
-	return f.Link.Length
-}
-
-// Type returns the file type. video or photo.
-func (f *filesEntry) Type() string {
-	return f.Link.Type
-}
-
-// Date returns the timestamp for a file.
-func (f *filesEntry) Date() time.Time {
-	return f.Updated
-}
-
-// Date returns the GMT offset for a file's date.
-func (f *filesEntry) Offset() int {
-	return f.GmtOffset
-}
-
-// Camera returns the Camera interface for a camera.
-func (f *filesEntry) Camera() Camera {
-	return f.camera
-}
-
 // Save downloads a link from SecuritySpy and saves it to a file.
-func (f *filesEntry) Save(path string) (int64, error) {
+func (f *File) Save(path string) (int64, error) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return 0, ErrorPathExists
 	}
@@ -69,8 +39,8 @@ func (f *filesEntry) Save(path string) (int64, error) {
 	return io.Copy(newFile, body)
 }
 
-// Stream opens a file from a SecuritySpy link and returns the http.Body io.ReadCloser.
-func (f *filesEntry) Get() (io.ReadCloser, error) {
+// Get opens a file from a SecuritySpy link and returns the http.Body io.ReadCloser.
+func (f *File) Get() (io.ReadCloser, error) {
 	resp, err := f.server.secReq(f.Link.HREF, make(url.Values), 10*time.Second)
 	if err != nil {
 		return nil, err
@@ -81,27 +51,27 @@ func (f *filesEntry) Get() (io.ReadCloser, error) {
 /* FilesData interface for Files follows */
 
 // GetPhotos returns a list of links to captured images.
-func (f files) GetPhotos(cameraNums []int, from, to time.Time) ([]File, error) {
+func (f files) GetPhotos(cameraNums []int, from, to time.Time) ([]*File, error) {
 	return f.getFiles(cameraNums, from, to, "i", "")
 }
 
 // GetAll returns a list of links to captured videos and images.
-func (f files) GetAll(cameraNums []int, from, to time.Time) ([]File, error) {
+func (f files) GetAll(cameraNums []int, from, to time.Time) ([]*File, error) {
 	return f.getFiles(cameraNums, from, to, "b", "")
 }
 
 // GetVideos returns a list of links to captured videos.
-func (f files) GetVideos(cameraNums []int, from, to time.Time) ([]File, error) {
+func (f files) GetVideos(cameraNums []int, from, to time.Time) ([]*File, error) {
 	return f.getFiles(cameraNums, from, to, "m", "")
 }
 
 // GetFile returns a file based on the name. It makes a lot of assumptions about file paths.
 // Not all methods work with this. Avoid it if possible. This allows Get() and Save() to work.
-func (f files) GetFile(name string) (File, error) {
+func (f files) GetFile(name string) (*File, error) {
 	//	01-18-2019 10-17-53 M Porch.m4v => ++getfile/0/2019-01-18/01-18-2019+10-17-53+M+Porch.m4v
-	newFile := &filesEntry{
+	newFile := &File{
 		Title: name,
-		Link: linkInfo{
+		Link: LinkInfo{
 			Type: "video/quicktime",
 			HREF: "++getfile/",
 		},
@@ -126,19 +96,21 @@ func (f files) GetFile(name string) (File, error) {
 		return nil, ErrorInvalidName
 	}
 	pathDate := dateParts[2] + "-" + dateParts[0] + "-" + dateParts[1]
-	newFile.camera = f.Cameras.ByName(camName)
-	if newFile.camera == nil {
+	newFile.Camera = f.Cameras.ByName(camName)
+	if newFile.Camera == nil {
 		return nil, ErrorCAMMissing
 	}
-	newFile.Link.HREF += newFile.camera.Num() + "/" + pathDate + "/" + url.QueryEscape(name)
+	newFile.CameraNum = newFile.Camera.Number
+	newFile.Link.HREF += strconv.Itoa(newFile.CameraNum) + "/" + pathDate + "/" + url.QueryEscape(name)
+	newFile.fileEntry = newFile
 	return newFile, nil
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // getFiles is a helper function to do all the work for GetVideos, GetPhotos & GetAll.
-func (f files) getFiles(cameraNums []int, from, to time.Time, fileType, continuation string) ([]File, error) {
-	var allFiles []File
+func (f files) getFiles(cameraNums []int, from, to time.Time, fileType, continuation string) ([]*File, error) {
+	var entries []*File
 	var feed fileFeed
 	params := makeFilesParams(cameraNums, from, to, fileType, continuation)
 	if xmldata, err := f.secReqXML("++download", params); err != nil {
@@ -146,22 +118,23 @@ func (f files) getFiles(cameraNums []int, from, to time.Time, fileType, continua
 	} else if err := xml.Unmarshal(xmldata, &feed); err != nil {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++download)")
 	}
-	for i := range feed.Entry {
-		// Add the camera and server interfaces to every file struct/interface.
-		feed.Entry[i].camera = f.Cameras.ByNum(feed.Entry[i].CameraNum)
-		feed.Entry[i].server = f.Server
-		feed.Entry[i].GmtOffset, _ = strconv.Atoi(feed.GmtOffset)
-		allFiles = append(allFiles, &feed.Entry[i])
+	for i := range feed.Entries {
+		// Add the camera, server and file interfaces to every file entry.
+		feed.Entries[i].Camera = f.Cameras.ByNum(feed.Entries[i].CameraNum)
+		feed.Entries[i].server = f.Server
+		feed.Entries[i].fileEntry = &feed.Entries[i]
+		feed.Entries[i].GmtOffset, _ = strconv.Atoi(feed.GmtOffset)
+		entries = append(entries, &feed.Entries[i])
 	}
 	// ++download automatically paginates. Follow the continuation.
 	if feed.Continuation != "" && feed.Continuation != "FFFFFFFFFFFFFFFF" {
 		moreFiles, err := f.getFiles(cameraNums, from, to, fileType, feed.Continuation)
-		if allFiles = append(allFiles, moreFiles...); err != nil {
+		if entries = append(entries, moreFiles...); err != nil {
 			// We got some files, but one of the pages returned an error.
-			return allFiles, err
+			return entries, err
 		}
 	}
-	return allFiles, nil
+	return entries, nil
 }
 
 // makeFilesParams makes the url Values for a file retreival.

@@ -33,7 +33,8 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 	server.Info = &server.systemInfo.Server
 	server.Files = &files{Server: server}
 	server.Events = &events{Server: server}
-	server.Cameras = &cameras{Server: server}
+	server.Cameras = &Cameras{server: server}
+	server.Cameras.camerasInterface = server.Cameras
 	// Run three API methods to fill in the Server data
 	// structure when a new server is created. Return any error.
 	if err := server.Refresh(); err != nil {
@@ -53,6 +54,7 @@ func (c *Server) Refresh() error {
 	} else if err := xml.Unmarshal(xmldata, c.systemInfo); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++systemInfo)")
 	}
+
 	// Add the name to each assigned Camera Schedule.
 	for i, cam := range c.systemInfo.CameraList.Cameras {
 		c.systemInfo.CameraList.Cameras[i].ScheduleIDA.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleIDA.ID))
@@ -61,8 +63,11 @@ func (c *Server) Refresh() error {
 		c.systemInfo.CameraList.Cameras[i].ScheduleOverrideA.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideA.ID))
 		c.systemInfo.CameraList.Cameras[i].ScheduleOverrideCC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideCC.ID))
 		c.systemInfo.CameraList.Cameras[i].ScheduleOverrideMC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideMC.ID))
+		c.Cameras.Names = append(c.Cameras.Names, cam.Name)
+		c.Cameras.Numbers = append(c.Cameras.Numbers, cam.Number)
 	}
 	c.systemInfo.Server.Refreshed = time.Now()
+	c.Cameras.Count = len(c.systemInfo.CameraList.Cameras)
 	return nil
 }
 

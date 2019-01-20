@@ -19,7 +19,7 @@ func (e Error) Error() string {
 type Server struct {
 	Files      Files
 	Events     Events
-	Cameras    Cameras
+	Cameras    *Cameras
 	Info       *ServerInfo
 	systemInfo *systemInfo
 	verifySSL  bool
