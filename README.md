@@ -2,9 +2,9 @@
 
 Full Featured Go Library for [SecuritySpy](https://www.bensoftware.com/securityspy/)
 
-Feedback is welcomed! Still working on it. Lots of docs to come.
+Everything is reasonably tested and working. Feedback is welcomed! Lots of docs to come.
 
-`ffmpeg` is also used if you want video snippets, but not required for most functions.
+`ffmpeg` is used if you want video snippets, but not required for most functions.
 
 My server doesn't have auth enabled, so I really have no idea if this works with a password. lemme know?
 
