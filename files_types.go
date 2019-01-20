@@ -52,7 +52,7 @@ type File struct {
 	fileEntry
 }
 
-// LinkInfo is part of filesEntry
+// LinkInfo is part of a File
 type LinkInfo struct {
 	Rel    string `xml:"rel,attr"`    // alternate, alternate, alternate
 	Type   string `xml:"type,attr"`   // video/quicktime, video/quicktime
