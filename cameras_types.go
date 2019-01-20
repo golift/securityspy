@@ -64,7 +64,19 @@ type VidOps struct {
 // cameraInterface defines all the public and private elements of a camera.
 type cameraInterface struct {
 	Camera CameraDevice
-	*concourse
+	*Server
+}
+
+// cameras is just a struct for the Cameras interface
+type cameras struct {
+	*Server
+}
+
+// Cameras is a simple interface to access camera data.
+type Cameras interface {
+	All() (cams []Camera)
+	ByNum(number int) Camera
+	ByName(name string) Camera
 }
 
 // CameraDevice defines the data returned from the SecuritySpy API.

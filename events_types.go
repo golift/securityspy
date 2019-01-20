@@ -1,6 +1,9 @@
 package securityspy
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // Error strings used in this file.
 const (
@@ -17,7 +20,13 @@ const (
 var eventTimeFormat = "20060102150405"
 
 type events struct {
-	*concourse
+	StopChan   chan bool
+	EventChan  chan Event
+	EventBinds map[EventName][]func(Event)
+	EventChans map[EventName][]chan Event
+	Running    bool
+	*Server
+	sync.RWMutex // lock for both maps.
 }
 
 // Events is the interface into the event stream.

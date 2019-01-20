@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -16,19 +15,17 @@ func (e Error) Error() string {
 	return string(e)
 }
 
-// concourse is the main interface.
-type concourse struct {
-	SystemInfo *systemInfo
-	StopChan   chan bool
-	EventChan  chan Event
-	Running    bool
-	VerifySSL  bool
-	BaseURL    string
-	AuthB64    string
-	Username   string
-	EventBinds map[EventName][]func(Event)
-	EventChans map[EventName][]chan Event
-	sync.RWMutex
+// Server is the main interface.
+type Server struct {
+	Files      Files
+	Events     Events
+	Cameras    Cameras
+	Info       *ServerInfo
+	systemInfo *systemInfo
+	verifySSL  bool
+	baseURL    string
+	authB64    string
+	username   string
 }
 
 // ServerInfo represents all the SecuritySpy ServerInfo Info
@@ -101,21 +98,4 @@ func (bit *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error 
 	r, _ := strconv.Atoi(bit.Sec)
 	bit.Dur = time.Second * time.Duration(r)
 	return nil
-}
-
-// Server is the interface to the Kingdom, ie concourse.
-type Server interface {
-	// SecuritySpy
-	Info() ServerInfo      // This is the server data struct. Has everything about the server.
-	Refresh() error        // call this once in a while if you build a daemon.
-	RefreshScripts() error // probably useless
-	RefreshSounds() error  // same. no documented methods to do anything with this.
-	// Files (2 sub interfaces)
-	Files() (files Files) // Interface into saved/captured vidoes and images.
-	// Camera(s) (2 sub interfaces)
-	GetCameras() (cams []Camera)              // Camera/PTZ interfaces
-	GetCamera(cameraNum int) (cam Camera)     // Camera/PTZ interfaces
-	GetCameraByName(name string) (cam Camera) // Camera/PTZ interfaces
-	// Events (1 sub interface)
-	Events() (events Events) // Interface into eventStream
 }

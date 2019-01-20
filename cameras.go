@@ -16,31 +16,31 @@ import (
 	"github.com/pkg/errors"
 )
 
-/* Cameras-specific concourse methods are at the top. */
+/* Cameras-specific Server methods are at the top. */
 
-// GetCameras returns interfaces for every camera.
-func (c *concourse) GetCameras() (cams []Camera) {
-	for _, cam := range c.SystemInfo.CameraList.Cameras {
-		cams = append(cams, &cameraInterface{Camera: cam, concourse: c})
+// All returns interfaces for every camera.
+func (c *cameras) All() (cams []Camera) {
+	for _, cam := range c.systemInfo.CameraList.Cameras {
+		cams = append(cams, &cameraInterface{Camera: cam, Server: c.Server})
 	}
 	return
 }
 
-// GetCamera returns an interface for a single camera.
-func (c *concourse) GetCamera(number int) Camera {
-	for _, cam := range c.SystemInfo.CameraList.Cameras {
+// ByNum returns an interface for a single camera.
+func (c *cameras) ByNum(number int) Camera {
+	for _, cam := range c.systemInfo.CameraList.Cameras {
 		if cam.Number == number {
-			return &cameraInterface{Camera: cam, concourse: c}
+			return &cameraInterface{Camera: cam, Server: c.Server}
 		}
 	}
 	return nil
 }
 
-// GetCameraByName returns an interface for a single camera, using the name.
-func (c *concourse) GetCameraByName(name string) Camera {
-	for _, cam := range c.SystemInfo.CameraList.Cameras {
+// ByName returns an interface for a single camera, using the name.
+func (c *cameras) ByName(name string) Camera {
+	for _, cam := range c.systemInfo.CameraList.Cameras {
 		if cam.Name == name {
-			return &cameraInterface{Camera: cam, concourse: c}
+			return &cameraInterface{Camera: cam, Server: c.Server}
 		}
 	}
 	return nil
@@ -63,10 +63,10 @@ func (c *cameraInterface) StreamVideo(ops *VidOps, length time.Duration, maxsize
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
 	params := c.nakeRequestParams(ops)
-	params.Set("auth", c.AuthB64)
+	params.Set("auth", c.authB64)
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.BaseURL, "http", "rtsp", 1) + "++stream"
+	url := strings.Replace(c.baseURL, "http", "rtsp", 1) + "++stream"
 	// RTSP doesn't rewally work with HTTPS, and FFMPEG doesn't care about the cert.
 	args, video, err := f.GetVideo(url+"?"+params.Encode(), c.Camera.Name)
 	return video, errors.Wrap(err, strings.Replace(args, "\n", " ", -1))
@@ -85,10 +85,10 @@ func (c *cameraInterface) SaveVideo(ops *VidOps, length time.Duration, maxsize i
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
 	params := c.nakeRequestParams(ops)
-	params.Set("auth", c.AuthB64)
+	params.Set("auth", c.authB64)
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.BaseURL, "http", "rtsp", 1) + "++stream"
+	url := strings.Replace(c.baseURL, "http", "rtsp", 1) + "++stream"
 	_, out, err := f.SaveVideo(url+"?"+params.Encode(), outputFile, c.Camera.Name)
 	return errors.Wrap(err, strings.Replace(out, "\n", " ", -1))
 }

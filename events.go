@@ -9,17 +9,10 @@ import (
 	"time"
 )
 
-/* Events-specific concourse methods are at the top. */
-
-// Events returns the Events interface.
-func (c *concourse) Events() Events {
-	return events{c}
-}
-
 /* Events interface for eventsInterfcace follows */
 
 // BindFunc binds a call-back function to an Event in SecuritySpy.
-func (e events) BindFunc(event EventName, callBack func(Event)) {
+func (e *events) BindFunc(event EventName, callBack func(Event)) {
 	if callBack == nil {
 		return
 	}
@@ -33,7 +26,7 @@ func (e events) BindFunc(event EventName, callBack func(Event)) {
 }
 
 // BindChan binds a receiving channel to an Event in SecuritySpy.
-func (e events) BindChan(event EventName, channel chan Event) {
+func (e *events) BindChan(event EventName, channel chan Event) {
 	if channel == nil {
 		return
 	}
@@ -47,7 +40,7 @@ func (e events) BindChan(event EventName, channel chan Event) {
 }
 
 // Stop stops Watch() loops
-func (e events) Stop() {
+func (e *events) Stop() {
 	if e.Running {
 		e.Running = false
 		e.StopChan <- e.Running
@@ -55,7 +48,7 @@ func (e events) Stop() {
 }
 
 // UnbindAll removes all event bindings and channels.
-func (e events) UnbindAll() {
+func (e *events) UnbindAll() {
 	e.Lock()
 	defer e.Unlock()
 	e.EventBinds = make(map[EventName][]func(Event))
@@ -63,28 +56,32 @@ func (e events) UnbindAll() {
 }
 
 // UnbindChan removes all bound channels for a particular event.
-func (e events) UnbindChan(event EventName) {
+func (e *events) UnbindChan(event EventName) {
 	e.Lock()
 	defer e.Unlock()
 	delete(e.EventChans, event)
 }
 
 // UnbindFunc removes all bound callbacks for a particular event.
-func (e events) UnbindFunc(event EventName) {
+func (e *events) UnbindFunc(event EventName) {
 	e.Lock()
 	defer e.Unlock()
 	delete(e.EventBinds, event)
 }
 
 // Watch kicks off the routines to watch the eventStream and fire callback bindings.
-func (e events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
+func (e *events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
 	e.Running = true
+	e.EventBinds = make(map[EventName][]func(Event))
+	e.EventChans = make(map[EventName][]chan Event)
+	e.EventChan = make(chan Event, 1)
+	e.StopChan = make(chan bool)
 	go e.eventChannelSelector(refreshOnConfigChange)
 	e.eventStreamScanner(retryInterval)
 }
 
 // Custom fires an event into the running event Watcher.
-func (e events) Custom(cameraNum int, msg string) {
+func (e *events) Custom(cameraNum int, msg string) {
 	if !e.Running {
 		return
 	}
@@ -96,7 +93,7 @@ func (e events) Custom(cameraNum int, msg string) {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // eventStreamScanner connects to the securityspy event stream and fires events into a channel.
-func (e events) eventStreamScanner(retryInterval time.Duration) {
+func (e *events) eventStreamScanner(retryInterval time.Duration) {
 	body, scanner := e.eventStreamConnect(retryInterval)
 	if scanner != nil {
 		scanner.Split(scanLinesCR)
@@ -127,7 +124,7 @@ func (e events) eventStreamScanner(retryInterval time.Duration) {
 }
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
-func (e events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
+func (e *events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
 	resp, err := e.secReq("++eventStream", nil, 0)
 	for err != nil {
 		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " +
@@ -146,7 +143,7 @@ func (e events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, 
 
 // eventChannelSelector watches a few internal channels for events and updates.
 // Fires bound event call back functions.
-func (e events) eventChannelSelector(refreshOnConfigChange bool) {
+func (e *events) eventChannelSelector(refreshOnConfigChange bool) {
 	for {
 		// Watch for new events, a stop signal, or a refresh interval.
 		select {
@@ -170,7 +167,7 @@ func (e events) eventChannelSelector(refreshOnConfigChange bool) {
 }
 
 // parseEvent turns raw text into an Event that can fire callbacks.
-func (e events) parseEvent(text string) Event {
+func (e *events) parseEvent(text string) Event {
 	/* [TIME] is specified in the order year, month, day, hour, minute, second and is always 14 characters long
 		 * [EVENT NUMBER] increases by 1 for each subsequent event
 		 * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15
@@ -207,7 +204,7 @@ func (e events) parseEvent(text string) Event {
 	} else if cameraNum, err := strconv.Atoi(parts[2][3:]); err != nil {
 		newEvent.Camera = nil
 		newEvent.Errors = append(newEvent.Errors, ErrorCAMParseFail)
-	} else if newEvent.Camera = e.GetCamera(cameraNum); newEvent.Camera == nil {
+	} else if newEvent.Camera = e.Cameras.ByNum(cameraNum); newEvent.Camera == nil {
 		newEvent.Errors = append(newEvent.Errors, ErrorCAMParseFail)
 	}
 	// Parse and convert the type string to EventType.
