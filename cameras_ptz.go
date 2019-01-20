@@ -6,10 +6,10 @@ import (
 )
 
 // ptzInterface powers the PTZ interface.
-// It's really an extension of the CameraInterface interface.
+// It's really an extension of the camera interface.
 type ptzInterface struct {
 	Capabilities ptzCapabilities
-	*cameraInterface
+	*camera
 }
 
 // PTZ interface provides access to camera PTZ controls.
@@ -85,7 +85,7 @@ type ptzCapabilities struct {
 /* PTZ-specific concourse methods are at the top. */
 
 // PTZ provides PTZ capabalities of a camera, such as panning, tilting, zomming, speed control, presets, home, etc.
-func (c *cameraInterface) PTZ() PTZ {
+func (c *camera) PTZ() PTZ {
 	return &ptzInterface{
 		Capabilities: ptzCapabilities{
 			// Unmask them bits.
@@ -95,7 +95,7 @@ func (c *cameraInterface) PTZ() PTZ {
 			Presets: c.Camera.PTZcapabilities&ptzPresets == ptzPresets,
 			Speed:   c.Camera.PTZcapabilities&ptzSpeed == ptzSpeed,
 		},
-		cameraInterface: c,
+		camera: c,
 	}
 }
 
