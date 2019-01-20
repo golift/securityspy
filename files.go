@@ -18,12 +18,19 @@ import (
 // fileDateFormat is the format the SecuritySpy ++download method accepts.
 var fileDateFormat = "01/02/06"
 
+// Errors returned by this file.
+const (
+	ErrorPathExists  = Error("cannot overwrite existing path")
+	ErrorNoExtension = Error("missing file extension")
+	ErrorInvalidName = Error("invalid file name")
+)
+
 // Files interface allows searching for saved files.
 type Files interface {
 	GetAll(cameraNums []int, from, to time.Time) ([]File, error)
 	GetPhotos(cameraNums []int, from, to time.Time) ([]File, error)
 	GetVideos(cameraNums []int, from, to time.Time) ([]File, error)
-	GetFile(name string) (file io.ReadCloser, err error)
+	GetFile(name string) (file File, err error)
 }
 
 // filesData powers the Files interface.
@@ -44,13 +51,8 @@ type fileFeed struct {
 
 // filesEntry represents a saved media file.
 type filesEntry struct {
-	Title string `xml:"title"` // 01-12-2019 M Gate.m4v, 01...
-	Link  struct {
-		Rel    string `xml:"rel,attr"`    // alternate, alternate, alternate
-		Type   string `xml:"type,attr"`   // video/quicktime, video/quicktime
-		Length int64  `xml:"length,attr"` // 358472320, 483306152, 900789978,
-		HREF   string `xml:"href,attr"`   // ++getfile/4/2018-10-17/10-17-2018+M+Gate.m4v
-	} `xml:"link"`
+	Title     string    `xml:"title"` // 01-12-2019 M Gate.m4v, 01...
+	Link      linkInfo  `xml:"link"`
 	Updated   time.Time `xml:"updated"`   // 2019-01-12T08:57:58Z, 201...
 	CameraNum int       `xml:"cameraNum"` // 0, 1, 2, 4, 5, 7, 9, 10, 11, 12, 13
 	GmtOffset int
@@ -58,16 +60,24 @@ type filesEntry struct {
 	camera    Camera
 }
 
+// linkInfo is part of filesEntry
+type linkInfo struct {
+	Rel    string `xml:"rel,attr"`    // alternate, alternate, alternate
+	Type   string `xml:"type,attr"`   // video/quicktime, video/quicktime
+	Length int64  `xml:"length,attr"` // 358472320, 483306152, 900789978,
+	HREF   string `xml:"href,attr"`   // ++getfile/4/2018-10-17/10-17-2018+M+Gate.m4v
+}
+
 // File is used to do something with a filesEntry.
 type File interface {
 	Name() string
 	Size() int64
 	Type() string
-	Date() time.Time
 	Offset() int
-	Save(path string) error
+	Date() time.Time
 	Camera() Camera
-	Stream() (io.ReadCloser, error)
+	Save(path string) (size int64, err error)
+	Get() (io.ReadCloser, error)
 }
 
 /* Files-specific concourse methods are at the top. */
@@ -110,26 +120,29 @@ func (f *filesEntry) Camera() Camera {
 }
 
 // Save downloads a link from SecuritySpy and saves it to a file.
-func (f *filesEntry) Save(path string) error {
+func (f *filesEntry) Save(path string) (int64, error) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return ErrorPathExists
+		return 0, ErrorPathExists
 	}
-	resp, err := f.server.secReq(f.Link.HREF, make(url.Values), 10*time.Second)
+	body, err := f.Get()
 	if err != nil {
-		return err
+		return 0, err
 	}
+	defer func() {
+		_ = body.Close()
+	}()
 	newFile, err := os.Create(path)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() {
 		_ = newFile.Close()
 	}()
-	return resp.Write(newFile)
+	return io.Copy(newFile, body)
 }
 
 // Stream opens a file from a SecuritySpy link and returns the http.Body io.ReadCloser.
-func (f *filesEntry) Stream() (io.ReadCloser, error) {
+func (f *filesEntry) Get() (io.ReadCloser, error) {
 	resp, err := f.server.secReq(f.Link.HREF, make(url.Values), 10*time.Second)
 	if err != nil {
 		return nil, err
@@ -155,28 +168,42 @@ func (f filesData) GetVideos(cameraNums []int, from, to time.Time) ([]File, erro
 }
 
 // GetFile returns a file based on the name. It makes a lot of assumptions about file paths.
-func (f filesData) GetFile(name string) (file io.ReadCloser, err error) {
-	//	++getfile/0/2019-01-18/01-18-2019+10-17-53 M Porch.m4v
-	//  ++getfile/5/2019-01-18/01-18-2019 M Pool.m4v
-	nameOnly := strings.Split(name, ".")[0]
+// Not all methods work with this. Avoid it if possible. This allows Get() and Save() to work.
+func (f filesData) GetFile(name string) (File, error) {
+	//	01-18-2019 10-17-53 M Porch.m4v => ++getfile/0/2019-01-18/01-18-2019+10-17-53+M+Porch.m4v
+	newFile := &filesEntry{
+		Title: name,
+		Link: linkInfo{
+			Type: "video/quicktime",
+			HREF: "++getfile/",
+		},
+		server: f.concourse,
+	}
+	if strings.Count(name, ".") != 1 {
+		return nil, ErrorNoExtension
+	}
+	split := strings.Split(name, ".")
+	if split[1] == "jpg" {
+		newFile.Link.Type = "image/jpeg"
+	}
+	nameOnly := split[0]
 	splitName := strings.Split(nameOnly, " ")
 	if len(splitName) < 2 {
-		return nil, ErrorCAMMissing
+		return nil, ErrorInvalidName
 	}
 	dateOnly := splitName[0]
 	camName := splitName[len(splitName)-1]
 	dateParts := strings.Split(dateOnly, "-")
 	if len(dateParts) != 3 {
-		return nil, ErrorCAMMissing
+		return nil, ErrorInvalidName
 	}
 	pathDate := dateParts[2] + "-" + dateParts[0] + "-" + dateParts[1]
-	camera := f.GetCameraByName(camName)
-	if camera == nil {
+	newFile.camera = f.GetCameraByName(camName)
+	if newFile.camera == nil {
 		return nil, ErrorCAMMissing
 	}
-	filePath := "++getfile/" + camera.Num() + "/" + pathDate + "/" + url.QueryEscape(name)
-	resp, err := f.secReq(filePath, nil, 10*time.Second)
-	return resp.Body, err
+	newFile.Link.HREF += newFile.camera.Num() + "/" + pathDate + "/" + url.QueryEscape(name)
+	return newFile, nil
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */

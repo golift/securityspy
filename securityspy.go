@@ -99,9 +99,13 @@ func (c *concourse) secReq(apiPath string, params url.Values, timeout time.Durat
 		return resp, errors.Wrap(err, "http.NewRequest()")
 	}
 	params.Set("auth", c.AuthB64)
-	params.Set("format", "xml")
+	if a := apiPath; !strings.HasPrefix(a, "++getfile") && !strings.HasPrefix(a, "++event") &&
+		!strings.HasPrefix(a, "++image") && !strings.HasPrefix(a, "++audio") &&
+		!strings.HasPrefix(a, "++stream") && !strings.HasPrefix(a, "++video") {
+		params.Set("format", "xml")
+		req.Header.Add("Accept", "application/xml")
+	}
 	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Accept", "application/xml")
 	resp, err = a.Do(req)
 	if err != nil {
 		return resp, errors.Wrap(err, "http.Do(req)")

@@ -10,7 +10,6 @@ const (
 	ErrorCAMMissing    = Error("CAM missing")
 	ErrorDateParseFail = Error("timestamp parse failed")
 	ErrorUnknownError  = Error("unknown error")
-	ErrorPathExists    = Error("cannot overwrite existing path")
 	ErrorDisconnect    = Error("event stream disconnected")
 )
 
