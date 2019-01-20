@@ -20,11 +20,9 @@ const (
 var eventTimeFormat = "20060102150405"
 
 type events struct {
-	StopChan   chan bool
-	EventChan  chan Event
-	EventBinds map[EventName][]func(Event)
-	EventChans map[EventName][]chan Event
-	Running    bool
+	stopChan  chan bool
+	eventChan chan Event
+	Running   bool
 	*Server
 	sync.RWMutex // lock for both maps.
 }

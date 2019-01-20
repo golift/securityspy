@@ -26,6 +26,8 @@ type Server struct {
 	baseURL    string
 	authB64    string
 	username   string
+	eventBinds map[EventName][]func(Event)
+	eventChans map[EventName][]chan Event
 }
 
 // ServerInfo represents all the SecuritySpy ServerInfo Info

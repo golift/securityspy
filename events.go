@@ -18,11 +18,11 @@ func (e *events) BindFunc(event EventName, callBack func(Event)) {
 	}
 	e.Lock()
 	defer e.Unlock()
-	if val, ok := e.EventBinds[event]; ok {
-		e.EventBinds[event] = append(val, callBack)
+	if val, ok := e.eventBinds[event]; ok {
+		e.eventBinds[event] = append(val, callBack)
 		return
 	}
-	e.EventBinds[event] = []func(Event){callBack}
+	e.eventBinds[event] = []func(Event){callBack}
 }
 
 // BindChan binds a receiving channel to an Event in SecuritySpy.
@@ -32,18 +32,18 @@ func (e *events) BindChan(event EventName, channel chan Event) {
 	}
 	e.Lock()
 	defer e.Unlock()
-	if val, ok := e.EventChans[event]; ok {
-		e.EventChans[event] = append(val, channel)
+	if val, ok := e.eventChans[event]; ok {
+		e.eventChans[event] = append(val, channel)
 		return
 	}
-	e.EventChans[event] = []chan Event{channel}
+	e.eventChans[event] = []chan Event{channel}
 }
 
 // Stop stops Watch() loops
 func (e *events) Stop() {
 	if e.Running {
 		e.Running = false
-		e.StopChan <- e.Running
+		e.stopChan <- e.Running
 	}
 }
 
@@ -51,31 +51,29 @@ func (e *events) Stop() {
 func (e *events) UnbindAll() {
 	e.Lock()
 	defer e.Unlock()
-	e.EventBinds = make(map[EventName][]func(Event))
-	e.EventChans = make(map[EventName][]chan Event)
+	e.eventBinds = make(map[EventName][]func(Event))
+	e.eventChans = make(map[EventName][]chan Event)
 }
 
 // UnbindChan removes all bound channels for a particular event.
 func (e *events) UnbindChan(event EventName) {
 	e.Lock()
 	defer e.Unlock()
-	delete(e.EventChans, event)
+	delete(e.eventChans, event)
 }
 
 // UnbindFunc removes all bound callbacks for a particular event.
 func (e *events) UnbindFunc(event EventName) {
 	e.Lock()
 	defer e.Unlock()
-	delete(e.EventBinds, event)
+	delete(e.eventBinds, event)
 }
 
 // Watch kicks off the routines to watch the eventStream and fire callback bindings.
 func (e *events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
 	e.Running = true
-	e.EventBinds = make(map[EventName][]func(Event))
-	e.EventChans = make(map[EventName][]chan Event)
-	e.EventChan = make(chan Event, 1)
-	e.StopChan = make(chan bool)
+	e.eventChan = make(chan Event, 1)
+	e.stopChan = make(chan bool)
 	go e.eventChannelSelector(refreshOnConfigChange)
 	e.eventStreamScanner(retryInterval)
 }
@@ -85,7 +83,7 @@ func (e *events) Custom(cameraNum int, msg string) {
 	if !e.Running {
 		return
 	}
-	e.EventChan <- e.parseEvent(time.Now().Format(eventTimeFormat) +
+	e.eventChan <- e.parseEvent(time.Now().Format(eventTimeFormat) +
 		" -11000 CAM" + strconv.Itoa(cameraNum) + " " +
 		EventStreamCustom.String() + " " + msg)
 }
@@ -108,13 +106,13 @@ func (e *events) eventStreamScanner(retryInterval time.Duration) {
 		// Constantly scan for new events, then report them to the event channel.
 		if scanner != nil && scanner.Scan() {
 			if text := scanner.Text(); strings.Count(text, " ") > 2 {
-				e.EventChan <- e.parseEvent(text)
+				e.eventChan <- e.parseEvent(text)
 			}
 		}
 		if err := scanner.Err(); err != nil {
 			raw := time.Now().Format(eventTimeFormat) + " -10000 CAM " +
 				EventStreamDisconnect.String() + " " + err.Error()
-			e.EventChan <- e.parseEvent(raw)
+			e.eventChan <- e.parseEvent(raw)
 			_ = body.Close()
 			time.Sleep(retryInterval)
 			body, scanner = e.eventStreamConnect(retryInterval)
@@ -129,7 +127,7 @@ func (e *events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser,
 	for err != nil {
 		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " +
 			EventStreamDisconnect.String() + " " + err.Error()
-		e.EventChan <- e.parseEvent(raw)
+		e.eventChan <- e.parseEvent(raw)
 		time.Sleep(retryInterval)
 		if !e.Running {
 			return nil, nil
@@ -137,7 +135,7 @@ func (e *events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser,
 		resp, err = e.secReq("++eventStream", nil, 0)
 	}
 	raw := time.Now().Format(eventTimeFormat) + " -1 CAM " + EventStreamConnect.String()
-	e.EventChan <- e.parseEvent(raw)
+	e.eventChan <- e.parseEvent(raw)
 	return resp.Body, bufio.NewScanner(resp.Body)
 }
 
@@ -147,12 +145,12 @@ func (e *events) eventChannelSelector(refreshOnConfigChange bool) {
 	for {
 		// Watch for new events, a stop signal, or a refresh interval.
 		select {
-		case <-e.StopChan:
+		case <-e.stopChan:
 			return
-		case event := <-e.EventChan:
+		case event := <-e.eventChan:
 			e.RLock()
-			event.callBacks(e.EventBinds)
-			event.eventChans(e.EventChans)
+			event.callBacks(e.eventBinds)
+			event.eventChans(e.eventChans)
 			e.RUnlock()
 			if refreshOnConfigChange && event.Event == EventConfigChange {
 				raw := time.Now().Format(eventTimeFormat) + " -9998 CAM " + EventWatcherRefreshed.String()
@@ -160,7 +158,7 @@ func (e *events) eventChannelSelector(refreshOnConfigChange bool) {
 					raw = time.Now().Format(eventTimeFormat) + " -9997 CAM " +
 						EventWatcherRefreshFail.String() + " " + err.Error()
 				}
-				e.EventChan <- e.parseEvent(raw)
+				e.eventChan <- e.parseEvent(raw)
 			}
 		}
 	}

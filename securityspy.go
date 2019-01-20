@@ -26,6 +26,8 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 		authB64:    base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
 		username:   user,
 		verifySSL:  verifySSL,
+		eventBinds: make(map[EventName][]func(Event)),
+		eventChans: make(map[EventName][]chan Event),
 	}
 	// Assign all the sub-interface structs.
 	server.Info = &server.systemInfo.Server
