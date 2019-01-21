@@ -19,10 +19,10 @@ import (
 // All returns interfaces for every camera.
 func (c *Cameras) All() (cams []*Camera) {
 	for _, cam := range c.server.systemInfo.CameraList.Cameras {
-		newCam := &Camera{CameraDevice: cam, server: c.server}
-		// Add cameras' interfaces to sub interfaces.
-		newCam.PTZ.camera = newCam
-		cams = append(cams, newCam)
+		// Add cameras' pointer to sub interfaces.
+		cam.server = c.server
+		cam.PTZ.camera = cam
+		cams = append(cams, cam)
 	}
 	return
 }
@@ -31,10 +31,9 @@ func (c *Cameras) All() (cams []*Camera) {
 func (c *Cameras) ByNum(number int) *Camera {
 	for _, cam := range c.server.systemInfo.CameraList.Cameras {
 		if cam.Number == number {
-			newCam := &Camera{CameraDevice: cam, server: c.server}
-			// Add camera interface to sub interface(s).
-			newCam.PTZ.camera = newCam
-			return newCam
+			cam.server = c.server
+			cam.PTZ.camera = cam
+			return cam
 		}
 	}
 	return nil
@@ -44,16 +43,14 @@ func (c *Cameras) ByNum(number int) *Camera {
 func (c *Cameras) ByName(name string) *Camera {
 	for _, cam := range c.server.systemInfo.CameraList.Cameras {
 		if cam.Name == name {
-			newCam := &Camera{CameraDevice: cam, server: c.server}
-			// Add camera interface to sub interface(s).
-			newCam.PTZ.camera = newCam
-			return newCam
+			// Add camera pointer to sub interface(s).
+			cam.server = c.server
+			cam.PTZ.camera = cam
+			return cam
 		}
 	}
 	return nil
 }
-
-/* Camera interface for camera follows */
 
 // StreamVideo streams a segment of video from a camera using FFMPEG.
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
@@ -176,18 +173,18 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 	return jpeg.Encode(f, jpgImage, nil)
 }
 
-// ContinuousCapture arms (true) or disarms (false).
-func (c *Camera) ContinuousCapture(arm CameraArmMode) error {
+// ToggleContinuous arms (true) or disarms (false).
+func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
 	return c.simpleReq("++ssControlContinuous", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
 }
 
-// Actions arms (true) or disarms (false).
-func (c *Camera) Actions(arm CameraArmMode) error {
+// ToggleActions arms (true) or disarms (false).
+func (c *Camera) ToggleActions(arm CameraArmMode) error {
 	return c.simpleReq("++ssControlActions", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
 }
 
-// MotionCapture arms (true) or disarms (false).
-func (c *Camera) MotionCapture(arm CameraArmMode) error {
+// ToggleMotion arms (true) or disarms (false).
+func (c *Camera) ToggleMotion(arm CameraArmMode) error {
 	return c.simpleReq("++ssControlMotionCapture", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
 }
 

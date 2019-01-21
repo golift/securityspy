@@ -26,15 +26,16 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 		authB64:    base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
 		username:   user,
 		verifySSL:  verifySSL,
-		eventBinds: make(map[EventName][]func(Event)),
-		eventChans: make(map[EventName][]chan Event),
 	}
 	// Assign all the sub-interface structs.
 	server.Info = &server.systemInfo.Server
-	server.Files = &files{Server: server}
-	server.Events = &events{Server: server}
+	server.Files = &Files{server: server}
 	server.Cameras = &Cameras{server: server}
-	server.Cameras.camerasInterface = server.Cameras
+	server.Events = &Events{server: server,
+		eventBinds: make(map[EventType][]func(Event)),
+		eventChans: make(map[EventType][]chan Event),
+	}
+
 	// Run three API methods to fill in the Server data
 	// structure when a new server is created. Return any error.
 	if err := server.Refresh(); err != nil {
