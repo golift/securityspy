@@ -17,21 +17,19 @@ func (e Error) Error() string {
 
 // Server is the main interface.
 type Server struct {
-	Files      Files
-	Events     Events
-	Cameras    *Cameras
-	Info       *ServerInfo
 	systemInfo *systemInfo
 	verifySSL  bool
 	baseURL    string
 	authB64    string
 	username   string
-	eventBinds map[EventName][]func(Event)
-	eventChans map[EventName][]chan Event
+	Files      *Files
+	Events     *Events
+	Cameras    *Cameras
+	Info       *serverInfo
 }
 
-// ServerInfo represents all the SecuritySpy ServerInfo Info
-type ServerInfo struct {
+// serverInfo represents all the SecuritySpy serverInfo Info
+type serverInfo struct {
 	Name             string    `xml:"name"`             // SecuritySpy
 	Version          string    `xml:"version"`          // 4.2.9
 	UUID             string    `xml:"uuid"`             // C03L1333F8J3AkXIZS1O
@@ -61,9 +59,9 @@ type ServerInfo struct {
 // systemInfo reresents ++systemInfo
 type systemInfo struct {
 	XMLName    xml.Name   `xml:"system"`
-	Server     ServerInfo `xml:"server"`
+	Server     serverInfo `xml:"server"`
 	CameraList struct {
-		Cameras []CameraDevice `xml:"camera"`
+		Cameras []*Camera `xml:"camera"`
 	} `xml:"cameralist"`
 	ScheduleList struct {
 		Schedules []schedule `xml:"schedule"`
@@ -90,14 +88,14 @@ func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
 
 // Duration is used to convert the "Seconnds" given to us by the securityspy API into a go time.Duration.
 type Duration struct {
-	Dur time.Duration
-	Sec string
+	time.Duration
+	Seconds string
 }
 
 // UnmarshalXML method converts seconds to time.Duration.
 func (bit *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	_ = d.DecodeElement(&bit.Sec, &start)
-	r, _ := strconv.Atoi(bit.Sec)
-	bit.Dur = time.Second * time.Duration(r)
+	_ = d.DecodeElement(&bit.Seconds, &start)
+	r, _ := strconv.Atoi(bit.Seconds)
+	bit.Duration = time.Second * time.Duration(r)
 	return nil
 }

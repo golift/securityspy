@@ -2,9 +2,6 @@ package securityspy
 
 import (
 	"encoding/xml"
-	"image"
-	"io"
-	"time"
 )
 
 // Encoder is the path to ffmpeg.
@@ -26,7 +23,23 @@ const (
 	CameraArm
 )
 
-// CameraSchedule contains schedule info for a camera properties.
+// VidOps are the options for a video that can be requested from SecuritySpy
+type VidOps struct {
+	Width   int
+	Height  int
+	FPS     int
+	Quality int
+}
+
+// Cameras is an interface
+type Cameras struct {
+	server  *Server
+	Count   int
+	Names   []string
+	Numbers []int
+}
+
+// CameraSchedule contains schedule info for a camera's properties.
 type CameraSchedule struct {
 	Name string
 	ID   int
@@ -37,39 +50,9 @@ func (bit *CameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) 
 	return d.DecodeElement(&bit.ID, &start)
 }
 
-// VidOps are the options for a video that can be requested from SecuritySpy
-type VidOps struct {
-	Width   int
-	Height  int
-	FPS     int
-	Quality int
-}
-
-// Camera defines all the public and private elements of a camera.
+// Camera defines the data returned from the SecuritySpy API.
 type Camera struct {
-	CameraDevice
-	cameraInterface
-	server *Server
-}
-
-// Cameras is just a struct for the Cameras interface
-type Cameras struct {
-	server *Server
-	camerasInterface
-	Count   int
-	Names   []string
-	Numbers []int
-}
-
-// camerasInterface is a simple interface to access camera data.
-type camerasInterface interface {
-	All() (cams []*Camera)
-	ByNum(number int) *Camera
-	ByName(name string) *Camera
-}
-
-// CameraDevice defines the data returned from the SecuritySpy API.
-type CameraDevice struct {
+	server              *Server
 	Number              int            `xml:"number"`               // 0, 1, 2, 3, 4, 5, 6
 	Connected           YesNoBool      `xml:"connected"`            // yes, yes, yes, yes, yes, ...
 	Width               int            `xml:"width"`                // 2560, 2592, 2592, 3072, 2...
@@ -79,7 +62,7 @@ type CameraDevice struct {
 	ModeM               YesNoBool      `xml:"mode-m"`               // armed, armed, armed, arme...
 	ModeA               YesNoBool      `xml:"mode-a"`               // armed, armed, armed, arme...
 	HasAudio            YesNoBool      `xml:"hasaudio"`             // yes, yes, no, yes, yes, y...
-	PTZ                 PTZ            `xml:"ptzcapabilities"`      // 0, 0, 31, 0, 0, 0, 0
+	PTZ                 *PTZ           `xml:"ptzcapabilities"`      // 0, 0, 31, 0, 0, 0, 0
 	TimeSinceLastFrame  Duration       `xml:"timesincelastframe"`   // 0, 0, 0, 0, 0, 0, 0
 	TimeSinceLastMotion Duration       `xml:"timesincelastmotion"`  // 689, 3796, 201, 12477, 15...
 	DeviceName          string         `xml:"devicename"`           // ONVIF, ONVIF, ONVIF, ONVI...
@@ -127,20 +110,4 @@ type CameraDevice struct {
 	PresetName7         string         `xml:"preset-name-7"`
 	PresetName8         string         `xml:"preset-name-8"`
 	Permissions         int64          `xml:"permissions"` // 63167, 63167, 62975, 6316...
-}
-
-// The cameraInterface interface is used to manipulate and acquire data from cameras.
-type cameraInterface interface {
-	TriggerMotion() error
-	ToggleArmActions(arm CameraArmMode) error
-	ToggleArmMotion(arm CameraArmMode) error
-	ToggleArmContinuous(arm CameraArmMode) error
-	StreamG711() (audio io.ReadCloser, err error)
-	PostG711(audio io.ReadCloser) error
-	GetJPEG(ops *VidOps) (image.Image, error)
-	SaveJPEG(ops *VidOps, path string) error
-	StreamMJPG(ops *VidOps) (video io.ReadCloser, err error)
-	StreamH264(ops *VidOps) (video io.ReadCloser, err error)
-	SaveVideo(ops *VidOps, length time.Duration, maxSize int64, outputFile string) error
-	StreamVideo(ops *VidOps, length time.Duration, maxSize int64) (video io.ReadCloser, err error)
 }
