@@ -55,6 +55,7 @@ func (f *Files) GetFile(name string) (*File, error) {
 		return nil, ErrorInvalidName
 	}
 	camName := split[len(split)-1]
+	// Arbitrary date format we hope doesn't change.
 	when, err := time.Parse("01-02-2006", split[0])
 	if err != nil {
 		return nil, ErrorInvalidName

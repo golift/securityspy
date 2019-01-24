@@ -207,7 +207,7 @@ func (c *Camera) SetSchedule(mode CameraMode, schedule Schedule) error {
 	return c.server.simpleReq("++ssSetSchedule", params, c.Number)
 }
 
-// SetScheduleOverride temporarily overrides a camera mode's primary schedule.
+// SetScheduleOverride temporarily overrides a camera mode's current schedule.
 func (c *Camera) SetScheduleOverride(mode CameraMode, schedule Schedule) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
