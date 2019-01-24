@@ -95,10 +95,10 @@ func (e *Events) Stop() {
 
 // UnbindAll removes all event bindings and channels.
 func (e *Events) UnbindAll() {
-	e.chans.Lock()
-	defer e.chans.Unlock()
 	e.binds.Lock()
+	e.chans.Lock()
 	defer e.binds.Unlock()
+	defer e.chans.Unlock()
 	e.eventBinds = make(map[EventType][]func(Event))
 	e.eventChans = make(map[EventType][]chan Event)
 }
@@ -120,7 +120,7 @@ func (e *Events) UnbindFunc(event EventType) {
 // Watch kicks off the routines to watch the eventStream and fire callback bindings.
 func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
 	e.Running = true
-	e.eventChan = make(chan Event, 10)
+	e.eventChan = make(chan Event, 10) // allow 10 events to buffer
 	e.stopChan = make(chan bool)
 	go e.eventChannelSelector(refreshOnConfigChange)
 	e.eventStreamScanner(retryInterval)
