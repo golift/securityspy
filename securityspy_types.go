@@ -17,19 +17,19 @@ func (e Error) Error() string {
 
 // Server is the main interface.
 type Server struct {
-	systemInfo *systemInfo
 	verifySSL  bool
 	baseURL    string
 	authB64    string
 	username   string
+	systemInfo *systemInfo
 	Files      *Files
 	Events     *Events
 	Cameras    *Cameras
-	Info       *serverInfo
+	Info       *ServerInfo
 }
 
-// serverInfo represents all the SecuritySpy serverInfo Info
-type serverInfo struct {
+// ServerInfo represents all the SecuritySpy ServerInfo Info
+type ServerInfo struct {
 	Name             string    `xml:"name"`             // SecuritySpy
 	Version          string    `xml:"version"`          // 4.2.9
 	UUID             string    `xml:"uuid"`             // C03L1333F8J3AkXIZS1O
@@ -46,6 +46,10 @@ type serverInfo struct {
 	HTTPSEnabled     YesNoBool `xml:"https-enabled"`  // no
 	HTTPSPort        int       `xml:"https-port"`     // 8001
 	HTTPSPortWan     int       `xml:"https-port-wan"` // 8001
+	CurrentTime      time.Time `xml:"current-local-time"`
+	GmtOffset        int       `xml:"seconds-from-gmt"`
+	DateFormat       string    `xml:"date-format"`
+	TimeFormat       string    `xml:"time-format"`
 	Refreshed        time.Time // updated by Refresh()
 	// These are shoehorned in.
 	Scripts struct {
@@ -59,15 +63,15 @@ type serverInfo struct {
 // systemInfo reresents ++systemInfo
 type systemInfo struct {
 	XMLName    xml.Name   `xml:"system"`
-	Server     serverInfo `xml:"server"`
+	Server     ServerInfo `xml:"server"`
 	CameraList struct {
 		Cameras []*Camera `xml:"camera"`
 	} `xml:"cameralist"`
 	ScheduleList struct {
-		Schedules []schedule `xml:"schedule"`
+		Schedules []Schedule `xml:"schedule"`
 	} `xml:"schedulelist"`
 	SchedulePresetList struct {
-		SchedulePresets []schedulePresets `xml:"schedulepreset"`
+		SchedulePresets []Schedule `xml:"schedulepreset"`
 	} `xml:"schedulepresetlist"`
 }
 

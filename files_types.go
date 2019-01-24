@@ -6,7 +6,7 @@ import (
 )
 
 // fileDateFormat is the format the SecuritySpy ++download method accepts.
-var fileDateFormat = "01/02/06"
+var fileDateFormat = "2006-01-02"
 
 // Errors returned by this file.
 const (

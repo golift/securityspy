@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/jpeg"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strconv"
@@ -175,44 +174,48 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 
 // ToggleContinuous arms (true) or disarms (false).
 func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
-	return c.simpleReq("++ssControlContinuous", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
+	params := make(url.Values)
+	params.Set("arm", string(arm))
+	return c.server.simpleReq("++ssControlContinuous", params, c.Number)
 }
 
 // ToggleActions arms (true) or disarms (false).
 func (c *Camera) ToggleActions(arm CameraArmMode) error {
-	return c.simpleReq("++ssControlActions", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
+	params := make(url.Values)
+	params.Set("arm", string(arm))
+	return c.server.simpleReq("++ssControlActions", params, c.Number)
 }
 
 // ToggleMotion arms (true) or disarms (false).
 func (c *Camera) ToggleMotion(arm CameraArmMode) error {
-	return c.simpleReq("++ssControlMotionCapture", url.Values{"arm": []string{strconv.Itoa(int(arm))}})
+	params := make(url.Values)
+	params.Set("arm", string(arm))
+	return c.server.simpleReq("++ssControlMotionCapture", params, c.Number)
 }
 
 // TriggerMotion sets a camera as currently seeing motion.
 // Other actions likely occur because of this!
 func (c *Camera) TriggerMotion() error {
-	return c.simpleReq("++triggermd", make(url.Values))
+	return c.server.simpleReq("++triggermd", make(url.Values), c.Number)
+}
+
+// SetSchedule configures a camera mode's primary schedule.
+func (c *Camera) SetSchedule(mode CameraMode, schedule Schedule) error {
+	params := make(url.Values)
+	params.Set("mode", string(mode))
+	params.Set("id", strconv.Itoa(schedule.ID))
+	return c.server.simpleReq("++ssSetSchedule", params, c.Number)
+}
+
+// SetScheduleOverride temporarily overrides a camera mode's primary schedule.
+func (c *Camera) SetScheduleOverride(mode CameraMode, schedule Schedule) error {
+	params := make(url.Values)
+	params.Set("mode", string(mode))
+	params.Set("id", strconv.Itoa(schedule.ID))
+	return c.server.simpleReq("++ssSetOverride", params, c.Number)
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
-
-// simpleReq performes HTTP req, checks for OK at end of output.
-func (c *Camera) simpleReq(apiURI string, params url.Values) error {
-	params.Set("cameraNum", strconv.Itoa(c.Number))
-	resp, err := c.server.secReq(apiURI, params, 10*time.Second)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	if body, err := ioutil.ReadAll(resp.Body); err != nil {
-		return err
-	} else if !strings.HasSuffix(string(body), "OK") {
-		return ErrorCmdNotOK
-	}
-	return nil
-}
 
 // nakeRequestParams converts passed in ops to url.Values
 func (c *Camera) nakeRequestParams(ops *VidOps) url.Values {

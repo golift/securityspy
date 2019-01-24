@@ -15,12 +15,12 @@ const (
 )
 
 // CameraArmMode locks arming to an integer of 0 or 1.
-type CameraArmMode int
+type CameraArmMode rune
 
 // Arming is either 0 or 1.
 const (
-	CameraDisarm CameraArmMode = iota
-	CameraArm
+	CameraDisarm CameraArmMode = 0
+	CameraArm    CameraArmMode = 1
 )
 
 // VidOps are the options for a video that can be requested from SecuritySpy
@@ -78,7 +78,7 @@ type Camera struct {
 	AudioNetwork        YesNoBool      `xml:"audio_network"`        // yes, yes, yes, yes, yes, ...
 	AudioDeviceName     string         `xml:"audio_devicename"`     // Another Camera
 	MDenabled           YesNoBool      `xml:"md_enabled"`           // yes, yes, yes, yes, yes, ...
-	MDsensitivity       int            `xml:"md_sensitivity"`       // 51, 50, 47, 50, 50, 50, 5...  - this got returned twice under different key names.
+	MDsensitivity       int            `xml:"md_sensitivity"`       // 51, 50, 47, 50, 50, 50, 5...
 	MDtriggerTimeX2     Duration       `xml:"md_triggertime_x2"`    // 2, 2, 1, 2, 2, 2, 2
 	MDcapture           YesNoBool      `xml:"md_capture"`           // yes, yes, yes, yes, yes, ...
 	MDcaptureFPS        float64        `xml:"md_capturefps"`        // 20, 20, 20, 20, 20, 20, 2...
