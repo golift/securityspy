@@ -11,7 +11,7 @@ import (
 	"time"
 
 	// Because I didn't feel like dealing with RTSP in Go. Maybe one day.
-	ffmpeg "github.com/davidnewhall/go-securityspy/ffmpegencode"
+	ffmpeg "github.com/golift/securityspy/ffmpegencode"
 	"github.com/pkg/errors"
 )
 
