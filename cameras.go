@@ -61,7 +61,9 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
 	params := c.nakeRequestParams(ops)
-	params.Set("auth", c.server.authB64)
+	if c.server.authB64 != "" {
+		params.Set("auth", c.server.authB64)
+	}
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.server.baseURL, "http", "rtsp", 1) + "++stream"
@@ -83,7 +85,9 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
 	params := c.nakeRequestParams(ops)
-	params.Set("auth", c.server.authB64)
+	if c.server.authB64 != "" {
+		params.Set("auth", c.server.authB64)
+	}
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.server.baseURL, "http", "rtsp", 1) + "++stream"
@@ -208,10 +212,10 @@ func (c *Camera) SetSchedule(mode CameraMode, schedule Schedule) error {
 }
 
 // SetScheduleOverride temporarily overrides a camera mode's current schedule.
-func (c *Camera) SetScheduleOverride(mode CameraMode, schedule Schedule) error {
+func (c *Camera) SetScheduleOverride(mode CameraMode, scheduleOverride ScheduleOverride) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
-	params.Set("id", strconv.Itoa(schedule.ID))
+	params.Set("id", string(scheduleOverride))
 	return c.server.simpleReq("++ssSetOverride", params, c.Number)
 }
 

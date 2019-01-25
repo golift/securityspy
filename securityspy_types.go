@@ -15,7 +15,8 @@ func (e Error) Error() string {
 	return string(e)
 }
 
-// Server is the main interface.
+// Server is the main interface for this library.
+// Contains sub-interfaces for cameras, ptz, files & events
 type Server struct {
 	verifySSL  bool
 	baseURL    string
@@ -28,7 +29,7 @@ type Server struct {
 	Info       *ServerInfo
 }
 
-// ServerInfo represents all the SecuritySpy ServerInfo Info
+// ServerInfo represents all the SecuritySpy server's information.
 type ServerInfo struct {
 	Name             string    `xml:"name"`             // SecuritySpy
 	Version          string    `xml:"version"`          // 4.2.9
@@ -51,13 +52,10 @@ type ServerInfo struct {
 	DateFormat       string    `xml:"date-format"`
 	TimeFormat       string    `xml:"time-format"`
 	Refreshed        time.Time // updated by Refresh()
-	// These are shoehorned in.
-	Scripts struct {
-		Names []string `xml:"name"`
-	} `xml:"scripts"`
-	Sounds struct {
-		Names []string `xml:"name"`
-	} `xml:"sounds"`
+	ScriptsNames     []string
+	SoundsNames      []string
+	Schedules        []Schedule
+	SchedulePresets  []SchedulePreset
 }
 
 // systemInfo reresents ++systemInfo
@@ -67,12 +65,20 @@ type systemInfo struct {
 	CameraList struct {
 		Cameras []*Camera `xml:"camera"`
 	} `xml:"cameralist"`
+	// All of these sub-lists get copied into ServerInfo by Refresh()
 	ScheduleList struct {
 		Schedules []Schedule `xml:"schedule"`
 	} `xml:"schedulelist"`
 	SchedulePresetList struct {
-		SchedulePresets []Schedule `xml:"schedulepreset"`
+		SchedulePresets []SchedulePreset `xml:"schedulepreset"`
 	} `xml:"schedulepresetlist"`
+	// These are shoehorned in.
+	Scripts struct {
+		Names []string `xml:"name"`
+	} `xml:"scripts"`
+	Sounds struct {
+		Names []string `xml:"name"`
+	} `xml:"sounds"`
 }
 
 // YesNoBool is used to capture strings into boolean format.

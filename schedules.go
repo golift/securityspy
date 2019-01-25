@@ -6,23 +6,34 @@ import (
 )
 
 /* There are no methods for updating or changing schedules through the API,
-   but you can assign already-existing schedules to cameras using the Camera
-   methods. There is one method for invoking a schedule preset.
+   but you can assign already-existing schedules to cameras using a Camera
+   method. You can also assign hard coded Schedule Overrides to cameras using
+	 a different method.
+
+	 There is one "schedule" method for invoking a system-wide schedule preset.
 */
 
-// Schedules returns a list of pre-existing schedules that can be assigned to cameras.
-func (s *Server) Schedules() []Schedule {
-	return s.systemInfo.ScheduleList.Schedules
-}
-
-// SchedulePresets provides a list of presets one can pass into SetSchedulePreset()
-func (s *Server) SchedulePresets() []Schedule {
-	return s.systemInfo.SchedulePresetList.SchedulePresets
-}
-
-// SetSchedulePreset configures the schedule preset for a camera mode.
-func (s *Server) SetSchedulePreset(schedule Schedule) error {
+// SetSchedulePreset invokes a schedule preset. This [may/will] affect all camera arm modes.
+// Find presets you can pass into this method at server.Info.SchedulePresets
+func (s *Server) SetSchedulePreset(schedule SchedulePreset) error {
 	params := make(url.Values)
 	params.Set("id", strconv.Itoa(schedule.ID))
 	return s.simpleReq("++ssSetPreset", params, -1)
+}
+
+// String provides a description of a Schedule Override.
+func (e ScheduleOverride) String() string {
+	switch e {
+	case ScheduleOverrideNone:
+		return "No Schedule Override"
+	case ScheduleOverrideUnarmedUntilEvent:
+		return "Unarmed Until Next Scheduled Event"
+	case ScheduleOverrideArmedUntilEvent:
+		return "Armed Until Next Scheduled Event"
+	case ScheduleOverrideUnarmedOneHour:
+		return "Unarmed For 1 Hour"
+	case ScheduleOverrideArmedOneHour:
+		return "Armed For 1 Hour"
+	}
+	return "Unknown Schedule Override"
 }

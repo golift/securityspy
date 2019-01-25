@@ -19,8 +19,8 @@ type CameraArmMode rune
 
 // Arming is either 0 or 1.
 const (
-	CameraDisarm CameraArmMode = 0
-	CameraArm    CameraArmMode = 1
+	CameraDisarm CameraArmMode = iota
+	CameraArm
 )
 
 // VidOps are the options for a video that can be requested from SecuritySpy

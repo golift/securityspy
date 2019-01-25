@@ -41,30 +41,25 @@ func (f *Files) GetCCVideos(cameraNums []int, from, to time.Time) ([]*File, erro
 // Not all methods work with this. Avoid it if possible. This allows Get() and Save() to work.
 func (f *Files) GetFile(name string) (*File, error) {
 	//	01-18-2019 10-17-53 M Porch.m4v => ++getfile/0/2019-01-18/01-18-2019+10-17-53+M+Porch.m4v
+	var err error
 	file := new(File)
-	file.Title = name
-	file.server = f.server
-	if strings.Count(name, ".") != 1 {
-		return nil, ErrorNoExtension
-	}
-	split := strings.Split(name, ".")
-	if file.Link.Type = "video/quicktime"; split[1] == "jpg" {
+	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != 2 {
+		return file, ErrorNoExtension
+	} else if nameDateSplit := strings.Split(fileExtSplit[0], " "); len(fileExtSplit) < 2 {
+		return file, ErrorInvalidName
+	} else if file.Updated, err = time.Parse(fileDateFormat, nameDateSplit[0]); err != nil {
+		return file, ErrorInvalidName
+	} else if file.Camera = f.server.Cameras.ByName(nameDateSplit[len(nameDateSplit)-1]); file.Camera == nil {
+		return file, ErrorCAMMissing
+	} else if file.Link.Type = "video/quicktime"; fileExtSplit[1] == "jpg" {
 		file.Link.Type = "image/jpeg"
 	}
-	if split = strings.Split(split[0], " "); len(split) < 2 {
-		return nil, ErrorInvalidName
-	}
-	camName := split[len(split)-1]
-	// Arbitrary date format we hope doesn't change.
-	when, err := time.Parse("01-02-2006", split[0])
-	if err != nil {
-		return nil, ErrorInvalidName
-	}
-	if file.Camera = f.server.Cameras.ByName(camName); file.Camera == nil {
-		return nil, ErrorCAMMissing
-	}
+	file.Title = name
+	file.server = f.server
 	file.CameraNum = file.Camera.Number
-	file.Link.HREF = "++getfilehb/" + strconv.Itoa(file.CameraNum) + "/" + when.Format(fileDateFormat) + "/" + url.QueryEscape(name)
+	file.GmtOffset = f.server.Info.GmtOffset
+	file.Link.HREF = "++getfile/" + strconv.Itoa(file.CameraNum) + "/" +
+		file.Updated.Format(downloadDateFormat) + "/" + url.QueryEscape(name)
 	return file, nil
 }
 
@@ -139,8 +134,8 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, contin
 // makeFilesParams makes the url Values for a file retreival.
 func makeFilesParams(cameraNums []int, from time.Time, to time.Time, fileTypes string, continuation string) url.Values {
 	params := make(url.Values)
-	params.Set("date1", from.Format(fileDateFormat))
-	params.Set("date2", to.Format(fileDateFormat))
+	params.Set("date1", from.Format(downloadDateFormat))
+	params.Set("date2", to.Format(downloadDateFormat))
 	for _, fileType := range strings.Split(fileTypes, "&") {
 		params.Set(fileType, "1")
 	}

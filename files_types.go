@@ -5,8 +5,14 @@ import (
 	"time"
 )
 
-// fileDateFormat is the format the SecuritySpy ++download method accepts.
-var fileDateFormat = "2006-01-02"
+// downloadDateFormat is the format the SecuritySpy ++download method accepts.
+// This matches the ++download inputs AND the folder names files are saved into.
+var downloadDateFormat = "2006-01-02"
+
+// Arbitrary date format used for saved files we hope doesn't change.
+// This is used in the actual name of files that are saved. No where else.
+// The GetFile() method uses this to construct arbitrary file download paths.
+var fileDateFormat = "01-02-2006"
 
 // Errors returned by this file.
 const (
@@ -28,7 +34,7 @@ type fileFeed struct {
 	Title        string   `xml:"title"`        // Downloads
 	GmtOffset    string   `xml:"gmt-offset"`   // -28800
 	Continuation string   `xml:"continuation"` // 0007E3010C0E1D3A
-	Entries      []*File  `xml:"entry"`
+	Entries      []*File  `xml:"entry"`        // List of File pointers
 }
 
 // File represents a saved media file.

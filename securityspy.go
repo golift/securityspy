@@ -21,10 +21,14 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 	if !strings.HasSuffix(url, "/") {
 		url += "/"
 	}
+	authB64 := ""
+	if user != "" && pass != "" {
+		authB64 = base64.URLEncoding.EncodeToString([]byte(user + ":" + pass))
+	}
 	server := &Server{
 		systemInfo: new(systemInfo),
 		baseURL:    url,
-		authB64:    base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
+		authB64:    authB64,
 		username:   user,
 		verifySSL:  verifySSL,
 	}
@@ -49,7 +53,8 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 	return server, nil
 }
 
-// Refresh gets fresh camera data from SecuritySpy, maybe run this after every action.
+// Refresh gets fresh camera and serverInfo data from SecuritySpy,
+// run this after every action to keep the data pool up to date.
 func (s *Server) Refresh() error {
 	if xmldata, err := s.secReqXML("++systemInfo", nil); err != nil {
 		return err
@@ -68,30 +73,34 @@ func (s *Server) Refresh() error {
 		s.Cameras.Names = append(s.Cameras.Names, cam.Name)
 		s.Cameras.Numbers = append(s.Cameras.Numbers, cam.Number)
 	}
+	s.systemInfo.Server.SchedulePresets = s.systemInfo.SchedulePresetList.SchedulePresets
+	s.systemInfo.Server.Schedules = s.systemInfo.ScheduleList.Schedules
 	s.systemInfo.Server.Refreshed = time.Now()
 	s.Cameras.Count = len(s.systemInfo.CameraList.Cameras)
 	return nil
 }
 
 // RefreshScripts refreshes the list of script files. Probably doesn't change much.
-// Retreivable as serverInfo.Scripts.Names
+// Retreivable as server.Info.ScriptsNames
 func (s *Server) RefreshScripts() error {
 	if xmldata, err := s.secReqXML("++scripts", nil); err != nil {
 		return err
-	} else if err := xml.Unmarshal(xmldata, &s.systemInfo.Server.Scripts); err != nil {
+	} else if err := xml.Unmarshal(xmldata, &s.systemInfo.Scripts); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++scripts)")
 	}
+	s.systemInfo.Server.ScriptsNames = s.systemInfo.Scripts.Names
 	return nil
 }
 
 // RefreshSounds refreshes the list of sound files. Probably doesn't change much.
-// Retreivable as serverInfo.Sounds.Names
+// Retreivable as server.Info.SoundsNames
 func (s *Server) RefreshSounds() error {
 	if xmldata, err := s.secReqXML("++sounds", nil); err != nil {
 		return err
-	} else if err := xml.Unmarshal(xmldata, &s.systemInfo.Server.Sounds); err != nil {
+	} else if err := xml.Unmarshal(xmldata, &s.systemInfo.Sounds); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++sounds)")
 	}
+	s.systemInfo.Server.SoundsNames = s.systemInfo.Sounds.Names
 	return nil
 }
 
@@ -107,19 +116,30 @@ func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration
 	if err != nil {
 		return resp, errors.Wrap(err, "http.NewRequest()")
 	}
-	params.Set("auth", s.authB64)
+	if s.authB64 != "" {
+		params.Set("auth", s.authB64)
+	}
 	if a := apiPath; !strings.HasPrefix(a, "++getfile") && !strings.HasPrefix(a, "++event") &&
 		!strings.HasPrefix(a, "++image") && !strings.HasPrefix(a, "++audio") &&
 		!strings.HasPrefix(a, "++stream") && !strings.HasPrefix(a, "++video") {
 		params.Set("format", "xml")
 		req.Header.Add("Accept", "application/xml")
 	}
-	req.URL.RawQuery = params.Encode()
+	req.URL.RawQuery = encodeRequestParams(params)
 	resp, err = a.Do(req)
 	if err != nil {
 		return resp, errors.Wrap(err, "http.Do(req)")
 	}
 	return resp, nil
+}
+
+// encodeRequestParams encodes parameters for securityspy.
+// Some parameters cannot be escaped, namely *'s
+// This function is sorta hacky, but I did ask SecuritySpy support to "support" encoded query parameters.
+// If that support gets added, we can remove this function.
+func encodeRequestParams(params url.Values) string {
+	// Convert stars (asterisks) back to asterisks.
+	return strings.Replace(params.Encode(), "%2A", "*", -1)
 }
 
 // secReqXML returns raw http body, so it can be unmarshaled into an xml struct.
