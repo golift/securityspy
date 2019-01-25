@@ -144,7 +144,7 @@ func encodeRequestParams(params url.Values) string {
 
 // secReqXML returns raw http body, so it can be unmarshaled into an xml struct.
 func (s *Server) secReqXML(apiPath string, params url.Values) (body []byte, err error) {
-	resp, err := s.secReq(apiPath, params, 15*time.Second)
+	resp, err := s.secReq(apiPath, params, DefaultTimeout)
 	if err != nil {
 		return body, err
 	}
@@ -174,7 +174,7 @@ func (s *Server) simpleReq(apiURI string, params url.Values, cameraNum int) erro
 	if cameraNum != -1 {
 		params.Set("cameraNum", strconv.Itoa(cameraNum))
 	}
-	resp, err := s.secReq(apiURI, params, 10*time.Second)
+	resp, err := s.secReq(apiURI, params, DefaultTimeout)
 	if err != nil {
 		return err
 	}

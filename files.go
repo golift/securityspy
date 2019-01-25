@@ -93,7 +93,7 @@ func (f *File) Save(path string) (int64, error) {
 func (f *File) Get() (io.ReadCloser, error) {
 	// use high bandwidth (full size) file download.
 	uri := strings.Replace(f.Link.HREF, "++getfile", "++getfilehb", 1)
-	resp, err := f.server.secReq(uri, make(url.Values), 10*time.Second)
+	resp, err := f.server.secReq(uri, make(url.Values), DefaultTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,6 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, contin
 	var entries []*File
 	var feed fileFeed
 	params := makeFilesParams(cameraNums, from, to, fileTypes, continuation)
-	params.Set("results", "1000")
 	if xmldata, err := f.server.secReqXML("++download", params); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &feed); err != nil {
@@ -134,6 +133,7 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, contin
 // makeFilesParams makes the url Values for a file retreival.
 func makeFilesParams(cameraNums []int, from time.Time, to time.Time, fileTypes string, continuation string) url.Values {
 	params := make(url.Values)
+	params.Set("results", "1000")
 	params.Set("date1", from.Format(downloadDateFormat))
 	params.Set("date2", to.Format(downloadDateFormat))
 	for _, fileType := range strings.Split(fileTypes, "&") {

@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
+var DefaultTimeout = 10 * time.Second
+
 // Error enables constant errors.
 type Error string
 
