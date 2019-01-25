@@ -1,9 +1,11 @@
 package securityspy
 
 import (
+	"crypto/tls"
 	"image"
 	"image/jpeg"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -60,7 +62,7 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	params := c.nakeRequestParams(ops)
+	params := c.makeRequestParams(ops)
 	if c.server.authB64 != "" {
 		params.Set("auth", c.server.authB64)
 	}
@@ -84,7 +86,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:    true,    // Always copy securityspy RTSP urls.
 	})
-	params := c.nakeRequestParams(ops)
+	params := c.makeRequestParams(ops)
 	if c.server.authB64 != "" {
 		params.Set("auth", c.server.authB64)
 	}
@@ -98,7 +100,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.secReq("++video", c.nakeRequestParams(ops), 10*time.Second)
+	resp, err := c.server.secReq("++video", c.makeRequestParams(ops), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +110,7 @@ func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // StreamH264 makes a web request to retreive an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.secReq("++stream", c.nakeRequestParams(ops), 10*time.Second)
+	resp, err := c.server.secReq("++stream", c.makeRequestParams(ops), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +120,7 @@ func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 // StreamG711 makes a web request to retreive an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamG711() (io.ReadCloser, error) {
-	resp, err := c.server.secReq("++audio", c.nakeRequestParams(nil), 10*time.Second)
+	resp, err := c.server.secReq("++audio", c.makeRequestParams(nil), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -127,22 +129,32 @@ func (c *Camera) StreamG711() (io.ReadCloser, error) {
 
 // PostG711 makes a POST request to send audio to a camera with a speaker.
 // Accepts an io.ReadCloser that will be closed. Probably an open file.
+// This is untested. Report your success or failure!
 func (c *Camera) PostG711(audio io.ReadCloser) error {
 	if audio == nil {
 		return nil
 	}
-	defer func() {
+	a := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.server.verifySSL}}}
+	req, err := http.NewRequest("POST", c.server.baseURL+"++audio", nil)
+	if err != nil {
 		_ = audio.Close()
-	}()
-	return nil
-	// Incomplete.
-	// No helper methods for POST, so this is going to take a few more pieces.
+		return errors.Wrap(err, "http.NewRequest()")
+	} else if c.server.authB64 != "" {
+		req.URL.RawQuery = "auth=" + c.server.authB64
+	}
+	req.Header.Add("Content-Type", "audio/g711-ulaw")
+	req.Body = audio // req.Body is automatically closed.
+	resp, err := a.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "http.Do(req)")
+	}
+	return resp.Body.Close()
 }
 
 // GetJPEG returns a picture from a camera.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
-	resp, err := c.server.secReq("++image", c.nakeRequestParams(ops), 10*time.Second)
+	resp, err := c.server.secReq("++image", c.makeRequestParams(ops), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -221,8 +233,8 @@ func (c *Camera) SetScheduleOverride(mode CameraMode, scheduleOverride ScheduleO
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
-// nakeRequestParams converts passed in ops to url.Values
-func (c *Camera) nakeRequestParams(ops *VidOps) url.Values {
+// makeRequestParams converts passed in ops to url.Values
+func (c *Camera) makeRequestParams(ops *VidOps) url.Values {
 	params := make(url.Values)
 	params.Set("cameraNum", strconv.Itoa(c.Number))
 	if ops == nil {

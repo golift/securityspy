@@ -241,7 +241,7 @@ func (e *Events) parseEvent(text string) Event {
 	parts := strings.SplitN(text, " ", 4)
 	newEvent := Event{Msg: parts[3], Camera: nil, ID: -1, Errors: nil}
 	// Parse the time stamp
-	zone, _ := time.Now().Zone() // SecuritySpy only provides this on the ++download method :(
+	zone, _ := time.Now().Zone() // SecuritySpy preovides seconds-from-gmt, but it's wildly inaccurate.
 	if newEvent.When, err = time.Parse(eventTimeFormat+"MST", parts[0]+zone); err != nil {
 		newEvent.When = time.Now()
 		newEvent.Errors = append(newEvent.Errors, ErrorDateParseFail)
