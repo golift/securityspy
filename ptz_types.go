@@ -2,17 +2,23 @@ package securityspy
 
 // PTZ are what "things" a camera can do.
 type PTZ struct {
-	camera     *Camera
+	camera  *Camera
+	rawCaps int
+	// HasPanTilt is true if a camera can pan and tilt using PTZ controls.
 	HasPanTilt bool
-	HasHome    bool
-	HasZoom    bool
+	// HasHome is true if the camera supports the home position PTZ command.
+	HasHome bool
+	// HasHome is true if the camera supports zooming in and out.
+	HasZoom bool
+	// HasPresets is true when the camera allows user-defined preset positions.
 	HasPresets bool
-	HasSpeed   bool // This is missing full documentation; may not be accurate.
-	rawCaps    int
+	// Continuous is true if the camera supports continuous movement. Most cameras
+	// now days support this. You will need to call Camera.Stop() to stop movement.
+	Continuous bool
 }
 
 // PTZpreset locks our poresets to a max of 8
-type PTZpreset int
+type PTZpreset rune
 
 // Presets are 1 through 8.
 const (
@@ -29,11 +35,11 @@ const (
 
 // Bitmask values for PTZ Capabilities.
 const (
-	ptzPanTilt int = 1 << iota // 1
-	ptzHome                    // 2
-	ptzZoom                    // 4
-	ptzPresets                 // 8
-	ptzSpeed                   // 16
+	ptzPanTilt    int = 1 << iota // 1
+	ptzHome                       // 2
+	ptzZoom                       // 4
+	ptzPresets                    // 8
+	ptzContinuous                 // 16
 )
 
 // ptzCommand are the possible PTZ commands.

@@ -17,48 +17,49 @@ import (
 
 /* Files interface methods follow. */
 
-// GetPhotos returns a list of links to captured images.
-func (f *Files) GetPhotos(cameraNums []int, from, to time.Time) ([]*File, error) {
-	return f.getFiles(cameraNums, from, to, "i", "")
+// GetImages returns a list of links to captured images.
+func (f *Files) GetImages(cameraNums []int, from, to time.Time) ([]*File, error) {
+	return f.getFiles(cameraNums, from, to, "imageFilesCheck", "")
 }
 
-// GetAll returns a list of links to captured videos and images.
+// GetAll returns a list of links to all captured videos and images.
 func (f *Files) GetAll(cameraNums []int, from, to time.Time) ([]*File, error) {
-	return f.getFiles(cameraNums, from, to, "b", "")
+	return f.getFiles(cameraNums, from, to, "ccFilesCheck&mcFilesCheck&imageFilesCheck", "")
 }
 
-// GetVideos returns a list of links to captured videos.
-func (f *Files) GetVideos(cameraNums []int, from, to time.Time) ([]*File, error) {
-	return f.getFiles(cameraNums, from, to, "m", "")
+// GetMCVideos returns a list of links to motion-captured videos.
+func (f *Files) GetMCVideos(cameraNums []int, from, to time.Time) ([]*File, error) {
+	return f.getFiles(cameraNums, from, to, "mcFilesCheck", "")
+}
+
+// GetCCVideos returns a list of links to continuous-captured videos.
+func (f *Files) GetCCVideos(cameraNums []int, from, to time.Time) ([]*File, error) {
+	return f.getFiles(cameraNums, from, to, "ccFilesCheck", "")
 }
 
 // GetFile returns a file based on the name. It makes a lot of assumptions about file paths.
 // Not all methods work with this. Avoid it if possible. This allows Get() and Save() to work.
 func (f *Files) GetFile(name string) (*File, error) {
 	//	01-18-2019 10-17-53 M Porch.m4v => ++getfile/0/2019-01-18/01-18-2019+10-17-53+M+Porch.m4v
+	var err error
 	file := new(File)
-	file.Title = name
-	file.server = f.server
-	if strings.Count(name, ".") != 1 {
-		return nil, ErrorNoExtension
-	}
-	split := strings.Split(name, ".")
-	if file.Link.Type = "video/quicktime"; split[1] == "jpg" {
+	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != 2 {
+		return file, ErrorNoExtension
+	} else if nameDateSplit := strings.Split(fileExtSplit[0], " "); len(fileExtSplit) < 2 {
+		return file, ErrorInvalidName
+	} else if file.Updated, err = time.Parse(fileDateFormat, nameDateSplit[0]); err != nil {
+		return file, ErrorInvalidName
+	} else if file.Camera = f.server.Cameras.ByName(nameDateSplit[len(nameDateSplit)-1]); file.Camera == nil {
+		return file, ErrorCAMMissing
+	} else if file.Link.Type = "video/quicktime"; fileExtSplit[1] == "jpg" {
 		file.Link.Type = "image/jpeg"
 	}
-	if split = strings.Split(split[0], " "); len(split) < 2 {
-		return nil, ErrorInvalidName
-	}
-	camName := split[len(split)-1]
-	if split = strings.Split(split[0], "-"); len(split) != 3 {
-		return nil, ErrorInvalidName
-	}
-	pathDate := split[2] + "-" + split[0] + "-" + split[1]
-	if file.Camera = f.server.Cameras.ByName(camName); file.Camera == nil {
-		return nil, ErrorCAMMissing
-	}
+	file.Title = name
+	file.server = f.server
 	file.CameraNum = file.Camera.Number
-	file.Link.HREF = "++getfile/" + strconv.Itoa(file.CameraNum) + "/" + pathDate + "/" + url.QueryEscape(name)
+	file.GmtOffset = f.server.Info.GmtOffset
+	file.Link.HREF = "++getfile/" + strconv.Itoa(file.CameraNum) + "/" +
+		file.Updated.Format(downloadDateFormat) + "/" + url.QueryEscape(name)
 	return file, nil
 }
 
@@ -80,15 +81,19 @@ func (f *File) Save(path string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer func() {
+	size, err := io.Copy(newFile, body)
+	if err != nil {
 		_ = newFile.Close()
-	}()
-	return io.Copy(newFile, body)
+		return size, nil
+	}
+	return size, newFile.Close()
 }
 
 // Get opens a file from a SecuritySpy link and returns the http.Body io.ReadCloser.
 func (f *File) Get() (io.ReadCloser, error) {
-	resp, err := f.server.secReq(f.Link.HREF, make(url.Values), 10*time.Second)
+	// use high bandwidth (full size) file download.
+	uri := strings.Replace(f.Link.HREF, "++getfile", "++getfilehb", 1)
+	resp, err := f.server.secReq(uri, make(url.Values), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +103,11 @@ func (f *File) Get() (io.ReadCloser, error) {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // getFiles is a helper function to do all the work for GetVideos, GetPhotos & GetAll.
-func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileType, continuation string) ([]*File, error) {
+func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, continuation string) ([]*File, error) {
 	var entries []*File
 	var feed fileFeed
-	params := makeFilesParams(cameraNums, from, to, fileType, continuation)
+	params := makeFilesParams(cameraNums, from, to, fileTypes, continuation)
+	params.Set("results", "1000")
 	if xmldata, err := f.server.secReqXML("++download", params); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &feed); err != nil {
@@ -116,7 +122,7 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileType, continu
 	}
 	// ++download automatically paginates. Follow the continuation.
 	if feed.Continuation != "" && feed.Continuation != "FFFFFFFFFFFFFFFF" {
-		moreFiles, err := f.getFiles(cameraNums, from, to, fileType, feed.Continuation)
+		moreFiles, err := f.getFiles(cameraNums, from, to, fileTypes, feed.Continuation)
 		if entries = append(entries, moreFiles...); err != nil {
 			// We got some files, but one of the pages returned an error.
 			return entries, err
@@ -126,11 +132,13 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileType, continu
 }
 
 // makeFilesParams makes the url Values for a file retreival.
-func makeFilesParams(cameraNums []int, from time.Time, to time.Time, fileType string, continuation string) url.Values {
+func makeFilesParams(cameraNums []int, from time.Time, to time.Time, fileTypes string, continuation string) url.Values {
 	params := make(url.Values)
-	params.Set("date1Text", from.Format(fileDateFormat))
-	params.Set("date2Text", to.Format(fileDateFormat))
-	params.Set("fileTypeMenu", fileType)
+	params.Set("date1", from.Format(downloadDateFormat))
+	params.Set("date2", to.Format(downloadDateFormat))
+	for _, fileType := range strings.Split(fileTypes, "&") {
+		params.Set(fileType, "1")
+	}
 	for _, num := range cameraNums {
 		params.Add("cameraNum", strconv.Itoa(num))
 	}

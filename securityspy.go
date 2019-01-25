@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,10 +21,14 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 	if !strings.HasSuffix(url, "/") {
 		url += "/"
 	}
+	authB64 := ""
+	if user != "" && pass != "" {
+		authB64 = base64.URLEncoding.EncodeToString([]byte(user + ":" + pass))
+	}
 	server := &Server{
 		systemInfo: new(systemInfo),
 		baseURL:    url,
-		authB64:    base64.URLEncoding.EncodeToString([]byte(user + ":" + pass)),
+		authB64:    authB64,
 		username:   user,
 		verifySSL:  verifySSL,
 	}
@@ -48,72 +53,79 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 	return server, nil
 }
 
-// Refresh gets fresh camera data from SecuritySpy, maybe run this after every action.
-func (c *Server) Refresh() error {
-	if xmldata, err := c.secReqXML("++systemInfo", nil); err != nil {
+// Refresh gets fresh camera and serverInfo data from SecuritySpy,
+// run this after every action to keep the data pool up to date.
+func (s *Server) Refresh() error {
+	if xmldata, err := s.secReqXML("++systemInfo", nil); err != nil {
 		return err
-	} else if err := xml.Unmarshal(xmldata, c.systemInfo); err != nil {
+	} else if err := xml.Unmarshal(xmldata, s.systemInfo); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++systemInfo)")
 	}
 
 	// Add the name to each assigned Camera Schedule.
-	for i, cam := range c.systemInfo.CameraList.Cameras {
-		c.systemInfo.CameraList.Cameras[i].ScheduleIDA.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleIDA.ID))
-		c.systemInfo.CameraList.Cameras[i].ScheduleIDCC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleIDCC.ID))
-		c.systemInfo.CameraList.Cameras[i].ScheduleIDMC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleIDMC.ID))
-		c.systemInfo.CameraList.Cameras[i].ScheduleOverrideA.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideA.ID))
-		c.systemInfo.CameraList.Cameras[i].ScheduleOverrideCC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideCC.ID))
-		c.systemInfo.CameraList.Cameras[i].ScheduleOverrideMC.Name = strings.TrimSpace(c.getScheduleName(cam.ScheduleOverrideMC.ID))
-		c.Cameras.Names = append(c.Cameras.Names, cam.Name)
-		c.Cameras.Numbers = append(c.Cameras.Numbers, cam.Number)
+	for i, cam := range s.systemInfo.CameraList.Cameras {
+		s.systemInfo.CameraList.Cameras[i].ScheduleIDA.Name = strings.TrimSpace(s.getScheduleName(cam.ScheduleIDA.ID))
+		s.systemInfo.CameraList.Cameras[i].ScheduleIDCC.Name = strings.TrimSpace(s.getScheduleName(cam.ScheduleIDCC.ID))
+		s.systemInfo.CameraList.Cameras[i].ScheduleIDMC.Name = strings.TrimSpace(s.getScheduleName(cam.ScheduleIDMC.ID))
+		s.systemInfo.CameraList.Cameras[i].ScheduleOverrideA.Name = strings.TrimSpace(s.getScheduleName(cam.ScheduleOverrideA.ID))
+		s.systemInfo.CameraList.Cameras[i].ScheduleOverrideCC.Name = strings.TrimSpace(s.getScheduleName(cam.ScheduleOverrideCC.ID))
+		s.systemInfo.CameraList.Cameras[i].ScheduleOverrideMC.Name = strings.TrimSpace(s.getScheduleName(cam.ScheduleOverrideMC.ID))
+		s.Cameras.Names = append(s.Cameras.Names, cam.Name)
+		s.Cameras.Numbers = append(s.Cameras.Numbers, cam.Number)
 	}
-	c.systemInfo.Server.Refreshed = time.Now()
-	c.Cameras.Count = len(c.systemInfo.CameraList.Cameras)
+	s.systemInfo.Server.SchedulePresets = s.systemInfo.SchedulePresetList.SchedulePresets
+	s.systemInfo.Server.Schedules = s.systemInfo.ScheduleList.Schedules
+	s.systemInfo.Server.Refreshed = time.Now()
+	s.Cameras.Count = len(s.systemInfo.CameraList.Cameras)
 	return nil
 }
 
 // RefreshScripts refreshes the list of script files. Probably doesn't change much.
-// Retreivable as serverInfo.Scripts.Names
-func (c *Server) RefreshScripts() error {
-	if xmldata, err := c.secReqXML("++scripts", nil); err != nil {
+// Retreivable as server.Info.ScriptsNames
+func (s *Server) RefreshScripts() error {
+	if xmldata, err := s.secReqXML("++scripts", nil); err != nil {
 		return err
-	} else if err := xml.Unmarshal(xmldata, &c.systemInfo.Server.Scripts); err != nil {
+	} else if err := xml.Unmarshal(xmldata, &s.systemInfo.Scripts); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++scripts)")
 	}
+	s.systemInfo.Server.ScriptsNames = s.systemInfo.Scripts.Names
 	return nil
 }
 
 // RefreshSounds refreshes the list of sound files. Probably doesn't change much.
-// Retreivable as serverInfo.Sounds.Names
-func (c *Server) RefreshSounds() error {
-	if xmldata, err := c.secReqXML("++sounds", nil); err != nil {
+// Retreivable as server.Info.SoundsNames
+func (s *Server) RefreshSounds() error {
+	if xmldata, err := s.secReqXML("++sounds", nil); err != nil {
 		return err
-	} else if err := xml.Unmarshal(xmldata, &c.systemInfo.Server.Sounds); err != nil {
+	} else if err := xml.Unmarshal(xmldata, &s.systemInfo.Sounds); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++sounds)")
 	}
+	s.systemInfo.Server.SoundsNames = s.systemInfo.Sounds.Names
 	return nil
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // secReq is a helper function that formats the http request to SecuritySpy
-func (c *Server) secReq(apiPath string, params url.Values, timeout time.Duration) (resp *http.Response, err error) {
+func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration) (resp *http.Response, err error) {
 	if params == nil {
 		params = make(url.Values)
 	}
-	a := &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.verifySSL}}}
-	req, err := http.NewRequest("GET", c.baseURL+apiPath, nil)
+	a := &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.verifySSL}}}
+	req, err := http.NewRequest("GET", s.baseURL+apiPath, nil)
 	if err != nil {
 		return resp, errors.Wrap(err, "http.NewRequest()")
 	}
-	params.Set("auth", c.authB64)
+	if s.authB64 != "" {
+		params.Set("auth", s.authB64)
+	}
 	if a := apiPath; !strings.HasPrefix(a, "++getfile") && !strings.HasPrefix(a, "++event") &&
 		!strings.HasPrefix(a, "++image") && !strings.HasPrefix(a, "++audio") &&
 		!strings.HasPrefix(a, "++stream") && !strings.HasPrefix(a, "++video") {
 		params.Set("format", "xml")
 		req.Header.Add("Accept", "application/xml")
 	}
-	req.URL.RawQuery = params.Encode()
+	req.URL.RawQuery = encodeRequestParams(params)
 	resp, err = a.Do(req)
 	if err != nil {
 		return resp, errors.Wrap(err, "http.Do(req)")
@@ -121,9 +133,18 @@ func (c *Server) secReq(apiPath string, params url.Values, timeout time.Duration
 	return resp, nil
 }
 
+// encodeRequestParams encodes parameters for securityspy.
+// Some parameters cannot be escaped, namely *'s
+// This function is sorta hacky, but I did ask SecuritySpy support to "support" encoded query parameters.
+// If that support gets added, we can remove this function.
+func encodeRequestParams(params url.Values) string {
+	// Convert stars (asterisks) back to asterisks.
+	return strings.Replace(params.Encode(), "%2A", "*", -1)
+}
+
 // secReqXML returns raw http body, so it can be unmarshaled into an xml struct.
-func (c *Server) secReqXML(apiPath string, params url.Values) (body []byte, err error) {
-	resp, err := c.secReq(apiPath, params, 15*time.Second)
+func (s *Server) secReqXML(apiPath string, params url.Values) (body []byte, err error) {
+	resp, err := s.secReq(apiPath, params, 15*time.Second)
 	if err != nil {
 		return body, err
 	}
@@ -132,18 +153,38 @@ func (c *Server) secReqXML(apiPath string, params url.Values) (body []byte, err 
 	}()
 	if resp.StatusCode != http.StatusOK {
 		return body, errors.Errorf("request failed (%v): %v (status: %v/%v)",
-			c.username, c.baseURL+apiPath, resp.StatusCode, resp.Status)
+			s.username, s.baseURL+apiPath, resp.StatusCode, resp.Status)
 	} else if body, err = ioutil.ReadAll(resp.Body); err == nil {
 		return body, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
 	}
 	return body, nil
 }
 
-func (c *Server) getScheduleName(id int) string {
-	for _, schedule := range c.systemInfo.ScheduleList.Schedules {
+func (s *Server) getScheduleName(id int) string {
+	for _, schedule := range s.systemInfo.ScheduleList.Schedules {
 		if schedule.ID == id {
 			return schedule.Name
 		}
 	}
 	return "Unknown Schedule"
+}
+
+// simpleReq performes HTTP req, checks for OK at end of output.
+func (s *Server) simpleReq(apiURI string, params url.Values, cameraNum int) error {
+	if cameraNum != -1 {
+		params.Set("cameraNum", strconv.Itoa(cameraNum))
+	}
+	resp, err := s.secReq(apiURI, params, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		return err
+	} else if !strings.HasSuffix(string(body), "OK") {
+		return ErrorCmdNotOK
+	}
+	return nil
 }

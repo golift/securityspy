@@ -15,21 +15,22 @@ func (e Error) Error() string {
 	return string(e)
 }
 
-// Server is the main interface.
+// Server is the main interface for this library.
+// Contains sub-interfaces for cameras, ptz, files & events
 type Server struct {
-	systemInfo *systemInfo
 	verifySSL  bool
 	baseURL    string
 	authB64    string
 	username   string
+	systemInfo *systemInfo
 	Files      *Files
 	Events     *Events
 	Cameras    *Cameras
-	Info       *serverInfo
+	Info       *ServerInfo
 }
 
-// serverInfo represents all the SecuritySpy serverInfo Info
-type serverInfo struct {
+// ServerInfo represents all the SecuritySpy server's information.
+type ServerInfo struct {
 	Name             string    `xml:"name"`             // SecuritySpy
 	Version          string    `xml:"version"`          // 4.2.9
 	UUID             string    `xml:"uuid"`             // C03L1333F8J3AkXIZS1O
@@ -46,7 +47,31 @@ type serverInfo struct {
 	HTTPSEnabled     YesNoBool `xml:"https-enabled"`  // no
 	HTTPSPort        int       `xml:"https-port"`     // 8001
 	HTTPSPortWan     int       `xml:"https-port-wan"` // 8001
+	CurrentTime      time.Time `xml:"current-local-time"`
+	GmtOffset        int       `xml:"seconds-from-gmt"`
+	DateFormat       string    `xml:"date-format"`
+	TimeFormat       string    `xml:"time-format"`
 	Refreshed        time.Time // updated by Refresh()
+	ScriptsNames     []string
+	SoundsNames      []string
+	Schedules        []Schedule
+	SchedulePresets  []SchedulePreset
+}
+
+// systemInfo reresents ++systemInfo
+type systemInfo struct {
+	XMLName    xml.Name   `xml:"system"`
+	Server     ServerInfo `xml:"server"`
+	CameraList struct {
+		Cameras []*Camera `xml:"camera"`
+	} `xml:"cameralist"`
+	// All of these sub-lists get copied into ServerInfo by Refresh()
+	ScheduleList struct {
+		Schedules []Schedule `xml:"schedule"`
+	} `xml:"schedulelist"`
+	SchedulePresetList struct {
+		SchedulePresets []SchedulePreset `xml:"schedulepreset"`
+	} `xml:"schedulepresetlist"`
 	// These are shoehorned in.
 	Scripts struct {
 		Names []string `xml:"name"`
@@ -54,21 +79,6 @@ type serverInfo struct {
 	Sounds struct {
 		Names []string `xml:"name"`
 	} `xml:"sounds"`
-}
-
-// systemInfo reresents ++systemInfo
-type systemInfo struct {
-	XMLName    xml.Name   `xml:"system"`
-	Server     serverInfo `xml:"server"`
-	CameraList struct {
-		Cameras []*Camera `xml:"camera"`
-	} `xml:"cameralist"`
-	ScheduleList struct {
-		Schedules []schedule `xml:"schedule"`
-	} `xml:"schedulelist"`
-	SchedulePresetList struct {
-		SchedulePresets []schedulePresets `xml:"schedulepreset"`
-	} `xml:"schedulepresetlist"`
 }
 
 // YesNoBool is used to capture strings into boolean format.

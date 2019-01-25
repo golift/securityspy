@@ -45,7 +45,7 @@ func (z *PTZ) DownLeft() error {
 
 // UpRight sends a camera up and to the right. like it's 1999.
 func (z *PTZ) UpRight() error {
-	return z.ptzReq(ptzCommandRight)
+	return z.ptzReq(ptzCommandUpRight)
 }
 
 // DownRight is sorta like making the camera do a dab.
@@ -120,7 +120,7 @@ func (z *PTZ) Stop() error {
 func (z *PTZ) ptzReq(command ptzCommand) error {
 	params := make(url.Values)
 	params.Set("command", strconv.Itoa(int(command)))
-	return z.camera.simpleReq("++ptz/command", params)
+	return z.camera.server.simpleReq("++ptz/command", params, z.camera.Number)
 }
 
 // UnmarshalXML method converts ptzCapbilities bitmask into true/false abilities.
@@ -133,6 +133,6 @@ func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	z.HasHome = z.rawCaps&ptzHome == ptzHome
 	z.HasZoom = z.rawCaps&ptzZoom == ptzZoom
 	z.HasPresets = z.rawCaps&ptzPresets == ptzPresets
-	z.HasSpeed = z.rawCaps&ptzSpeed == ptzSpeed
+	z.Continuous = z.rawCaps&ptzContinuous == ptzContinuous
 	return nil
 }
