@@ -47,12 +47,12 @@ func (c *Cameras) ByName(name string) *Camera {
 
 // StreamVideo streams a segment of video from a camera using FFMPEG.
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
-	f := ffmpeg.Get(&ffmpeg.VidOps{
-		Encoder: Encoder,
-		Time:    int(length.Seconds()),
-		Audio:   true,    // Sure why not.
-		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
-		Copy:    true,    // Always copy securityspy RTSP urls.
+	f := ffmpeg.Get(&ffmpeg.Config{
+		FFMPEG: Encoder,
+		Time:   int(length.Seconds()),
+		Audio:  true,    // Sure why not.
+		Size:   maxsize, // max file size (always goes over). use 2000000 for 2.5MB
+		Copy:   true,    // Always copy securityspy RTSP urls.
 	})
 	params := c.makeRequestParams(ops)
 	if c.server.authB64 != "" {
@@ -71,12 +71,12 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
 		return ErrorPathExists
 	}
-	f := ffmpeg.Get(&ffmpeg.VidOps{
-		Encoder: Encoder,
-		Time:    int(length.Seconds()),
-		Audio:   true,
-		Size:    maxsize, // max file size (always goes over). use 2000000 for 2.5MB
-		Copy:    true,    // Always copy securityspy RTSP urls.
+	f := ffmpeg.Get(&ffmpeg.Config{
+		FFMPEG: Encoder,
+		Time:   int(length.Seconds()),
+		Audio:  true,
+		Size:   maxsize, // max file size (always goes over). use 2000000 for 2.5MB
+		Copy:   true,    // Always copy securityspy RTSP urls.
 	})
 	params := c.makeRequestParams(ops)
 	if c.server.authB64 != "" {

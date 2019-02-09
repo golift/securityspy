@@ -11,6 +11,8 @@ import (
 )
 
 var (
+	// ErrorCmdNotOK is returned for any command that has a successful web request,
+	// but the reply does not end with the word OK.
 	ErrorCmdNotOK = errors.New("command unsuccessful")
 	// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
 	DefaultTimeout = 10 * time.Second

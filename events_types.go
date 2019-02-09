@@ -8,16 +8,26 @@ import (
 )
 
 var (
-	// Error strings used in this file.
-	ErrorUnknownEvent  = errors.New("unknown event")
-	ErrorCAMParseFail  = errors.New("CAM parse failed")
-	ErrorIDParseFail   = errors.New("ID parse failed")
-	ErrorCAMMissing    = errors.New("CAM missing")
+	// ErrorUnknownEvent never really returns, but will fire if SecuritySpy
+	// adds new events this library doesn't know about.
+	ErrorUnknownEvent = errors.New("unknown event")
+	// ErrorCAMParseFail will return if the camera number in an event stream does not exist.
+	// If you see this, run Refresh() more often, or fix your flaky camera connection.
+	ErrorCAMParseFail = errors.New("CAM parse failed")
+	// ErrorIDParseFail will return if the camera number provided by the event stream is not a number.
+	// This should never happen, but future versions of SecuritySpy could trigger this if formats change.
+	ErrorIDParseFail = errors.New("ID parse failed")
+	// ErrorCAMMissing like the errors above should never return.
+	// This is triggered by a corrupted event format.
+	ErrorCAMMissing = errors.New("CAM missing")
+	// ErrorDateParseFail will only trigger if the time stamp format for events changes.
 	ErrorDateParseFail = errors.New("timestamp parse failed")
-	ErrorUnknownError  = errors.New("unknown error")
-	ErrorDisconnect    = errors.New("event stream disconnected")
-	unknownEventText   = "Unknown Event"
+	// ErrorDisconnect becomes the msg in a custom event when the SecSpy event stream is disconnected.
+	ErrorDisconnect = errors.New("event stream disconnected")
+	// unknownEventText should only happen if SecuritySpy adds new event types.
+	unknownEventText = "Unknown Event"
 	// eventTimeFormat is the go-time-format returned by SecuritySpy's eventStream
+	// The GMT offset from ++systemInfo is appended later for unmarshaling.
 	eventTimeFormat = "20060102150405"
 )
 
@@ -33,17 +43,18 @@ type Events struct {
 	Running    bool
 }
 
-// Event Stream Reply
+// Event Stream Reply is sent to callback channels and/or functions.
 type Event struct {
-	When   time.Time
-	ID     int
-	Camera *Camera
-	Type   EventType
-	Msg    string
-	Errors []error
+	Time   time.Time // Local time.
+	When   time.Time // Server time.
+	ID     int       // Negative numbers are custom events.
+	Camera *Camera   // Each event gets a camera interface.
+	Type   EventType // Event identifier
+	Msg    string    // Event Text
+	Errors []error   // Errors populated by parse errors.
 }
 
-// EventType is a set of constants validated with Event() method
+// EventType is a set of constant strings validated with Event() method
 type EventType string
 
 // Events
