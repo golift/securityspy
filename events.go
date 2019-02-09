@@ -3,6 +3,7 @@ package securityspy
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -87,8 +88,8 @@ func (e *Events) BindChan(event EventType, channel chan Event) {
 
 // Stop stops Watch() loops
 func (e *Events) Stop() {
+	defer func() { e.Running = false }()
 	if e.Running {
-		e.Running = false
 		e.stopChan <- e.Running
 	}
 }
@@ -239,16 +240,17 @@ func (e *Events) parseEvent(text string) Event {
 			 20190114201206 104529 CAM5 ARM_A */
 	var err error
 	parts := strings.SplitN(text, " ", 4)
-	newEvent := Event{Msg: parts[3], Camera: nil, ID: -1, Errors: nil}
-	// Parse the time stamp
-	zone, _ := time.Now().Zone() // SecuritySpy preovides seconds-from-gmt, but it's wildly inaccurate.
-	if newEvent.When, err = time.Parse(eventTimeFormat+"MST", parts[0]+zone); err != nil {
+	newEvent := Event{Msg: parts[3], ID: -1}
+	// Parse the time stamp; append the Offset from ++systemInfo to get the right time-location.
+	eventTime := fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
+	if newEvent.When, err = time.ParseInLocation(eventTimeFormat+"-07", eventTime, time.Local); err != nil {
 		newEvent.When = time.Now()
 		newEvent.Errors = append(newEvent.Errors, ErrorDateParseFail)
 	}
+
 	// Parse the ID
 	if newEvent.ID, err = strconv.Atoi(parts[1]); err != nil {
-		newEvent.ID = -1
+		newEvent.ID = -2
 		newEvent.Errors = append(newEvent.Errors, ErrorIDParseFail)
 	}
 	// Parse the camera number.

@@ -1,5 +1,12 @@
 package securityspy
 
+import "github.com/pkg/errors"
+
+var (
+	ErrorPTZNotOK = errors.New("PTZ command not OK")
+	ErrorPTZRange = errors.New("PTZ preset out of range 1-8")
+)
+
 // PTZ are what "things" a camera can do.
 type PTZ struct {
 	camera  *Camera

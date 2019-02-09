@@ -42,7 +42,11 @@ func (f *Files) GetCCVideos(cameraNums []int, from, to time.Time) ([]*File, erro
 func (f *Files) GetFile(name string) (*File, error) {
 	//	01-18-2019 10-17-53 M Porch.m4v => ++getfile/0/2019-01-18/01-18-2019+10-17-53+M+Porch.m4v
 	var err error
-	file := new(File)
+	file := &File{
+		Title:     name,
+		server:    f.server,
+		GmtOffset: f.server.Info.GmtOffset.Duration,
+	}
 	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != 2 {
 		return file, ErrorNoExtension
 	} else if nameDateSplit := strings.Split(fileExtSplit[0], " "); len(fileExtSplit) < 2 {
@@ -54,10 +58,7 @@ func (f *Files) GetFile(name string) (*File, error) {
 	} else if file.Link.Type = "video/quicktime"; fileExtSplit[1] == "jpg" {
 		file.Link.Type = "image/jpeg"
 	}
-	file.Title = name
-	file.server = f.server
 	file.CameraNum = file.Camera.Number
-	file.GmtOffset = f.server.Info.GmtOffset
 	file.Link.HREF = "++getfile/" + strconv.Itoa(file.CameraNum) + "/" +
 		file.Updated.Format(downloadDateFormat) + "/" + url.QueryEscape(name)
 	return file, nil
@@ -70,7 +71,7 @@ func (f *File) Save(path string) (int64, error) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return 0, ErrorPathExists
 	}
-	body, err := f.Get()
+	body, err := f.Get(true)
 	if err != nil {
 		return 0, err
 	}
@@ -90,9 +91,12 @@ func (f *File) Save(path string) (int64, error) {
 }
 
 // Get opens a file from a SecuritySpy link and returns the http.Body io.ReadCloser.
-func (f *File) Get() (io.ReadCloser, error) {
+func (f *File) Get(highBandwidth bool) (io.ReadCloser, error) {
 	// use high bandwidth (full size) file download.
-	uri := strings.Replace(f.Link.HREF, "++getfile", "++getfilehb", 1)
+	uri := strings.Replace(f.Link.HREF, "++getfile/", "++getfilelb/", 1)
+	if highBandwidth {
+		uri = strings.Replace(f.Link.HREF, "++getfile/", "++getfilehb/", 1)
+	}
 	resp, err := f.server.secReq(uri, make(url.Values), DefaultTimeout)
 	if err != nil {
 		return nil, err
@@ -116,7 +120,7 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, contin
 		// Add the camera, server and file interfaces to every file entry.
 		feed.Entries[i].Camera = f.server.Cameras.ByNum(feed.Entries[i].CameraNum)
 		feed.Entries[i].server = f.server
-		feed.Entries[i].GmtOffset, _ = strconv.Atoi(feed.GmtOffset)
+		feed.Entries[i].GmtOffset = feed.GmtOffset.Duration
 		entries = append(entries, feed.Entries[i])
 	}
 	// ++download automatically paginates. Follow the continuation.

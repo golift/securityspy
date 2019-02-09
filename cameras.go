@@ -216,18 +216,20 @@ func (c *Camera) TriggerMotion() error {
 }
 
 // SetSchedule configures a camera mode's primary schedule.
-func (c *Camera) SetSchedule(mode CameraMode, schedule Schedule) error {
+// Get a list of schedules/IDs from server.Info.Schedules
+func (c *Camera) SetSchedule(mode CameraMode, scheduleID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
-	params.Set("id", strconv.Itoa(schedule.ID))
+	params.Set("id", strconv.Itoa(scheduleID))
 	return c.server.simpleReq("++ssSetSchedule", params, c.Number)
 }
 
 // SetScheduleOverride temporarily overrides a camera mode's current schedule.
-func (c *Camera) SetScheduleOverride(mode CameraMode, scheduleOverride ScheduleOverride) error {
+// Get a list of overrides/IDs from server.Info.ScheduleOverrides
+func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
-	params.Set("id", string(scheduleOverride))
+	params.Set("id", string(overrideID))
 	return c.server.simpleReq("++ssSetOverride", params, c.Number)
 }
 

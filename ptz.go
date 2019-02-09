@@ -125,8 +125,7 @@ func (z *PTZ) ptzReq(command ptzCommand) error {
 
 // UnmarshalXML method converts ptzCapbilities bitmask into true/false abilities.
 func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	err := d.DecodeElement(&z.rawCaps, &start)
-	if err != nil {
+	if err := d.DecodeElement(&z.rawCaps, &start); err != nil {
 		return errors.Wrap(err, "ptz caps")
 	}
 	z.HasPanTilt = z.rawCaps&ptzPanTilt == ptzPanTilt
