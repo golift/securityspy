@@ -48,7 +48,7 @@ func (f *Files) GetFile(name string) (*File, error) {
 		GmtOffset: f.server.Info.GmtOffset.Duration,
 	}
 	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != 2 {
-		return file, ErrorNoExtension
+		return file, ErrorInvalidName
 	} else if nameDateSplit := strings.Split(fileExtSplit[0], " "); len(fileExtSplit) < 2 {
 		return file, ErrorInvalidName
 	} else if file.Updated, err = time.Parse(fileDateFormat, nameDateSplit[0]); err != nil {

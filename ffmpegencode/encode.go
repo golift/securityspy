@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // Default, Maximum and Minimum Values
@@ -30,146 +32,120 @@ var (
 	DefaultFFmpegPath  = "/usr/local/bin/ffmpeg"
 	DefaultProfile     = "main"
 	DefaultLevel       = "3.0"
+	ErrorInvalidOutput = errors.New("output path is not valid")
+	ErrorInvalidInput  = errors.New("input path is not valid")
 )
 
-// These are custom errors this library may return.
-const (
-	ErrorInvalidOutput = Error("output path is not valid")
-	ErrorInvalidInput  = Error("input path is not valid")
-)
-
-// Error enables constant errors.
-type Error string
-
-// Error allows a string to satisfy the error type.
-func (e Error) Error() string {
-	return string(e)
+// Config defines how to ffmpeg shall transcode a stream.
+type Config struct {
+	FFMPEG string // "/usr/local/bin/ffmpeg"
+	Level  string // 3.0, 3.1 ..
+	Width  int    // 1920
+	Height int    // 1080
+	CRF    int    // 24
+	Time   int    // 15 (seconds)
+	Audio  bool   // include audio?
+	Rate   int    // framerate (5-20)
+	Size   int64  // max file size (always goes over). use 2000000 for 2.5MB
+	Prof   string // main, high, baseline
+	Copy   bool   // Copy original stream, rather than transcode.
 }
 
-// Encoder provides an inteface to mock.
-type Encoder interface {
-	Values() *VidOps
-	GetVideo(input, title string) (cmd string, cmdout io.ReadCloser, err error)
-	SaveVideo(input, output, title string) (cmd string, out string, err error)
-	SetAudio(audio string) (value bool)
-	SetRate(rate string) (value int)
-	SetLevel(level string) (value string)
-	SetWidth(width string) (value int)
-	SetHeight(height string) (value int)
-	SetCRF(crf string) (value int)
-	SetTime(seconds string) (value int)
-	SetSize(size string) (value int64)
-	SetProfile(profile string) (value string)
-}
-
-// EncodeInterface allows us to porovide an interface with sub-type'd data.
-type EncodeInterface struct {
-	ops *VidOps
-}
-
-// VidOps defines how to ffmpeg shall transcode a stream.
-type VidOps struct {
-	Encoder string // "/usr/local/bin/ffmpeg"
-	Level   string // 3.0, 3.1 ..
-	Width   int    // 1920
-	Height  int    // 1080
-	CRF     int    // 24
-	Time    int    // 15 (seconds)
-	Audio   bool   // include audio?
-	Rate    int    // framerate (5-20)
-	Size    int64  // max file size (always goes over). use 2000000 for 2.5MB
-	Prof    string // main, high, baseline
-	Copy    bool   // Copy original stream, rather than transcode.
+// Encoder is the struct returned by this library.
+// Contains all the bound methods.
+type Encoder struct {
+	config *Config
 }
 
 // Get an encoder interface.
-func Get(v *VidOps) Encoder {
-	encoder := &EncodeInterface{ops: v}
-	if encoder.ops.Encoder == "" {
-		encoder.ops.Encoder = DefaultFFmpegPath
+func Get(config *Config) *Encoder {
+	e := &Encoder{config: config}
+	if e.config == nil {
+		e.config = &Config{FFMPEG: DefaultFFmpegPath}
+	} else if e.config.FFMPEG == "" {
+		e.config.FFMPEG = DefaultFFmpegPath
 	}
-	encoder.SetLevel(v.Level)
-	encoder.SetProfile(v.Prof)
-	encoder.fixValues()
-	return encoder
+	e.SetLevel(e.config.Level)
+	e.SetProfile(e.config.Prof)
+	e.fixValues()
+	return e
 }
 
-// Values returns the current values in the encoder.
-func (v *EncodeInterface) Values() *VidOps {
-	// This pointer can be manipulated directly by the receiving function.
-	return v.ops
+// Config returns the current values in the encoder.
+func (e *Encoder) Config() Config {
+	return *e.config
 }
 
 // SetAudio turns audio on or off based on a string value.
-func (v *EncodeInterface) SetAudio(audio string) bool {
-	v.ops.Audio, _ = strconv.ParseBool(audio)
-	return v.ops.Audio
+func (e *Encoder) SetAudio(audio string) bool {
+	e.config.Audio, _ = strconv.ParseBool(audio)
+	return e.config.Audio
 }
 
 // SetLevel sets the h264 transcode level.
-func (v *EncodeInterface) SetLevel(level string) string {
-	if v.ops.Level = level; level != "3.0" && level != "3.1" && level != "4.0" && level != "4.1" && level != "4.2" {
-		v.ops.Level = DefaultLevel
+func (e *Encoder) SetLevel(level string) string {
+	if e.config.Level = level; level != "3.0" && level != "3.1" && level != "4.0" && level != "4.1" && level != "4.2" {
+		e.config.Level = DefaultLevel
 	}
-	return v.ops.Level
+	return e.config.Level
 }
 
 // SetProfile sets the h264 transcode profile.
-func (v *EncodeInterface) SetProfile(profile string) string {
-	if v.ops.Prof = profile; v.ops.Prof != "main" && v.ops.Prof != "baseline" && v.ops.Prof != "high" {
-		v.ops.Prof = DefaultProfile
+func (e *Encoder) SetProfile(profile string) string {
+	if e.config.Prof = profile; e.config.Prof != "main" && e.config.Prof != "baseline" && e.config.Prof != "high" {
+		e.config.Prof = DefaultProfile
 	}
-	return v.ops.Prof
+	return e.config.Prof
 }
 
 // SetWidth sets the transcode frame width.
-func (v *EncodeInterface) SetWidth(width string) int {
-	v.ops.Width, _ = strconv.Atoi(width)
-	v.fixValues()
-	return v.ops.Width
+func (e *Encoder) SetWidth(width string) int {
+	e.config.Width, _ = strconv.Atoi(width)
+	e.fixValues()
+	return e.config.Width
 }
 
 // SetHeight sets the transcode frame width.
-func (v *EncodeInterface) SetHeight(height string) int {
-	v.ops.Height, _ = strconv.Atoi(height)
-	v.fixValues()
-	return v.ops.Height
+func (e *Encoder) SetHeight(height string) int {
+	e.config.Height, _ = strconv.Atoi(height)
+	e.fixValues()
+	return e.config.Height
 }
 
 // SetCRF sets the h264 transcode CRF value.
-func (v *EncodeInterface) SetCRF(crf string) int {
-	v.ops.CRF, _ = strconv.Atoi(crf)
-	v.fixValues()
-	return v.ops.CRF
+func (e *Encoder) SetCRF(crf string) int {
+	e.config.CRF, _ = strconv.Atoi(crf)
+	e.fixValues()
+	return e.config.CRF
 }
 
 // SetTime sets the maximum transcode duration.
-func (v *EncodeInterface) SetTime(seconds string) int {
-	v.ops.Time, _ = strconv.Atoi(seconds)
-	v.fixValues()
-	return v.ops.Time
+func (e *Encoder) SetTime(seconds string) int {
+	e.config.Time, _ = strconv.Atoi(seconds)
+	e.fixValues()
+	return e.config.Time
 }
 
 // SetRate sets the transcode framerate.
-func (v *EncodeInterface) SetRate(rate string) int {
-	v.ops.Rate, _ = strconv.Atoi(rate)
-	v.fixValues()
-	return v.ops.Rate
+func (e *Encoder) SetRate(rate string) int {
+	e.config.Rate, _ = strconv.Atoi(rate)
+	e.fixValues()
+	return e.config.Rate
 }
 
 // SetSize sets the maximum transcode file size.
-func (v *EncodeInterface) SetSize(size string) int64 {
-	v.ops.Size, _ = strconv.ParseInt(size, 10, 64)
-	v.fixValues()
-	return v.ops.Size
+func (e *Encoder) SetSize(size string) int64 {
+	e.config.Size, _ = strconv.ParseInt(size, 10, 64)
+	e.fixValues()
+	return e.config.Size
 }
 
-func (v *EncodeInterface) getVideoHandle(input, output, title string) (string, *exec.Cmd) {
+func (e *Encoder) getVideoHandle(input, output, title string) (string, *exec.Cmd) {
 	if title == "" {
 		title = filepath.Base(output)
 	}
 	arg := []string{
-		v.ops.Encoder,
+		e.config.FFMPEG,
 		"-v", "16", // log level
 		"-rtsp_transport", "tcp",
 		"-i", input,
@@ -177,27 +153,27 @@ func (v *EncodeInterface) getVideoHandle(input, output, title string) (string, *
 		"-metadata", `title="` + title + `"`,
 		"-y", "-map", "0",
 	}
-	if v.ops.Size > 0 {
-		arg = append(arg, "-fs", strconv.FormatInt(v.ops.Size, 10))
+	if e.config.Size > 0 {
+		arg = append(arg, "-fs", strconv.FormatInt(e.config.Size, 10))
 	}
-	if v.ops.Time > 0 {
-		arg = append(arg, "-t", strconv.Itoa(v.ops.Time))
+	if e.config.Time > 0 {
+		arg = append(arg, "-t", strconv.Itoa(e.config.Time))
 	}
-	if !v.ops.Copy {
+	if !e.config.Copy {
 		arg = append(arg, "-vcodec", "libx264",
-			"-profile:v", v.ops.Prof,
-			"-level", v.ops.Level,
+			"-profile:v", e.config.Prof,
+			"-level", e.config.Level,
 			"-pix_fmt", "yuv420p",
 			"-movflags", "faststart",
-			"-s", strconv.Itoa(v.ops.Width)+"x"+strconv.Itoa(v.ops.Height),
+			"-s", strconv.Itoa(e.config.Width)+"x"+strconv.Itoa(e.config.Height),
 			"-preset", "superfast",
-			"-crf", strconv.Itoa(v.ops.CRF),
-			"-r", strconv.Itoa(v.ops.Rate),
+			"-crf", strconv.Itoa(e.config.CRF),
+			"-r", strconv.Itoa(e.config.Rate),
 		)
 	} else {
 		arg = append(arg, "-c", "copy")
 	}
-	if !v.ops.Audio {
+	if !e.config.Audio {
 		arg = append(arg, "-an")
 	} else {
 		arg = append(arg, "-c:a", "copy")
@@ -211,11 +187,11 @@ func (v *EncodeInterface) getVideoHandle(input, output, title string) (string, *
 // GetVideo retreives video from an input and returns a Reader to consume the output.
 // The Reader contains output messages if output is a filepath.
 // The Reader contains the video if the output is "-"
-func (v *EncodeInterface) GetVideo(input, title string) (string, io.ReadCloser, error) {
+func (e *Encoder) GetVideo(input, title string) (string, io.ReadCloser, error) {
 	if input == "" {
 		return "", nil, ErrorInvalidInput
 	}
-	cmdStr, cmd := v.getVideoHandle(input, "-", title)
+	cmdStr, cmd := e.getVideoHandle(input, "-", title)
 	stdoutpipe, err := cmd.StdoutPipe()
 	if err != nil {
 		return cmdStr, nil, err
@@ -224,13 +200,13 @@ func (v *EncodeInterface) GetVideo(input, title string) (string, io.ReadCloser, 
 }
 
 // SaveVideo saves a video snippet to a file.
-func (v *EncodeInterface) SaveVideo(input, output, title string) (string, string, error) {
+func (e *Encoder) SaveVideo(input, output, title string) (string, string, error) {
 	if input == "" {
 		return "", "", ErrorInvalidInput
 	} else if output == "" || output == "-" {
 		return "", "", ErrorInvalidOutput
 	}
-	cmdStr, cmd := v.getVideoHandle(input, output, title)
+	cmdStr, cmd := e.getVideoHandle(input, output, title)
 	// log.Println(cmdStr) // DEBUG
 	var out bytes.Buffer
 	cmd.Stderr = &out
@@ -243,49 +219,49 @@ func (v *EncodeInterface) SaveVideo(input, output, title string) (string, string
 }
 
 // fixValues makes sure video request values are sane.
-func (v *EncodeInterface) fixValues() {
-	if v.ops.Height == 0 {
-		v.ops.Height = DefaultFrameHeight
-	} else if v.ops.Height > MaximumFrameSize {
-		v.ops.Height = MaximumFrameSize
-	} else if v.ops.Height < MinimumFrameSize {
-		v.ops.Height = MinimumFrameSize
+func (e *Encoder) fixValues() {
+	if e.config.Height == 0 {
+		e.config.Height = DefaultFrameHeight
+	} else if e.config.Height > MaximumFrameSize {
+		e.config.Height = MaximumFrameSize
+	} else if e.config.Height < MinimumFrameSize {
+		e.config.Height = MinimumFrameSize
 	}
 
-	if v.ops.Width == 0 {
-		v.ops.Width = DefaultFrameWidth
-	} else if v.ops.Width > MaximumFrameSize {
-		v.ops.Width = MaximumFrameSize
-	} else if v.ops.Width < MinimumFrameSize {
-		v.ops.Width = MinimumFrameSize
+	if e.config.Width == 0 {
+		e.config.Width = DefaultFrameWidth
+	} else if e.config.Width > MaximumFrameSize {
+		e.config.Width = MaximumFrameSize
+	} else if e.config.Width < MinimumFrameSize {
+		e.config.Width = MinimumFrameSize
 	}
 
-	if v.ops.CRF == 0 {
-		v.ops.CRF = DefaultEncodeCRF
-	} else if v.ops.CRF < MinimumEncodeCRF {
-		v.ops.CRF = MinimumEncodeCRF
-	} else if v.ops.CRF > MaximumEncodeCRF {
-		v.ops.CRF = MaximumEncodeCRF
+	if e.config.CRF == 0 {
+		e.config.CRF = DefaultEncodeCRF
+	} else if e.config.CRF < MinimumEncodeCRF {
+		e.config.CRF = MinimumEncodeCRF
+	} else if e.config.CRF > MaximumEncodeCRF {
+		e.config.CRF = MaximumEncodeCRF
 	}
 
-	if v.ops.Rate == 0 {
-		v.ops.Rate = DefaultFrameRate
-	} else if v.ops.Rate < MinimumFrameRate {
-		v.ops.Rate = MinimumFrameRate
-	} else if v.ops.Rate > MaximumFrameRate {
-		v.ops.Rate = MaximumFrameRate
+	if e.config.Rate == 0 {
+		e.config.Rate = DefaultFrameRate
+	} else if e.config.Rate < MinimumFrameRate {
+		e.config.Rate = MinimumFrameRate
+	} else if e.config.Rate > MaximumFrameRate {
+		e.config.Rate = MaximumFrameRate
 	}
 
 	// No minimums.
-	if v.ops.Time == 0 {
-		v.ops.Time = DefaultCaptureTime
-	} else if v.ops.Time > MaximumCaptureTime {
-		v.ops.Time = MaximumCaptureTime
+	if e.config.Time == 0 {
+		e.config.Time = DefaultCaptureTime
+	} else if e.config.Time > MaximumCaptureTime {
+		e.config.Time = MaximumCaptureTime
 	}
 
-	if v.ops.Size == 0 {
-		v.ops.Size = DefaultCaptureSize
-	} else if v.ops.Size > MaximumCaptureSize {
-		v.ops.Size = MaximumCaptureSize
+	if e.config.Size == 0 {
+		e.config.Size = DefaultCaptureSize
+	} else if e.config.Size > MaximumCaptureSize {
+		e.config.Size = MaximumCaptureSize
 	}
 }

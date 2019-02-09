@@ -240,7 +240,7 @@ func (e *Events) parseEvent(text string) Event {
 			 20190114201206 104529 CAM5 ARM_A */
 	var err error
 	parts := strings.SplitN(text, " ", 4)
-	newEvent := Event{Msg: parts[3], ID: -1}
+	newEvent := Event{Msg: parts[3], ID: -1, Time: time.Now()}
 	// Parse the time stamp; append the Offset from ++systemInfo to get the right time-location.
 	eventTime := fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
 	if newEvent.When, err = time.ParseInLocation(eventTimeFormat+"-07", eventTime, time.Local); err != nil {

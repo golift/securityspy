@@ -18,9 +18,9 @@ var (
 	// The GetFile() method uses this to construct arbitrary file download paths.
 	fileDateFormat = "01-02-2006"
 
-	// Errors returned by this file.
-	ErrorPathExists  = errors.New("cannot overwrite existing path")
-	ErrorNoExtension = errors.New("missing file extension")
+	// ErrorPathExists returns when a requested write path already exists.
+	ErrorPathExists = errors.New("cannot overwrite existing path")
+	// ErrorInvalidName returns when requesting a file download and the filename is invalid.
 	ErrorInvalidName = errors.New("invalid file name")
 )
 

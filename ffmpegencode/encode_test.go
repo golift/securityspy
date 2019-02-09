@@ -12,36 +12,36 @@ import (
 
 func TestFixValues(t *testing.T) {
 	a := assert.New(t)
-	v := Get(&VidOps{})
+	e := Get(&Config{})
 	// Test default values.
-	a.False(v.SetAudio(""), "Wrong default 'audio' value!")
-	a.EqualValues(DefaultProfile, v.SetProfile(""), "Wrong default 'profile' value!")
-	a.EqualValues(DefaultLevel, v.SetLevel(""), "Wrong default 'level' value!")
-	a.EqualValues(DefaultFrameHeight, v.SetHeight(""), "Wrong default 'height' value!")
-	a.EqualValues(DefaultFrameWidth, v.SetWidth(""), "Wrong default 'width' value!")
-	a.EqualValues(DefaultEncodeCRF, v.SetCRF(""), "Wrong default 'crf' value!")
-	a.EqualValues(DefaultCaptureTime, v.SetTime(""), "Wrong default 'time' value!")
-	a.EqualValues(DefaultFrameRate, v.SetRate(""), "Wrong default 'rate' value!")
-	a.EqualValues(int64(DefaultCaptureSize), v.SetSize(""), "Wrong default 'size' value!")
+	a.False(e.SetAudio(""), "Wrong default 'audio' value!")
+	a.EqualValues(DefaultProfile, e.SetProfile(""), "Wrong default 'profile' value!")
+	a.EqualValues(DefaultLevel, e.SetLevel(""), "Wrong default 'level' value!")
+	a.EqualValues(DefaultFrameHeight, e.SetHeight(""), "Wrong default 'height' value!")
+	a.EqualValues(DefaultFrameWidth, e.SetWidth(""), "Wrong default 'width' value!")
+	a.EqualValues(DefaultEncodeCRF, e.SetCRF(""), "Wrong default 'crf' value!")
+	a.EqualValues(DefaultCaptureTime, e.SetTime(""), "Wrong default 'time' value!")
+	a.EqualValues(DefaultFrameRate, e.SetRate(""), "Wrong default 'rate' value!")
+	a.EqualValues(int64(DefaultCaptureSize), e.SetSize(""), "Wrong default 'size' value!")
 	// Text max values.
-	a.EqualValues(MaximumFrameSize, v.SetHeight("9000"), "Wrong maximum 'height' value!")
-	a.EqualValues(MaximumFrameSize, v.SetWidth("9000"), "Wrong maximum 'width' value!")
-	a.EqualValues(MaximumEncodeCRF, v.SetCRF("9000"), "Wrong maximum 'crf' value!")
-	a.EqualValues(MaximumCaptureTime, v.SetTime("9000"), "Wrong maximum 'time' value!")
-	a.EqualValues(MaximumFrameRate, v.SetRate("9000"), "Wrong maximum 'rate' value!")
-	a.EqualValues(int64(MaximumCaptureSize), v.SetSize("999999999"), "Wrong maximum 'size' value!")
+	a.EqualValues(MaximumFrameSize, e.SetHeight("9000"), "Wrong maximum 'height' value!")
+	a.EqualValues(MaximumFrameSize, e.SetWidth("9000"), "Wrong maximum 'width' value!")
+	a.EqualValues(MaximumEncodeCRF, e.SetCRF("9000"), "Wrong maximum 'crf' value!")
+	a.EqualValues(MaximumCaptureTime, e.SetTime("9000"), "Wrong maximum 'time' value!")
+	a.EqualValues(MaximumFrameRate, e.SetRate("9000"), "Wrong maximum 'rate' value!")
+	a.EqualValues(int64(MaximumCaptureSize), e.SetSize("999999999"), "Wrong maximum 'size' value!")
 	// Text min values.
-	a.EqualValues(MinimumFrameSize, v.SetHeight("1"), "Wrong minimum 'height' value!")
-	a.EqualValues(MinimumFrameSize, v.SetWidth("1"), "Wrong minimum 'width' value!")
-	a.EqualValues(MinimumEncodeCRF, v.SetCRF("1"), "Wrong minimum 'CRF' value!")
-	a.EqualValues(MinimumFrameRate, v.SetRate("-1"), "Wrong minimum 'rate' value!")
+	a.EqualValues(MinimumFrameSize, e.SetHeight("1"), "Wrong minimum 'height' value!")
+	a.EqualValues(MinimumFrameSize, e.SetWidth("1"), "Wrong minimum 'width' value!")
+	a.EqualValues(MinimumEncodeCRF, e.SetCRF("1"), "Wrong minimum 'CRF' value!")
+	a.EqualValues(MinimumFrameRate, e.SetRate("-1"), "Wrong minimum 'rate' value!")
 }
 
 func TestSaveVideo(t *testing.T) {
 	a := assert.New(t)
-	v := Get(&VidOps{Encoder: "/bin/echo"})
+	e := Get(&Config{FFMPEG: "/bin/echo"})
 	fileTemp := "/tmp/go-securityspy-encode-test-12345.txt"
-	cmd, out, err := v.SaveVideo("INPUT", fileTemp, "TITLE")
+	cmd, out, err := e.SaveVideo("INPUT", fileTemp, "TITLE")
 	a.Nil(err, "/bin/echo returned an error. Something may be wrong with your environment.")
 	// Make sure the produced command has all the expected values.
 	a.Contains(cmd, "-an", "Audio may not be correctly disabled.")
@@ -55,33 +55,25 @@ func TestSaveVideo(t *testing.T) {
 	a.Contains(cmd, fmt.Sprintf("-fs %d", DefaultCaptureSize), "Size value is missing or malformed.")
 	a.True(strings.HasPrefix(cmd, "/bin/echo"), "The command does not - but should - begin with the Encoder value.")
 	a.True(strings.HasSuffix(cmd, fileTemp), "The command does not - but should - end with a dash to indicate output to stdout.")
-	a.EqualValues(cmd+"\n", "/bin/echo "+out, "Somehow the wrong value was written")
+	a.EqualValues(cmd, "/bin/echo "+out, "Somehow the wrong value was written")
 	// Make sure audio can be turned on.
-	v = Get(&VidOps{Encoder: "/bin/echo", Audio: true})
-	cmd, _, err = v.GetVideo("INPUT", "TITLE")
+	e = Get(&Config{FFMPEG: "/bin/echo", Audio: true})
+	cmd, _, err = e.GetVideo("INPUT", "TITLE")
 	a.Nil(err, "/bin/echo returned an error. Something may be wrong with your environment.")
 	a.Contains(cmd, "-c:a copy", "Audio may not be correctly enabled.")
 }
 
 func TestValues(t *testing.T) {
 	a := assert.New(t)
-	v := Get(&VidOps{})
-	values := v.Values()
-	a.EqualValues(DefaultFFmpegPath, values.Encoder)
-	a.EqualValues(DefaultFrameRate, values.Rate)
-	a.EqualValues(DefaultFrameHeight, values.Height)
-	a.EqualValues(DefaultFrameWidth, values.Width)
-	a.EqualValues(DefaultEncodeCRF, values.CRF)
-	a.EqualValues(DefaultCaptureTime, values.Time)
-	a.EqualValues(DefaultCaptureSize, values.Size)
-	a.EqualValues(DefaultProfile, values.Prof)
-	a.EqualValues(DefaultLevel, values.Level)
-}
-
-func TestError(t *testing.T) {
-	t.Parallel()
-	a := assert.New(t)
-	sentence := "this is an error string"
-	err := Error(sentence)
-	a.EqualValues(sentence, err.Error())
+	e := Get(&Config{})
+	c := e.Config()
+	a.EqualValues(DefaultFFmpegPath, c.FFMPEG)
+	a.EqualValues(DefaultFrameRate, c.Rate)
+	a.EqualValues(DefaultFrameHeight, c.Height)
+	a.EqualValues(DefaultFrameWidth, c.Width)
+	a.EqualValues(DefaultEncodeCRF, c.CRF)
+	a.EqualValues(DefaultCaptureTime, c.Time)
+	a.EqualValues(DefaultCaptureSize, c.Size)
+	a.EqualValues(DefaultProfile, c.Prof)
+	a.EqualValues(DefaultLevel, c.Level)
 }

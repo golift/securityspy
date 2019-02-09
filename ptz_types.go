@@ -3,7 +3,10 @@ package securityspy
 import "github.com/pkg/errors"
 
 var (
+	// ErrorPTZNotOK is returned for any command that has a successful web request,
+	// but the reply does not end with the word OK.
 	ErrorPTZNotOK = errors.New("PTZ command not OK")
+	// ErrorPTZRange returns when a PTZ preset outside of 1-8 is provided.
 	ErrorPTZRange = errors.New("PTZ preset out of range 1-8")
 )
 
