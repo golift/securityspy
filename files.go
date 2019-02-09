@@ -42,7 +42,11 @@ func (f *Files) GetCCVideos(cameraNums []int, from, to time.Time) ([]*File, erro
 func (f *Files) GetFile(name string) (*File, error) {
 	//	01-18-2019 10-17-53 M Porch.m4v => ++getfile/0/2019-01-18/01-18-2019+10-17-53+M+Porch.m4v
 	var err error
-	file := new(File)
+	file := &File{
+		Title:     name,
+		server:    f.server,
+		GmtOffset: f.server.Info.GmtOffset.Duration,
+	}
 	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != 2 {
 		return file, ErrorNoExtension
 	} else if nameDateSplit := strings.Split(fileExtSplit[0], " "); len(fileExtSplit) < 2 {
@@ -54,10 +58,7 @@ func (f *Files) GetFile(name string) (*File, error) {
 	} else if file.Link.Type = "video/quicktime"; fileExtSplit[1] == "jpg" {
 		file.Link.Type = "image/jpeg"
 	}
-	file.Title = name
-	file.server = f.server
 	file.CameraNum = file.Camera.Number
-	file.GmtOffset = f.server.Info.GmtOffset.Duration
 	file.Link.HREF = "++getfile/" + strconv.Itoa(file.CameraNum) + "/" +
 		file.Updated.Format(downloadDateFormat) + "/" + url.QueryEscape(name)
 	return file, nil

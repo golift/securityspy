@@ -88,8 +88,8 @@ func (e *Events) BindChan(event EventType, channel chan Event) {
 
 // Stop stops Watch() loops
 func (e *Events) Stop() {
+	defer func() { e.Running = false }()
 	if e.Running {
-		e.Running = false
 		e.stopChan <- e.Running
 	}
 }
