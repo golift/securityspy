@@ -15,25 +15,8 @@ import (
 
 // SetSchedulePreset invokes a schedule preset. This [may/will] affect all camera arm modes.
 // Find presets you can pass into this method at server.Info.SchedulePresets
-func (s *Server) SetSchedulePreset(schedule SchedulePreset) error {
+func (s *Server) SetSchedulePreset(presetID int) error {
 	params := make(url.Values)
-	params.Set("id", strconv.Itoa(schedule.ID))
+	params.Set("id", strconv.Itoa(presetID))
 	return s.simpleReq("++ssSetPreset", params, -1)
-}
-
-// String provides a description of a Schedule Override.
-func (e ScheduleOverride) String() string {
-	switch e {
-	case ScheduleOverrideNone:
-		return "No Schedule Override"
-	case ScheduleOverrideUnarmedUntilEvent:
-		return "Unarmed Until Next Scheduled Event"
-	case ScheduleOverrideArmedUntilEvent:
-		return "Armed Until Next Scheduled Event"
-	case ScheduleOverrideUnarmedOneHour:
-		return "Unarmed For 1 Hour"
-	case ScheduleOverrideArmedOneHour:
-		return "Armed For 1 Hour"
-	}
-	return "Unknown Schedule Override"
 }

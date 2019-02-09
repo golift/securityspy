@@ -4,19 +4,17 @@ import (
 	"encoding/xml"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
-// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
-var DefaultTimeout = 10 * time.Second
-
-// Error enables constant errors.
-type Error string
-
-// Error allows a string to satisfy the error type.
-func (e Error) Error() string {
-	return string(e)
-}
+var (
+	ErrorCmdNotOK = errors.New("command unsuccessful")
+	// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
+	DefaultTimeout = 10 * time.Second
+)
 
 // Server is the main interface for this library.
 // Contains sub-interfaces for cameras, ptz, files & events
@@ -51,30 +49,31 @@ type ServerInfo struct {
 	HTTPSPort        int       `xml:"https-port"`     // 8001
 	HTTPSPortWan     int       `xml:"https-port-wan"` // 8001
 	CurrentTime      time.Time `xml:"current-local-time"`
-	GmtOffset        int       `xml:"seconds-from-gmt"`
+	GmtOffset        Duration  `xml:"seconds-from-gmt"`
 	DateFormat       string    `xml:"date-format"`
 	TimeFormat       string    `xml:"time-format"`
-	Refreshed        time.Time // updated by Refresh()
-	ScriptsNames     []string
-	SoundsNames      []string
-	Schedules        []Schedule
-	SchedulePresets  []SchedulePreset
+	// These are all copied in by Refresh()
+	Refreshed         time.Time
+	ScriptsNames      []string
+	SoundsNames       []string
+	ServerSchedules   map[int]string
+	SchedulePresets   map[int]string
+	ScheduleOverrides map[int]string
+	// If there is a chance of calling Refresh() while reading these maps, lock them.
+	sync.RWMutex
 }
 
 // systemInfo reresents ++systemInfo
 type systemInfo struct {
-	XMLName    xml.Name   `xml:"system"`
-	Server     ServerInfo `xml:"server"`
+	XMLName    xml.Name    `xml:"system"`
+	Server     *ServerInfo `xml:"server"`
 	CameraList struct {
 		Cameras []*Camera `xml:"camera"`
 	} `xml:"cameralist"`
 	// All of these sub-lists get copied into ServerInfo by Refresh()
-	ScheduleList struct {
-		Schedules []Schedule `xml:"schedule"`
-	} `xml:"schedulelist"`
-	SchedulePresetList struct {
-		SchedulePresets []SchedulePreset `xml:"schedulepreset"`
-	} `xml:"schedulepresetlist"`
+	Schedules         scheduleContainer `xml:"schedulelist"`
+	SchedulePresets   scheduleContainer `xml:"schedulepresetlist"`
+	ScheduleOverrides scheduleContainer `xml:"scheduleoverridelist"`
 	// These are shoehorned in.
 	Scripts struct {
 		Names []string `xml:"name"`
@@ -102,13 +101,19 @@ func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
 // Duration is used to convert the "Seconnds" given to us by the securityspy API into a go time.Duration.
 type Duration struct {
 	time.Duration
-	Seconds string
+	Val string
 }
 
 // UnmarshalXML method converts seconds to time.Duration.
 func (bit *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	_ = d.DecodeElement(&bit.Seconds, &start)
-	r, _ := strconv.Atoi(bit.Seconds)
-	bit.Duration = time.Second * time.Duration(r)
+	_ = d.DecodeElement(&bit.Val, &start)
+	r, _ := strconv.Atoi(bit.Val)
+	if bit.Duration = time.Second * time.Duration(r); bit.Val == "" {
+		// In the context of this application -1ns will significantly make
+		// obvious the fact that this value was empty and not a number.
+		// This typically happens for a camera's last motion event ticker
+		// when one has yet to happen [since securityspy started].
+		bit.Duration = -1
+	}
 	return nil
 }

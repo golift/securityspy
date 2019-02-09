@@ -241,11 +241,12 @@ func (e *Events) parseEvent(text string) Event {
 	parts := strings.SplitN(text, " ", 4)
 	newEvent := Event{Msg: parts[3], Camera: nil, ID: -1, Errors: nil}
 	// Parse the time stamp
-	zone, _ := time.Now().Zone() // SecuritySpy preovides seconds-from-gmt, but it's wildly inaccurate.
-	if newEvent.When, err = time.Parse(eventTimeFormat+"MST", parts[0]+zone); err != nil {
+	location := time.FixedZone("SVR", int(e.server.Info.GmtOffset.Seconds()))
+	if newEvent.When, err = time.ParseInLocation(eventTimeFormat, parts[0], location); err != nil {
 		newEvent.When = time.Now()
 		newEvent.Errors = append(newEvent.Errors, ErrorDateParseFail)
 	}
+	newEvent.When = newEvent.When.In(time.Local) // Convert the time to local time.
 	// Parse the ID
 	if newEvent.ID, err = strconv.Atoi(parts[1]); err != nil {
 		newEvent.ID = -1

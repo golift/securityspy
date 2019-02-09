@@ -7,13 +7,6 @@ import (
 // Encoder is the path to ffmpeg.
 var Encoder = "/usr/local/bin/ffmpeg"
 
-// ARM or DISARM a trigger
-const (
-	ErrorPTZNotOK = Error("PTZ command not OK")
-	ErrorPTZRange = Error("PTZ preset out of range 1-8")
-	ErrorCmdNotOK = Error("command unsuccessful")
-)
-
 // CameraArmMode locks arming to an integer of 0 or 1.
 type CameraArmMode rune
 

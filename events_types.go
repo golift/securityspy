@@ -3,22 +3,23 @@ package securityspy
 import (
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
-// Error strings used in this file.
-const (
-	ErrorUnknownEvent  = Error("unknown event")
-	ErrorCAMParseFail  = Error("CAM parse failed")
-	ErrorIDParseFail   = Error("ID parse failed")
-	ErrorCAMMissing    = Error("CAM missing")
-	ErrorDateParseFail = Error("timestamp parse failed")
-	ErrorUnknownError  = Error("unknown error")
-	ErrorDisconnect    = Error("event stream disconnected")
+var (
+	// Error strings used in this file.
+	ErrorUnknownEvent  = errors.New("unknown event")
+	ErrorCAMParseFail  = errors.New("CAM parse failed")
+	ErrorIDParseFail   = errors.New("ID parse failed")
+	ErrorCAMMissing    = errors.New("CAM missing")
+	ErrorDateParseFail = errors.New("timestamp parse failed")
+	ErrorUnknownError  = errors.New("unknown error")
+	ErrorDisconnect    = errors.New("event stream disconnected")
 	unknownEventText   = "Unknown Event"
+	// eventTimeFormat is the go-time-format returned by SecuritySpy's eventStream
+	eventTimeFormat = "20060102150405"
 )
-
-// eventTimeFormat is the go-time-format returned by SecuritySpy's eventStream
-var eventTimeFormat = "20060102150405"
 
 // Events is the main Events interface.
 type Events struct {
