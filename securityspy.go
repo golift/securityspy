@@ -39,17 +39,7 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 		eventBinds: make(map[EventType][]func(Event)),
 		eventChans: make(map[EventType][]chan Event),
 	}
-
-	// Run three API methods to fill in the Server data
-	// structure when a new server is created. Return any error.
-	if err := server.Refresh(); err != nil {
-		return server, err
-	} else if err := server.RefreshScripts(); err != nil {
-		return server, err
-	} else if err := server.RefreshSounds(); err != nil {
-		return server, err
-	}
-	return server, nil
+	return server, server.Refresh()
 }
 
 // Refresh gets fresh camera and serverInfo data from SecuritySpy,
@@ -63,51 +53,46 @@ func (s *Server) Refresh() error {
 		return errors.Wrap(err, "xml.Unmarshal(++systemInfo)")
 	}
 
-	// Point all the unmarshalled data into an exported struct. Better-formatted data.
 	s.Info.Refreshed = time.Now()
+	// Point all the unmarshalled data into an exported struct. Better-formatted data.
 	s.Info.ServerSchedules = s.systemInfo.Schedules
 	s.Info.SchedulePresets = s.systemInfo.SchedulePresets
 	s.Info.ScheduleOverrides = s.systemInfo.ScheduleOverrides
-	s.Cameras = &Cameras{
-		server: s,
-		Count:  len(s.systemInfo.CameraList.Cameras),
-	}
-	// Add the name to each assigned Camera Schedule and Schedule Override.
-	for i, cam := range s.systemInfo.CameraList.Cameras {
-		s.systemInfo.CameraList.Cameras[i].ScheduleIDA.Name = s.Info.ServerSchedules[cam.ScheduleIDA.ID]
-		s.systemInfo.CameraList.Cameras[i].ScheduleIDCC.Name = s.Info.ServerSchedules[cam.ScheduleIDCC.ID]
-		s.systemInfo.CameraList.Cameras[i].ScheduleIDMC.Name = s.Info.ServerSchedules[cam.ScheduleIDMC.ID]
-		s.systemInfo.CameraList.Cameras[i].ScheduleOverrideA.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]
-		s.systemInfo.CameraList.Cameras[i].ScheduleOverrideCC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]
-		s.systemInfo.CameraList.Cameras[i].ScheduleOverrideMC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]
+	s.Cameras = &Cameras{server: s}
+	// Collect the camera names and numbers for user convenience.
+	for _, cam := range s.systemInfo.CameraList.Cameras {
 		s.Cameras.Names = append(s.Cameras.Names, cam.Name)
 		s.Cameras.Numbers = append(s.Cameras.Numbers, cam.Number)
 	}
 	return nil
 }
 
-// RefreshScripts refreshes the list of script files. Probably doesn't change much.
-// Retreivable as server.Info.ScriptsNames
-func (s *Server) RefreshScripts() error {
-	if xmldata, err := s.secReqXML("++scripts", nil); err != nil {
-		return err
-	} else if err := xml.Unmarshal(xmldata, &s.systemInfo.Scripts); err != nil {
-		return errors.Wrap(err, "xml.Unmarshal(++scripts)")
+// GetScripts fetches and returns the list of script files.
+// You can't do much with these.
+func (s *Server) GetScripts() ([]string, error) {
+	var val struct {
+		Names []string `xml:"name"`
 	}
-	s.Info.ScriptsNames = s.systemInfo.Scripts.Names
-	return nil
+	if xmldata, err := s.secReqXML("++scripts", nil); err != nil {
+		return nil, err
+	} else if err := xml.Unmarshal(xmldata, &val); err != nil {
+		return nil, errors.Wrap(err, "xml.Unmarshal(++scripts)")
+	}
+	return val.Names, nil
 }
 
-// RefreshSounds refreshes the list of sound files. Probably doesn't change much.
-// Retreivable as server.Info.SoundsNames
-func (s *Server) RefreshSounds() error {
-	if xmldata, err := s.secReqXML("++sounds", nil); err != nil {
-		return err
-	} else if err := xml.Unmarshal(xmldata, &s.systemInfo.Sounds); err != nil {
-		return errors.Wrap(err, "xml.Unmarshal(++sounds)")
+// GetSounds fetches and returns the list of sound files.
+// You can't do much with these.
+func (s *Server) GetSounds() ([]string, error) {
+	var val struct {
+		Names []string `xml:"name"`
 	}
-	s.Info.SoundsNames = s.systemInfo.Sounds.Names
-	return nil
+	if xmldata, err := s.secReqXML("++sounds", nil); err != nil {
+		return nil, err
+	} else if err := xml.Unmarshal(xmldata, &val); err != nil {
+		return nil, errors.Wrap(err, "xml.Unmarshal(++sounds)")
+	}
+	return val.Names, nil
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
@@ -117,7 +102,10 @@ func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration
 	if params == nil {
 		params = make(url.Values)
 	}
-	a := &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.verifySSL}}}
+	httpClient := &http.Client{
+		Timeout:   timeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.verifySSL}},
+	}
 	req, err := http.NewRequest("GET", s.baseURL+apiPath, nil)
 	if err != nil {
 		return resp, errors.Wrap(err, "http.NewRequest()")
@@ -132,7 +120,7 @@ func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration
 		req.Header.Add("Accept", "application/xml")
 	}
 	req.URL.RawQuery = params.Encode()
-	resp, err = a.Do(req)
+	resp, err = httpClient.Do(req)
 	if err != nil {
 		return resp, errors.Wrap(err, "http.Do(req)")
 	}

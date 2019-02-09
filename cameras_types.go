@@ -27,7 +27,6 @@ type VidOps struct {
 // Cameras is an interface
 type Cameras struct {
 	server  *Server
-	Count   int
 	Names   []string
 	Numbers []int
 }
