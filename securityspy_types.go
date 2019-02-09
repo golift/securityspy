@@ -54,8 +54,6 @@ type ServerInfo struct {
 	TimeFormat       string    `xml:"time-format"`
 	// These are all copied in by Refresh()
 	Refreshed         time.Time
-	ScriptsNames      []string
-	SoundsNames       []string
 	ServerSchedules   map[int]string
 	SchedulePresets   map[int]string
 	ScheduleOverrides map[int]string
@@ -74,13 +72,6 @@ type systemInfo struct {
 	Schedules         scheduleContainer `xml:"schedulelist"`
 	SchedulePresets   scheduleContainer `xml:"schedulepresetlist"`
 	ScheduleOverrides scheduleContainer `xml:"scheduleoverridelist"`
-	// These are shoehorned in.
-	Scripts struct {
-		Names []string `xml:"name"`
-	} `xml:"scripts"`
-	Sounds struct {
-		Names []string `xml:"name"`
-	} `xml:"sounds"`
 }
 
 // YesNoBool is used to capture strings into boolean format.

@@ -20,10 +20,7 @@ import (
 // All returns interfaces for every camera.
 func (c *Cameras) All() (cams []*Camera) {
 	for _, cam := range c.server.systemInfo.CameraList.Cameras {
-		// Add cameras' pointer to sub interfaces.
-		cam.server = c.server
-		cam.PTZ.camera = cam
-		cams = append(cams, cam)
+		cams = append(cams, c.setupCam(cam))
 	}
 	return
 }
@@ -32,9 +29,7 @@ func (c *Cameras) All() (cams []*Camera) {
 func (c *Cameras) ByNum(number int) *Camera {
 	for _, cam := range c.server.systemInfo.CameraList.Cameras {
 		if cam.Number == number {
-			cam.server = c.server
-			cam.PTZ.camera = cam
-			return cam
+			return c.setupCam(cam)
 		}
 	}
 	return nil
@@ -44,10 +39,7 @@ func (c *Cameras) ByNum(number int) *Camera {
 func (c *Cameras) ByName(name string) *Camera {
 	for _, cam := range c.server.systemInfo.CameraList.Cameras {
 		if cam.Name == name {
-			// Add camera pointer to sub interface(s).
-			cam.server = c.server
-			cam.PTZ.camera = cam
-			return cam
+			return c.setupCam(cam)
 		}
 	}
 	return nil
@@ -134,7 +126,10 @@ func (c *Camera) PostG711(audio io.ReadCloser) error {
 	if audio == nil {
 		return nil
 	}
-	a := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.server.verifySSL}}}
+	httpClient := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.server.verifySSL}},
+	}
 	req, err := http.NewRequest("POST", c.server.baseURL+"++audio", nil)
 	if err != nil {
 		_ = audio.Close()
@@ -144,7 +139,7 @@ func (c *Camera) PostG711(audio io.ReadCloser) error {
 	}
 	req.Header.Add("Content-Type", "audio/g711-ulaw")
 	req.Body = audio // req.Body is automatically closed.
-	resp, err := a.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "http.Do(req)")
 	}
@@ -173,7 +168,6 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return ErrorPathExists
 	}
-	ops.FPS = -1 // not used for single image
 	jpgImage, err := c.GetJPEG(ops)
 	if err != nil {
 		return err
@@ -234,6 +228,20 @@ func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
+
+// setupCam fills in missing pieces on a camera's struct.
+func (c *Cameras) setupCam(cam *Camera) *Camera {
+	cam.server = c.server
+	cam.PTZ.camera = cam
+	// Fill in the missing schedule names (all we have are IDs, so fetch the names from systemInfo)
+	cam.ScheduleIDA.Name = c.server.Info.ServerSchedules[cam.ScheduleIDA.ID]
+	cam.ScheduleIDCC.Name = c.server.Info.ServerSchedules[cam.ScheduleIDCC.ID]
+	cam.ScheduleIDMC.Name = c.server.Info.ServerSchedules[cam.ScheduleIDMC.ID]
+	cam.ScheduleOverrideA.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]
+	cam.ScheduleOverrideCC.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]
+	cam.ScheduleOverrideMC.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]
+	return cam
+}
 
 // makeRequestParams converts passed in ops to url.Values
 func (c *Camera) makeRequestParams(ops *VidOps) url.Values {
