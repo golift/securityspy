@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	// Because I didn't feel like dealing with RTSP in Go. Maybe one day.
-	ffmpeg "github.com/golift/securityspy/ffmpegencode"
+	"github.com/golift/ffmpeg"
 	"github.com/pkg/errors"
 )
 
@@ -78,6 +77,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 		Size:   maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:   true,    // Always copy securityspy RTSP urls.
 	})
+
 	params := c.makeRequestParams(ops)
 	if c.server.authB64 != "" {
 		params.Set("auth", c.server.authB64)
