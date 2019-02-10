@@ -1,3 +1,5 @@
+// Package securityspy is a full featured SDK library for interacting with the
+// SecuritySpy API: https://www.bensoftware.com/securityspy/web-server-spec.html
 package securityspy
 
 import (

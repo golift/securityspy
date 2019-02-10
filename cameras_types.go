@@ -11,12 +11,15 @@ var Encoder = "/usr/local/bin/ffmpeg"
 type CameraArmMode rune
 
 // Arming is either 0 or 1.
+// Use these constants as inputs to a camera's schedule methods.
 const (
 	CameraDisarm CameraArmMode = iota
 	CameraArm
 )
 
-// VidOps are the options for a video that can be requested from SecuritySpy
+// VidOps are the frame options for a video that can be requested from SecuritySpy.
+// This same data struct is used for capturing JPEG files, in that case FPS is discarded.
+// Use this data type in the Camera methods that retreive live videos/images.
 type VidOps struct {
 	Width   int
 	Height  int
@@ -24,7 +27,8 @@ type VidOps struct {
 	Quality int
 }
 
-// Cameras is an interface
+// Cameras is an interface into the Camera system. Use the methods bound here
+// to retreive camera interfaces.
 type Cameras struct {
 	server  *Server
 	Names   []string
@@ -32,17 +36,21 @@ type Cameras struct {
 }
 
 // CameraSchedule contains schedule info for a camera's properties.
+// This is assigned to Motion Capture, Continuous Capture and Actions.
 type CameraSchedule struct {
 	Name string
 	ID   int
 }
 
-// UnmarshalXML stores a schedule ID into a cameraSchedule type.
+// UnmarshalXML stores a schedule ID into a CameraSchedule type.
+// This isn't a method you should ever call directly; it is only used during data initialization.
 func (bit *CameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return d.DecodeElement(&bit.ID, &start)
 }
 
-// Camera defines the data returned from the SecuritySpy API.
+// Camera defines the data returned from the SecuritySpy API. This data is directly
+// unmarshalled from the XML returned by the ++systemInfo method. Use the attached
+// methods to control a camera in various ways.
 type Camera struct {
 	server              *Server
 	Number              int            `xml:"number"`               // 0, 1, 2, 3, 4, 5, 6

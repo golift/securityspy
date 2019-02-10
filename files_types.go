@@ -17,15 +17,19 @@ var (
 	// This is used in the actual name of files that are saved. No where else.
 	// The GetFile() method uses this to construct arbitrary file download paths.
 	fileDateFormat = "01-02-2006"
+)
 
+// Errors returned by the Files type methods.
+var (
 	// ErrorPathExists returns when a requested write path already exists.
 	ErrorPathExists = errors.New("cannot overwrite existing path")
+
 	// ErrorInvalidName returns when requesting a file download and the filename is invalid.
 	ErrorInvalidName = errors.New("invalid file name")
 )
 
 // Files powers the Files interface.
-// It's really an extension of the Server interface.
+// Use the bound methods to list and download saved media files.
 type Files struct {
 	server *Server
 }
@@ -40,7 +44,9 @@ type fileFeed struct {
 	Entries      []*File  `xml:"entry"`        // List of File pointers
 }
 
-// File represents a saved media file.
+// File represents a saved media file. This is all the data retreived from
+// the ++download method for a particular file. Contains a camera interface
+// for the camera that created the file. All of the Files type methods return this type.
 type File struct {
 	Title string `xml:"title"` // 01-12-2019 M Gate.m4v, 01...
 	Link  struct {

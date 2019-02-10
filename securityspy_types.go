@@ -10,16 +10,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	// ErrorCmdNotOK is returned for any command that has a successful web request,
-	// but the reply does not end with the word OK.
-	ErrorCmdNotOK = errors.New("command unsuccessful")
-	// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
-	DefaultTimeout = 10 * time.Second
-)
+// ErrorCmdNotOK is returned for any command that has a successful web request,
+// but the reply does not end with the word OK.
+var ErrorCmdNotOK = errors.New("command unsuccessful")
+
+// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
+var DefaultTimeout = 10 * time.Second
 
 // Server is the main interface for this library.
 // Contains sub-interfaces for cameras, ptz, files & events
+// This is provided in exchange for a url, username and password.
 type Server struct {
 	verifySSL  bool
 	baseURL    string
@@ -33,28 +33,29 @@ type Server struct {
 }
 
 // ServerInfo represents all the SecuritySpy server's information.
+// This becomes available as server.Info.
 type ServerInfo struct {
-	Name             string    `xml:"name"`             // SecuritySpy
-	Version          string    `xml:"version"`          // 4.2.9
-	UUID             string    `xml:"uuid"`             // C03L1333F8J3AkXIZS1O
-	EventStreamCount int64     `xml:"eventstreamcount"` // 99270
-	DDNSName         string    `xml:"ddns-name"`        // domain.name.dyn
-	WanAddress       string    `xml:"wan-address"`      // domain.name
-	ServerName       string    `xml:"server-name"`
-	BonjourName      string    `xml:"bonjour-name"`
-	IP1              string    `xml:"ip1"`            // 192.168.3.1
-	IP2              string    `xml:"ip2"`            // 192.168.69.3
-	HTTPEnabled      YesNoBool `xml:"http-enabled"`   // yes
-	HTTPPort         int       `xml:"http-port"`      // 8000
-	HTTPPortWan      int       `xml:"http-port-wan"`  // 8000
-	HTTPSEnabled     YesNoBool `xml:"https-enabled"`  // no
-	HTTPSPort        int       `xml:"https-port"`     // 8001
-	HTTPSPortWan     int       `xml:"https-port-wan"` // 8001
-	CurrentTime      time.Time `xml:"current-local-time"`
-	GmtOffset        Duration  `xml:"seconds-from-gmt"`
-	DateFormat       string    `xml:"date-format"`
-	TimeFormat       string    `xml:"time-format"`
-	// These are all copied in by Refresh()
+	Name             string    `xml:"name"`               // SecuritySpy
+	Version          string    `xml:"version"`            // 4.2.10
+	UUID             string    `xml:"uuid"`               // C03L1333F8J3AkXIZS1O
+	EventStreamCount int64     `xml:"eventstreamcount"`   // 99270
+	DDNSName         string    `xml:"ddns-name"`          // domain.name.dyn
+	WanAddress       string    `xml:"wan-address"`        // domain.name
+	ServerName       string    `xml:"server-name"`        // <usually empty>
+	BonjourName      string    `xml:"bonjour-name"`       // <usually empty>
+	IP1              string    `xml:"ip1"`                // 192.168.3.1
+	IP2              string    `xml:"ip2"`                // 192.168.69.3
+	HTTPEnabled      YesNoBool `xml:"http-enabled"`       // yes
+	HTTPPort         int       `xml:"http-port"`          // 8000
+	HTTPPortWan      int       `xml:"http-port-wan"`      // 8000
+	HTTPSEnabled     YesNoBool `xml:"https-enabled"`      // no
+	HTTPSPort        int       `xml:"https-port"`         // 8001
+	HTTPSPortWan     int       `xml:"https-port-wan"`     // 8001
+	CurrentTime      time.Time `xml:"current-local-time"` // 2019-02-10T03:08:12-08:00
+	GmtOffset        Duration  `xml:"seconds-from-gmt"`   // -28800
+	DateFormat       string    `xml:"date-format"`        // MM/DD/YYYY
+	TimeFormat       string    `xml:"time-format"`        // 12, 24
+	// These are all copied in/created by Refresh()
 	Refreshed         time.Time
 	ServerSchedules   map[int]string
 	SchedulePresets   map[int]string
@@ -76,7 +77,9 @@ type systemInfo struct {
 	ScheduleOverrides scheduleContainer `xml:"scheduleoverridelist"`
 }
 
-// YesNoBool is used to capture strings into boolean format.
+// YesNoBool is used to capture strings into boolean format. If the string has
+// a Val of: 1, true, yes, armed, active, or enabled then the boolean is true.
+// Any other string Val and the boolean is false.
 type YesNoBool struct {
 	Val bool
 	Txt string
@@ -84,6 +87,7 @@ type YesNoBool struct {
 
 // UnmarshalXML method converts armed/disarmed, yes/no, active/inactive or 0/1 to true/false.
 // Really it converts armed, yes, active, enabled, 1, true to true. Anything else is false.
+// This isn't a method you should ever call directly; it is only used during data initialization.
 func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	_ = d.DecodeElement(&bit.Txt, &start)
 	bit.Val = bit.Txt == "1" || strings.EqualFold(bit.Txt, "true") || strings.EqualFold(bit.Txt, "yes") ||
@@ -91,13 +95,14 @@ func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
 	return nil
 }
 
-// Duration is used to convert the "Seconnds" given to us by the securityspy API into a go time.Duration.
+// Duration is used to convert the "Seconds" given to us by the SecuritySpy API into a go time.Duration.
 type Duration struct {
 	time.Duration
 	Val string
 }
 
-// UnmarshalXML method converts seconds to time.Duration.
+// UnmarshalXML method converts seconds from a string to time.Duration.
+// This isn't a method you should ever call directly; it is only used during data initialization.
 func (bit *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	_ = d.DecodeElement(&bit.Val, &start)
 	r, _ := strconv.Atoi(bit.Val)

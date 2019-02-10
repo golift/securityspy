@@ -15,7 +15,7 @@ A command line interface app that uses this library exists. Most of the testing 
 Find it here: https://github.com/davidnewhall/SecSpyCLI - full of great examples on how to use this library.
 
 - Requires [SecuritySpy 4.2.10b9](https://www.bensoftware.com/securityspy/download-beta.html) or later.
-
+- There's a lot more to learn about this package in [GODOC](https://godoc.org/github.com/golift/securityspy).
 ## FEATURES
 
 #### Server

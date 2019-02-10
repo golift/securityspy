@@ -7,7 +7,8 @@ import (
 // CameraMode is a set of constants to deal with three specific camera modes.
 type CameraMode rune
 
-// Camera modes used by Camera scheduling methods.
+// Camera modes is used by the Camera scheduling methods. Use these constants
+// as inputs to a Camera's schedule methods.
 const (
 	CameraModeAll        CameraMode = 'X'
 	CameraModeMotion     CameraMode = 'M'

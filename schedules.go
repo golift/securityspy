@@ -14,7 +14,7 @@ import (
 */
 
 // SetSchedulePreset invokes a schedule preset. This [may/will] affect all camera arm modes.
-// Find presets you can pass into this method at server.Info.SchedulePresets
+// Find preset IDs you can pass into this method at server.Info.SchedulePresets
 func (s *Server) SetSchedulePreset(presetID int) error {
 	params := make(url.Values)
 	params.Set("id", strconv.Itoa(presetID))

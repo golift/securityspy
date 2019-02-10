@@ -28,7 +28,7 @@ func (z *PTZ) Up() error {
 	return z.ptzReq(ptzCommandUp)
 }
 
-// Down puts a camera in time. no, really, it makes it look down one click.
+// Down makes a camera look down one click.
 func (z *PTZ) Down() error {
 	return z.ptzReq(ptzCommandDown)
 }
@@ -43,7 +43,7 @@ func (z *PTZ) DownLeft() error {
 	return z.ptzReq(ptzCommandDownLeft)
 }
 
-// UpRight sends a camera up and to the right. like it's 1999.
+// UpRight sends a camera up and to the right.
 func (z *PTZ) UpRight() error {
 	return z.ptzReq(ptzCommandUpRight)
 }
@@ -61,7 +61,7 @@ func (z *PTZ) Zoom(in bool) error {
 	return z.ptzReq(ptzCommandZoomOut)
 }
 
-// Preset instructs a preset to be used. it just might work!
+// Preset instructs a a camera to move a preset position.
 func (z *PTZ) Preset(preset PTZpreset) error {
 	switch preset {
 	case PTZpreset1:
@@ -84,7 +84,7 @@ func (z *PTZ) Preset(preset PTZpreset) error {
 	return ErrorPTZRange
 }
 
-// PresetSave instructs a preset to be saved. good luck!
+// PresetSave instructs a preset to be permanently saved. good luck!
 func (z *PTZ) PresetSave(preset PTZpreset) error {
 	switch preset {
 	case PTZpreset1:
@@ -107,9 +107,7 @@ func (z *PTZ) PresetSave(preset PTZpreset) error {
 	return ErrorPTZRange
 }
 
-// Stop instructs a camera to stop moving. That is, if you have a camera
-// cool enough to support continuous motion. Most do not, so sadly this is
-// unlikely to be useful to you.
+// Stop instructs a camera to stop moving, assuming it supports continuous movement.
 func (z *PTZ) Stop() error {
 	return z.ptzReq(ptzCommandStop)
 }
@@ -123,7 +121,8 @@ func (z *PTZ) ptzReq(command ptzCommand) error {
 	return z.camera.server.simpleReq("++ptz/command", params, z.camera.Number)
 }
 
-// UnmarshalXML method converts ptzCapbilities bitmask into true/false abilities.
+// UnmarshalXML method converts ptzCapbilities bitmask from an XML payload into true/false abilities.
+// This isn't a method you should ever call directly; it is only used during data initialization.
 func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	if err := d.DecodeElement(&z.rawCaps, &start); err != nil {
 		return errors.Wrap(err, "ptz caps")

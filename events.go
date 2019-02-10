@@ -59,6 +59,7 @@ func (e *Event) String() string {
 /* Events methods follow. */
 
 // BindFunc binds a call-back function to an Event in SecuritySpy.
+// Use this to receive incoming events via a callback method in a go routine.
 func (e *Events) BindFunc(event EventType, callBack func(Event)) {
 	if callBack == nil {
 		return
@@ -73,6 +74,8 @@ func (e *Events) BindFunc(event EventType, callBack func(Event)) {
 }
 
 // BindChan binds a receiving channel to an Event in SecuritySpy.
+// Use this to receive incoming events over a channel.
+// Avoid using unbuffered channels as they may block further event processing.
 func (e *Events) BindChan(event EventType, channel chan Event) {
 	if channel == nil {
 		return
@@ -86,7 +89,8 @@ func (e *Events) BindChan(event EventType, channel chan Event) {
 	e.eventChans[event] = []chan Event{channel}
 }
 
-// Stop stops Watch() loops
+// Stop stops Watch() loops and disconnects from the event stream.
+// No further callback messages will fire after this is called.
 func (e *Events) Stop() {
 	defer func() { e.Running = false }()
 	if e.Running {
@@ -112,6 +116,7 @@ func (e *Events) UnbindChan(event EventType) {
 }
 
 // UnbindFunc removes all bound callbacks for a particular event.
+// EventType is a set of constants that begin with Event*
 func (e *Events) UnbindFunc(event EventType) {
 	e.binds.Lock()
 	defer e.binds.Unlock()
@@ -119,6 +124,9 @@ func (e *Events) UnbindFunc(event EventType) {
 }
 
 // Watch kicks off the routines to watch the eventStream and fire callback bindings.
+// If your application relies on event stream messages, call this at least once
+// to connect the stream. If you have no call back functions or channels then do not
+// call this.
 func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
 	e.Running = true
 	e.eventChan = make(chan Event, 10) // allow 10 events to buffer
@@ -127,7 +135,8 @@ func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) 
 	e.eventStreamScanner(retryInterval)
 }
 
-// Custom fires an event into the running event Watcher.
+// Custom fires an event into the running event Watcher. Any functions or
+// channels bound to the CUSTOM Event type will also be called.
 func (e *Events) Custom(cameraNum int, msg string) {
 	if !e.Running {
 		return

@@ -17,28 +17,33 @@ import (
 
 /* Files interface methods follow. */
 
-// GetImages returns a list of links to captured images.
+// GetImages returns a list of File interfaces to captured images.
+// Takes in a list of Camera Numbers, as well as a start and stop time to filter results.
 func (f *Files) GetImages(cameraNums []int, from, to time.Time) ([]*File, error) {
 	return f.getFiles(cameraNums, from, to, "imageFilesCheck", "")
 }
 
-// GetAll returns a list of links to all captured videos and images.
+// GetAll returns a list of File interfaces to all captured videos and images.
+// Takes in a list of Camera Numbers, as well as a start and stop time to filter results.
 func (f *Files) GetAll(cameraNums []int, from, to time.Time) ([]*File, error) {
 	return f.getFiles(cameraNums, from, to, "ccFilesCheck&mcFilesCheck&imageFilesCheck", "")
 }
 
-// GetMCVideos returns a list of links to motion-captured videos.
+// GetMCVideos returns a list of File interfaces to motion-captured videos.
+// Takes in a list of Camera Numbers, as well as a start and stop time to filter results.
 func (f *Files) GetMCVideos(cameraNums []int, from, to time.Time) ([]*File, error) {
 	return f.getFiles(cameraNums, from, to, "mcFilesCheck", "")
 }
 
-// GetCCVideos returns a list of links to continuous-captured videos.
+// GetCCVideos returns a list of File interfaces to continuous-captured videos.
+// Takes in a list of Camera Numbers, as well as a start and stop time to filter results.
 func (f *Files) GetCCVideos(cameraNums []int, from, to time.Time) ([]*File, error) {
 	return f.getFiles(cameraNums, from, to, "ccFilesCheck", "")
 }
 
 // GetFile returns a file based on the name. It makes a lot of assumptions about file paths.
-// Not all methods work with this. Avoid it if possible. This allows Get() and Save() to work.
+// Not all methods work with this. Avoid it if possible. This allows Get() and Save() to work
+// for an arbitrary file name.
 func (f *Files) GetFile(name string) (*File, error) {
 	//	01-18-2019 10-17-53 M Porch.m4v => ++getfile/0/2019-01-18/01-18-2019+10-17-53+M+Porch.m4v
 	var err error
@@ -66,7 +71,8 @@ func (f *Files) GetFile(name string) (*File, error) {
 
 /* File interface methods follow. */
 
-// Save downloads a link from SecuritySpy and saves it to a file.
+// Save downloads a saved media File from SecuritySpy and saves it to a local file.
+// Returns an error if path exists.
 func (f *File) Save(path string) (int64, error) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return 0, ErrorPathExists
@@ -90,7 +96,8 @@ func (f *File) Save(path string) (int64, error) {
 	return size, newFile.Close()
 }
 
-// Get opens a file from a SecuritySpy link and returns the http.Body io.ReadCloser.
+// Get opens a file from a SecuritySpy download href and returns the http.Body io.ReadCloser.
+// Close() the Closer when finished.
 func (f *File) Get(highBandwidth bool) (io.ReadCloser, error) {
 	// use high bandwidth (full size) file download.
 	uri := strings.Replace(f.Link.HREF, "++getfile/", "++getfilelb/", 1)

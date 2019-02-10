@@ -45,6 +45,8 @@ func (c *Cameras) ByName(name string) *Camera {
 }
 
 // StreamVideo streams a segment of video from a camera using FFMPEG.
+// VidOps defines the video options for the video stream.
+// Returns an io.ReadCloser with the video stream. Close() it when finished.
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
 	f := ffmpeg.Get(&ffmpeg.Config{
 		FFMPEG: Encoder,
@@ -146,7 +148,8 @@ func (c *Camera) PostG711(audio io.ReadCloser) error {
 	return resp.Body.Close()
 }
 
-// GetJPEG returns a picture from a camera.
+// GetJPEG returns an images from a camera.
+// VidOps defines the image size. ops.FPS is ignored.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
 	resp, err := c.server.secReq("++image", c.makeRequestParams(ops), DefaultTimeout)
@@ -163,7 +166,9 @@ func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 	return jpgImage, err
 }
 
-// SaveJPEG gets a picture from a camera and puts it in a file.
+// SaveJPEG gets a picture from a camera and puts it in a file (path).
+// The file will be overwritten if it exists.
+// VidOps defines the image size. ops.FPS is ignored.
 func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return ErrorPathExists
@@ -182,25 +187,25 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 	return jpeg.Encode(f, jpgImage, nil)
 }
 
-// ToggleContinuous arms (true) or disarms (false).
+// ToggleContinuous arms (true) or disarms (false) a camera's continuous capture mode.
 func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 	return c.server.simpleReq("++ssControlContinuous", params, c.Number)
 }
 
-// ToggleActions arms (true) or disarms (false).
-func (c *Camera) ToggleActions(arm CameraArmMode) error {
-	params := make(url.Values)
-	params.Set("arm", string(arm))
-	return c.server.simpleReq("++ssControlActions", params, c.Number)
-}
-
-// ToggleMotion arms (true) or disarms (false).
+// ToggleMotion arms (true) or disarms (false) a camera's motion capture mode.
 func (c *Camera) ToggleMotion(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 	return c.server.simpleReq("++ssControlMotionCapture", params, c.Number)
+}
+
+// ToggleActions arms (true) or disarms (false) a camera's actions.
+func (c *Camera) ToggleActions(arm CameraArmMode) error {
+	params := make(url.Values)
+	params.Set("arm", string(arm))
+	return c.server.simpleReq("++ssControlActions", params, c.Number)
 }
 
 // TriggerMotion sets a camera as currently seeing motion.
@@ -210,7 +215,8 @@ func (c *Camera) TriggerMotion() error {
 }
 
 // SetSchedule configures a camera mode's primary schedule.
-// Get a list of schedules/IDs from server.Info.Schedules
+// Get a list of schedules IDs you can use here from server.Info.Schedules.
+// CameraModes are constants with names that start with CameraMode*
 func (c *Camera) SetSchedule(mode CameraMode, scheduleID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
@@ -219,7 +225,8 @@ func (c *Camera) SetSchedule(mode CameraMode, scheduleID int) error {
 }
 
 // SetScheduleOverride temporarily overrides a camera mode's current schedule.
-// Get a list of overrides/IDs from server.Info.ScheduleOverrides
+// Get a list of overrides IDs you can use here from server.Info.ScheduleOverrides.
+// CameraModes are constants with names that start with CameraMode*
 func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))

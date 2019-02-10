@@ -6,31 +6,27 @@ var (
 	// ErrorPTZNotOK is returned for any command that has a successful web request,
 	// but the reply does not end with the word OK.
 	ErrorPTZNotOK = errors.New("PTZ command not OK")
+
 	// ErrorPTZRange returns when a PTZ preset outside of 1-8 is provided.
 	ErrorPTZRange = errors.New("PTZ preset out of range 1-8")
 )
 
-// PTZ are what "things" a camera can do.
+// PTZ are what "things" a camera can do. Use the bound methods to interact
+// with a camera's PTZ controls.
 type PTZ struct {
-	camera  *Camera
-	rawCaps int
-	// HasPanTilt is true if a camera can pan and tilt using PTZ controls.
-	HasPanTilt bool
-	// HasHome is true if the camera supports the home position PTZ command.
-	HasHome bool
-	// HasHome is true if the camera supports zooming in and out.
-	HasZoom bool
-	// HasPresets is true when the camera allows user-defined preset positions.
-	HasPresets bool
-	// Continuous is true if the camera supports continuous movement. Most cameras
-	// now days support this. You will need to call Camera.Stop() to stop movement.
-	Continuous bool
+	camera     *Camera
+	rawCaps    int
+	HasPanTilt bool // true if a camera can pan and tilt using PTZ controls.
+	HasHome    bool // true if the camera supports the home position PTZ command.
+	HasZoom    bool // true if the camera supports zooming in and out.
+	HasPresets bool // true when the camera allows user-defined preset positions.
+	Continuous bool // true if the camera supports continuous movement.
 }
 
 // PTZpreset locks our poresets to a max of 8
 type PTZpreset rune
 
-// Presets are 1 through 8.
+// Presets are 1 through 8. Use these constants as inputs to the PTZ methods.
 const (
 	_ PTZpreset = iota // skip 0
 	PTZpreset1
