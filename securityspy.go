@@ -35,6 +35,7 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 		verifySSL:  verifySSL,
 	}
 	// Assign all the sub-interface structs.
+	server.api = server
 	server.Info = server.systemInfo.Server
 	server.Files = &Files{server: server}
 	server.Events = &Events{server: server,
@@ -131,7 +132,7 @@ func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration
 
 // secReqXML returns raw http body, so it can be unmarshaled into an xml struct.
 func (s *Server) secReqXML(apiPath string, params url.Values) (body []byte, err error) {
-	resp, err := s.secReq(apiPath, params, DefaultTimeout)
+	resp, err := s.api.secReq(apiPath, params, DefaultTimeout)
 	if err != nil {
 		return body, err
 	}
@@ -152,7 +153,7 @@ func (s *Server) simpleReq(apiURI string, params url.Values, cameraNum int) erro
 	if cameraNum != -1 {
 		params.Set("cameraNum", strconv.Itoa(cameraNum))
 	}
-	resp, err := s.secReq(apiURI, params, DefaultTimeout)
+	resp, err := s.api.secReq(apiURI, params, DefaultTimeout)
 	if err != nil {
 		return err
 	}

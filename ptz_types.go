@@ -23,7 +23,7 @@ type PTZ struct {
 	Continuous bool // true if the camera supports continuous movement.
 }
 
-// PTZpreset locks our poresets to a max of 8
+// PTZpreset locks our presets to a max of 8
 type PTZpreset rune
 
 // Presets are 1 through 8. Use these constants as inputs to the PTZ methods.
@@ -52,6 +52,7 @@ const (
 type ptzCommand int
 
 // ptzCommand in list form
+// These constants come directly from the SecuritySpy API doc.
 const (
 	ptzCommandLeft        ptzCommand = 1
 	ptzCommandRight       ptzCommand = 2

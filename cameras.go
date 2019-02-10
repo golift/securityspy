@@ -94,7 +94,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.secReq("++video", c.makeRequestParams(ops), DefaultTimeout)
+	resp, err := c.server.api.secReq("++video", c.makeRequestParams(ops), DefaultTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // StreamH264 makes a web request to retreive an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.secReq("++stream", c.makeRequestParams(ops), DefaultTimeout)
+	resp, err := c.server.api.secReq("++stream", c.makeRequestParams(ops), DefaultTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 // StreamG711 makes a web request to retreive an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamG711() (io.ReadCloser, error) {
-	resp, err := c.server.secReq("++audio", c.makeRequestParams(nil), DefaultTimeout)
+	resp, err := c.server.api.secReq("++audio", c.makeRequestParams(nil), DefaultTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (c *Camera) PostG711(audio io.ReadCloser) error {
 // VidOps defines the image size. ops.FPS is ignored.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
-	resp, err := c.server.secReq("++image", c.makeRequestParams(ops), DefaultTimeout)
+	resp, err := c.server.api.secReq("++image", c.makeRequestParams(ops), DefaultTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -191,27 +191,27 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
-	return c.server.simpleReq("++ssControlContinuous", params, c.Number)
+	return c.server.api.simpleReq("++ssControlContinuous", params, c.Number)
 }
 
 // ToggleMotion arms (true) or disarms (false) a camera's motion capture mode.
 func (c *Camera) ToggleMotion(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
-	return c.server.simpleReq("++ssControlMotionCapture", params, c.Number)
+	return c.server.api.simpleReq("++ssControlMotionCapture", params, c.Number)
 }
 
 // ToggleActions arms (true) or disarms (false) a camera's actions.
 func (c *Camera) ToggleActions(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
-	return c.server.simpleReq("++ssControlActions", params, c.Number)
+	return c.server.api.simpleReq("++ssControlActions", params, c.Number)
 }
 
 // TriggerMotion sets a camera as currently seeing motion.
 // Other actions likely occur because of this!
 func (c *Camera) TriggerMotion() error {
-	return c.server.simpleReq("++triggermd", make(url.Values), c.Number)
+	return c.server.api.simpleReq("++triggermd", make(url.Values), c.Number)
 }
 
 // SetSchedule configures a camera mode's primary schedule.
@@ -221,7 +221,7 @@ func (c *Camera) SetSchedule(mode CameraMode, scheduleID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
 	params.Set("id", strconv.Itoa(scheduleID))
-	return c.server.simpleReq("++ssSetSchedule", params, c.Number)
+	return c.server.api.simpleReq("++ssSetSchedule", params, c.Number)
 }
 
 // SetScheduleOverride temporarily overrides a camera mode's current schedule.
@@ -231,7 +231,7 @@ func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
 	params.Set("id", string(overrideID))
-	return c.server.simpleReq("++ssSetOverride", params, c.Number)
+	return c.server.api.simpleReq("++ssSetOverride", params, c.Number)
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */

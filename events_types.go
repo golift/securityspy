@@ -48,7 +48,7 @@ type Events struct {
 	server     *Server
 	stopChan   chan bool
 	eventChan  chan Event
-	eventBinds map[EventType][]func(Event)
+	eventBinds map[EventType][]func(event Event)
 	eventChans map[EventType][]chan Event
 	binds      sync.RWMutex
 	chans      sync.RWMutex

@@ -97,14 +97,15 @@ func (f *File) Save(path string) (int64, error) {
 }
 
 // Get opens a file from a SecuritySpy download href and returns the http.Body io.ReadCloser.
-// Close() the Closer when finished.
+// Close() the Closer when finished. Pass true (for highBandwidth) will download
+// the full size file. Passing false will download a smaller transcoded file.
 func (f *File) Get(highBandwidth bool) (io.ReadCloser, error) {
 	// use high bandwidth (full size) file download.
 	uri := strings.Replace(f.Link.HREF, "++getfile/", "++getfilelb/", 1)
 	if highBandwidth {
 		uri = strings.Replace(f.Link.HREF, "++getfile/", "++getfilehb/", 1)
 	}
-	resp, err := f.server.secReq(uri, make(url.Values), DefaultTimeout)
+	resp, err := f.server.api.secReq(uri, make(url.Values), DefaultTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, contin
 	var entries []*File
 	var feed fileFeed
 	params := makeFilesParams(cameraNums, from, to, fileTypes, continuation)
-	if xmldata, err := f.server.secReqXML("++download", params); err != nil {
+	if xmldata, err := f.server.api.secReqXML("++download", params); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &feed); err != nil {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++download)")
