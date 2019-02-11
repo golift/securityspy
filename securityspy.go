@@ -50,7 +50,7 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 func (s *Server) Refresh() error {
 	s.Info.Lock()
 	defer s.Info.Unlock()
-	if xmldata, err := s.secReqXML("++systemInfo", nil); err != nil {
+	if xmldata, err := s.api.secReqXML("++systemInfo", nil); err != nil {
 		return err
 	} else if err := xml.Unmarshal(xmldata, s.systemInfo); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++systemInfo)")
@@ -76,7 +76,7 @@ func (s *Server) GetScripts() ([]string, error) {
 	var val struct {
 		Names []string `xml:"name"`
 	}
-	if xmldata, err := s.secReqXML("++scripts", nil); err != nil {
+	if xmldata, err := s.api.secReqXML("++scripts", nil); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &val); err != nil {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++scripts)")
@@ -90,7 +90,7 @@ func (s *Server) GetSounds() ([]string, error) {
 	var val struct {
 		Names []string `xml:"name"`
 	}
-	if xmldata, err := s.secReqXML("++sounds", nil); err != nil {
+	if xmldata, err := s.api.secReqXML("++sounds", nil); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &val); err != nil {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++sounds)")
@@ -101,13 +101,9 @@ func (s *Server) GetSounds() ([]string, error) {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // secReq is a helper function that formats the http request to SecuritySpy
-func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration) (resp *http.Response, err error) {
+func (s *Server) secReq(apiPath string, params url.Values, httpClient *http.Client) (resp *http.Response, err error) {
 	if params == nil {
 		params = make(url.Values)
-	}
-	httpClient := &http.Client{
-		Timeout:   timeout,
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.verifySSL}},
 	}
 	req, err := http.NewRequest("GET", s.baseURL+apiPath, nil)
 	if err != nil {
@@ -132,7 +128,11 @@ func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration
 
 // secReqXML returns raw http body, so it can be unmarshaled into an xml struct.
 func (s *Server) secReqXML(apiPath string, params url.Values) (body []byte, err error) {
-	resp, err := s.api.secReq(apiPath, params, DefaultTimeout)
+	httpClient := &http.Client{
+		Timeout:   DefaultTimeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.verifySSL}},
+	}
+	resp, err := s.api.secReq(apiPath, params, httpClient)
 	if err != nil {
 		return body, err
 	}
@@ -153,7 +153,11 @@ func (s *Server) simpleReq(apiURI string, params url.Values, cameraNum int) erro
 	if cameraNum != -1 {
 		params.Set("cameraNum", strconv.Itoa(cameraNum))
 	}
-	resp, err := s.api.secReq(apiURI, params, DefaultTimeout)
+	httpClient := &http.Client{
+		Timeout:   DefaultTimeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.verifySSL}},
+	}
+	resp, err := s.api.secReq(apiURI, params, httpClient)
 	if err != nil {
 		return err
 	}

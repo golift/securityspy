@@ -10,16 +10,15 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
 )
 
 type fakeAPI struct {
-	secReqStub        func(string, url.Values, time.Duration) (*http.Response, error)
+	secReqStub        func(string, url.Values, *http.Client) (*http.Response, error)
 	secReqMutex       sync.RWMutex
 	secReqArgsForCall []struct {
 		arg1 string
 		arg2 url.Values
-		arg3 time.Duration
+		arg3 *http.Client
 	}
 	secReqReturns struct {
 		result1 *http.Response
@@ -60,13 +59,13 @@ type fakeAPI struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *fakeAPI) secReq(arg1 string, arg2 url.Values, arg3 time.Duration) (*http.Response, error) {
+func (fake *fakeAPI) secReq(arg1 string, arg2 url.Values, arg3 *http.Client) (*http.Response, error) {
 	fake.secReqMutex.Lock()
 	ret, specificReturn := fake.secReqReturnsOnCall[len(fake.secReqArgsForCall)]
 	fake.secReqArgsForCall = append(fake.secReqArgsForCall, struct {
 		arg1 string
 		arg2 url.Values
-		arg3 time.Duration
+		arg3 *http.Client
 	}{arg1, arg2, arg3})
 	fake.recordInvocation("secReq", []interface{}{arg1, arg2, arg3})
 	fake.secReqMutex.Unlock()
@@ -86,13 +85,13 @@ func (fake *fakeAPI) SecReqCallCount() int {
 	return len(fake.secReqArgsForCall)
 }
 
-func (fake *fakeAPI) SecReqCalls(stub func(string, url.Values, time.Duration) (*http.Response, error)) {
+func (fake *fakeAPI) SecReqCalls(stub func(string, url.Values, *http.Client) (*http.Response, error)) {
 	fake.secReqMutex.Lock()
 	defer fake.secReqMutex.Unlock()
 	fake.secReqStub = stub
 }
 
-func (fake *fakeAPI) SecReqArgsForCall(i int) (string, url.Values, time.Duration) {
+func (fake *fakeAPI) SecReqArgsForCall(i int) (string, url.Values, *http.Client) {
 	fake.secReqMutex.RLock()
 	defer fake.secReqMutex.RUnlock()
 	argsForCall := fake.secReqArgsForCall[i]

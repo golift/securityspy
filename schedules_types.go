@@ -27,7 +27,10 @@ func (m *scheduleContainer) UnmarshalXML(d *xml.Decoder, start xml.StartElement)
 		if err != nil {
 			return err
 		}
-		var schedule CameraSchedule // This happens to use the same/correct structure.
+		var schedule struct {
+			Name string `xml:"name"`
+			ID   int    `xml:"id"`
+		}
 		switch e := token.(type) {
 		case xml.StartElement:
 			if err = d.DecodeElement(&schedule, &e); err != nil {

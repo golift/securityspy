@@ -4,8 +4,10 @@ package securityspy
 // This file and the methods herein: incomplete
 
 import (
+	"crypto/tls"
 	"encoding/xml"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -105,7 +107,11 @@ func (f *File) Get(highBandwidth bool) (io.ReadCloser, error) {
 	if highBandwidth {
 		uri = strings.Replace(f.Link.HREF, "++getfile/", "++getfilehb/", 1)
 	}
-	resp, err := f.server.api.secReq(uri, make(url.Values), DefaultTimeout)
+	httpClient := &http.Client{
+		Timeout:   DefaultTimeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !f.server.verifySSL}},
+	}
+	resp, err := f.server.api.secReq(uri, make(url.Values), httpClient)
 	if err != nil {
 		return nil, err
 	}

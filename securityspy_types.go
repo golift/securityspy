@@ -86,7 +86,7 @@ type systemInfo struct {
 // blockers when testing without a SecuritySpy server available. Overriding
 // them with fakes makes testing (for most methods in this library) possible.
 type api interface {
-	secReq(apiPath string, params url.Values, timeout time.Duration) (resp *http.Response, err error)
+	secReq(apiPath string, params url.Values, httpClient *http.Client) (resp *http.Response, err error)
 	secReqXML(apiPath string, params url.Values) (body []byte, err error)
 	simpleReq(apiURI string, params url.Values, cameraNum int) error
 }

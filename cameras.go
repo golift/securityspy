@@ -94,7 +94,11 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.api.secReq("++video", c.makeRequestParams(ops), DefaultTimeout)
+	httpClient := &http.Client{
+		Timeout:   DefaultTimeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.server.verifySSL}},
+	}
+	resp, err := c.server.api.secReq("++video", c.makeRequestParams(ops), httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +108,11 @@ func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // StreamH264 makes a web request to retreive an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.api.secReq("++stream", c.makeRequestParams(ops), DefaultTimeout)
+	httpClient := &http.Client{
+		Timeout:   DefaultTimeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.server.verifySSL}},
+	}
+	resp, err := c.server.api.secReq("++stream", c.makeRequestParams(ops), httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +122,11 @@ func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 // StreamG711 makes a web request to retreive an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamG711() (io.ReadCloser, error) {
-	resp, err := c.server.api.secReq("++audio", c.makeRequestParams(nil), DefaultTimeout)
+	httpClient := &http.Client{
+		Timeout:   DefaultTimeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.server.verifySSL}},
+	}
+	resp, err := c.server.api.secReq("++audio", c.makeRequestParams(nil), httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +164,11 @@ func (c *Camera) PostG711(audio io.ReadCloser) error {
 // VidOps defines the image size. ops.FPS is ignored.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
-	resp, err := c.server.api.secReq("++image", c.makeRequestParams(ops), DefaultTimeout)
+	httpClient := &http.Client{
+		Timeout:   DefaultTimeout,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.server.verifySSL}},
+	}
+	resp, err := c.server.api.secReq("++image", c.makeRequestParams(ops), httpClient)
 	if err != nil {
 		return nil, err
 	}
