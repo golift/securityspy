@@ -145,7 +145,7 @@ func (s *Server) secReqXML(apiPath string, params url.Values) (body []byte, err 
 	if resp.StatusCode != http.StatusOK {
 		return body, errors.Errorf("request failed (%v): %v (status: %v/%v)",
 			s.username, s.baseURL+apiPath, resp.StatusCode, resp.Status)
-	} else if body, err = ioutil.ReadAll(resp.Body); err == nil {
+	} else if body, err = ioutil.ReadAll(resp.Body); err != nil {
 		return body, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
 	}
 	return body, nil

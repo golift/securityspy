@@ -1,7 +1,14 @@
 package securityspy
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -109,4 +116,122 @@ func TestGetScripts(t *testing.T) {
 	assert.Contains(err.Error(), "xml.Unmarshal(++scripts)", "the error from xml.Unmarshal must be returned")
 }
 
-/**/
+func TestGetClient(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	server := &Server{verifySSL: true}
+	client := server.getClient(DefaultTimeout + 7*time.Second)
+	assert.Equal(DefaultTimeout+7*time.Second, client.Timeout, "timeout was not applied to the client")
+	// no way to check the verifySSL parameter?
+}
+
+func TestSecReq(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	server, _ := GetServer("user", "pass", "http://some.host:5678", false)
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal("xml", r.FormValue("format"), "format parameter was not added")
+		assert.Equal(server.authB64, r.FormValue("auth"), "auth parameter was not added")
+		assert.Equal("application/xml", r.Header.Get("Accept"), "accept header is not correct")
+		_, err := w.Write([]byte("request OK"))
+		assert.Nil(err, "the fake server must return an error writing to the client")
+		assert.Equal(server.baseURL, "http://"+r.Host+"/", "the host was not set correctly in the request")
+	})
+	httpClient, close := testingHTTPClient(h)
+	defer close()
+	resp, err := server.secReq("++path", make(url.Values), httpClient)
+	assert.Nil(err, "the method must not return an error when given a valid server to query")
+	if err == nil {
+		defer resp.Body.Close()
+		assert.Equal(http.StatusOK, resp.StatusCode, "the server must return a 200 response code")
+		body, err := ioutil.ReadAll(resp.Body)
+		assert.Nil(err, "must not be an error reading the response body")
+		assert.Equal("request OK", string(body), "wrong data was returned from the server")
+	}
+}
+
+// testingHTTPClient sets up a fake server for testing secReq().
+func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
+	fakeServer := httptest.NewServer(handler)
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, network, _ string) (net.Conn, error) {
+				return net.Dial(network, fakeServer.Listener.Addr().String())
+			},
+		},
+	}
+	return client, fakeServer.Close
+}
+
+func TestSecReqXML(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	server, _ := GetServer("user", "pass", "http://some.host:5678", false)
+	fake := &fakeAPI{}
+	server.api = fake
+	params := make(url.Values)
+	params.Add("myKey", "theValue")
+	client := &http.Response{
+		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World")),
+		StatusCode: http.StatusOK,
+	}
+	fake.SecReqReturns(client, nil)
+	body, err := server.secReqXML("++foo", params)
+	assert.Nil(err, "there must not be an error when input data is valid")
+	assert.Equal("Hello World", string(body), "the wrong request response was provided")
+	assert.Equal(1, fake.SecReqCallCount(), "secReq must be called exactly once per invocation")
+	calledWithPath, calledWithParams, calledWithClient := fake.SecReqArgsForCall(0)
+	assert.Equal("++foo", calledWithPath, "the api path was not correct in the request")
+	assert.Equal("theValue", calledWithParams.Get("myKey"), "the custom parameter was not set")
+	assert.Equal(DefaultTimeout, calledWithClient.Timeout, "default timeout must be applied to the request")
+	// TODO: check that the correct data was passed INTO secReq().
+
+	// try again with a bad status.
+	client = &http.Response{
+		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World")),
+		StatusCode: http.StatusForbidden,
+	}
+	fake.SecReqReturns(client, nil)
+	_, err = server.secReqXML("++foo", params)
+	assert.Contains(err.Error(), "request failed", "the wrong error was returned")
+	assert.Equal(2, fake.SecReqCallCount(), "secReq must be called exactly once per invocation")
+
+}
+
+func TestSimpleReq(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	server, _ := GetServer("user", "pass", "http://some.host:5678", false)
+	fake := &fakeAPI{}
+	server.api = fake
+	params := make(url.Values)
+	params.Add("myKey", "theValue")
+	client := &http.Response{
+		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World")),
+		StatusCode: http.StatusOK,
+	}
+	fake.SecReqReturns(client, nil)
+	err := server.simpleReq("++apipath", params, 3)
+	assert.Equal(err, ErrorCmdNotOK, "hello world must produce an err")
+	assert.Equal(1, fake.SecReqCallCount(), "secReq must be called exactly once per invocation")
+
+	// OK response.
+	client = &http.Response{
+		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World is OK")),
+		StatusCode: http.StatusOK,
+	}
+	fake.SecReqReturns(client, nil)
+	err = server.simpleReq("++apipath", params, 3)
+	assert.Nil(err, "the responds ends with OK so we must have no error")
+	assert.Equal(2, fake.SecReqCallCount(), "secReq must be called exactly once per invocation")
+	calledWithPath, calledWithParams, calledWithClient := fake.SecReqArgsForCall(1)
+	assert.Equal("++apipath", calledWithPath, "the api path was not correct in the request")
+	assert.Equal("3", calledWithParams.Get("cameraNum"), "the camera number was not in the parameters")
+	assert.Equal(DefaultTimeout, calledWithClient.Timeout, "default timeout must be applied to the request")
+
+	// test another error
+	fake.SecReqReturns(client, ErrorCmdNotOK)
+	err = server.simpleReq("++apipath", params, 3)
+	assert.Equal(ErrorCmdNotOK, err, "the error from secreq must be returned")
+	assert.Equal(3, fake.SecReqCallCount(), "secReq must be called exactly once per invocation")
+}
