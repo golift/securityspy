@@ -89,6 +89,7 @@ type api interface {
 	secReq(apiPath string, params url.Values, httpClient *http.Client) (resp *http.Response, err error)
 	secReqXML(apiPath string, params url.Values) (body []byte, err error)
 	simpleReq(apiURI string, params url.Values, cameraNum int) error
+	getClient(timeout time.Duration) (httpClient *http.Client)
 }
 
 // YesNoBool is used to capture strings into boolean format. If the string has

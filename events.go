@@ -3,10 +3,8 @@ package securityspy
 import (
 	"bufio"
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"io"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -181,10 +179,7 @@ func (e *Events) eventStreamScanner(retryInterval time.Duration) {
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
 func (e *Events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
-	httpClient := &http.Client{
-		Timeout:   0,
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !e.server.verifySSL}},
-	}
+	httpClient := e.server.api.getClient(0)
 	resp, err := e.server.api.secReq("++eventStream", nil, httpClient)
 	for err != nil {
 		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " + string(EventStreamDisconnect) + " " + err.Error()
