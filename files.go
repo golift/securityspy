@@ -105,7 +105,7 @@ func (f *File) Get(highBandwidth bool) (io.ReadCloser, error) {
 	if highBandwidth {
 		uri = strings.Replace(f.Link.HREF, "++getfile/", "++getfilehb/", 1)
 	}
-	resp, err := f.server.api.secReq(uri, make(url.Values), f.server.api.getClient(DefaultTimeout))
+	resp, err := f.server.api.secReq(uri, make(url.Values), f.server.getClient(DefaultTimeout))
 	if err != nil {
 		return nil, err
 	}

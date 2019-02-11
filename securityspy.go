@@ -134,16 +134,16 @@ func (s *Server) secReq(apiPath string, params url.Values, httpClient *http.Clie
 }
 
 // secReqXML returns raw http body, so it can be unmarshaled into an xml struct.
-func (s *Server) secReqXML(apiPath string, params url.Values) (body []byte, err error) {
+func (s *Server) secReqXML(apiPath string, params url.Values) ([]byte, error) {
 	resp, err := s.api.secReq(apiPath, params, s.getClient(DefaultTimeout))
 	if err != nil {
-		return body, err
+		return nil, err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode != http.StatusOK {
-		return body, errors.Errorf("request failed (%v): %v (status: %v/%v)",
+		return nil, errors.Errorf("request failed (%v): %v (status: %v/%v)",
 			s.username, s.baseURL+apiPath, resp.StatusCode, resp.Status)
 	}
 	return ioutil.ReadAll(resp.Body)

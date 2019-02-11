@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/xml"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -184,7 +186,6 @@ func TestSecReqXML(t *testing.T) {
 	assert.Equal("++foo", calledWithPath, "the api path was not correct in the request")
 	assert.Equal("theValue", calledWithParams.Get("myKey"), "the custom parameter was not set")
 	assert.Equal(DefaultTimeout, calledWithClient.Timeout, "default timeout must be applied to the request")
-	// TODO: check that the correct data was passed INTO secReq().
 
 	// try again with a bad status.
 	client = &http.Response{
@@ -195,7 +196,6 @@ func TestSecReqXML(t *testing.T) {
 	_, err = server.secReqXML("++foo", params)
 	assert.Contains(err.Error(), "request failed", "the wrong error was returned")
 	assert.Equal(2, fake.SecReqCallCount(), "secReq must be called exactly once per invocation")
-
 }
 
 func TestSimpleReq(t *testing.T) {
@@ -234,4 +234,41 @@ func TestSimpleReq(t *testing.T) {
 	err = server.simpleReq("++apipath", params, 3)
 	assert.Equal(ErrorCmdNotOK, err, "the error from secreq must be returned")
 	assert.Equal(3, fake.SecReqCallCount(), "secReq must be called exactly once per invocation")
+}
+
+func TestUnmarshalXMLYesNoBool(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	good := []string{"true", "yes", "1", "armed", "active", "enabled"}
+	fail := []string{"anything", "else", "returns", "false", "including", "no", "0", "disarmed", "inactive", "disabled"}
+	var bit YesNoBool
+	for _, val := range good {
+		assert.Nil(xml.Unmarshal([]byte("<tag>"+val+"</tag>"), &bit), "unmarshalling must not produce an error")
+		assert.True(bit.Val, "the value must unmarshal to true")
+		assert.Equal(val, bit.Txt, "the value was not unmarshalled correctly")
+	}
+	for _, val := range fail {
+		assert.Nil(xml.Unmarshal([]byte("<tag>"+val+"</tag>"), &bit), "unmarshalling must not produce an error")
+		assert.False(bit.Val, "the value must unmarshal to false")
+		assert.Equal(val, bit.Txt, "the value was not unmarshalled correctly")
+	}
+}
+
+func TestUnmarshalXMLDuration(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	good := []string{"1", "20", "300", "4000", "50000", "666666"}
+	var bit Duration
+	for _, val := range good {
+		assert.Nil(xml.Unmarshal([]byte("<tag>"+val+"</tag>"), &bit), "unmarshalling must not produce an error")
+		assert.Equal(val, bit.Val, "the value was not unmarshalled correctly")
+		num, err := strconv.ParseFloat(val, 10)
+		assert.Nil(err, "must not be an error parsing test numbers")
+		assert.Equal(num, bit.Seconds(), "the value was not unmarshalled correctly")
+		assert.Equal(val, bit.Val, "the value was not unmarshalled correctly")
+	}
+	// Test empty value.
+	assert.Nil(xml.Unmarshal([]byte("<tag></tag>"), &bit), "unmarshalling must not produce an error")
+	assert.Equal("", bit.Val, "the value was not unmarshalled correctly")
+	assert.Equal(int64(-1), bit.Nanoseconds(), "an empty value must produce -1 nano second.")
 }
