@@ -18,5 +18,5 @@ import (
 func (s *Server) SetSchedulePreset(presetID int) error {
 	params := make(url.Values)
 	params.Set("id", strconv.Itoa(presetID))
-	return s.simpleReq("++ssSetPreset", params, -1)
+	return s.api.simpleReq("++ssSetPreset", params, -1)
 }

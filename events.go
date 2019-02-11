@@ -179,7 +179,8 @@ func (e *Events) eventStreamScanner(retryInterval time.Duration) {
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
 func (e *Events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
-	resp, err := e.server.secReq("++eventStream", nil, 0)
+	httpClient := e.server.api.getClient(0)
+	resp, err := e.server.api.secReq("++eventStream", nil, httpClient)
 	for err != nil {
 		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " + string(EventStreamDisconnect) + " " + err.Error()
 		e.eventChan <- e.parseEvent(raw)
@@ -187,7 +188,7 @@ func (e *Events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser,
 		if !e.Running {
 			return nil, nil
 		}
-		resp, err = e.server.secReq("++eventStream", nil, 0)
+		resp, err = e.server.api.secReq("++eventStream", nil, httpClient)
 	}
 	raw := time.Now().Format(eventTimeFormat) + " -1 CAM " + string(EventStreamConnect)
 	e.eventChan <- e.parseEvent(raw)

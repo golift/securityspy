@@ -2,6 +2,8 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,15 +23,17 @@ var DefaultTimeout = 10 * time.Second
 // Contains sub-interfaces for cameras, ptz, files & events
 // This is provided in exchange for a url, username and password.
 type Server struct {
+	// override the local methods with the interface methods.
+	api
 	verifySSL  bool
 	baseURL    string
 	authB64    string
 	username   string
 	systemInfo *systemInfo
-	Files      *Files
-	Events     *Events
-	Cameras    *Cameras
-	Info       *ServerInfo
+	Files      *Files      // Files interface.
+	Events     *Events     // Events interface.
+	Cameras    *Cameras    // Cameras & PTZ interfaces.
+	Info       *ServerInfo // ServerInfo struct (no methods).
 }
 
 // ServerInfo represents all the SecuritySpy server's information.
@@ -75,6 +79,17 @@ type systemInfo struct {
 	Schedules         scheduleContainer `xml:"schedulelist"`
 	SchedulePresets   scheduleContainer `xml:"schedulepresetlist"`
 	ScheduleOverrides scheduleContainer `xml:"scheduleoverridelist"`
+}
+
+// api interface is provided only to allow overriding local methods during local testing.
+// The methods in this interface connect to SecuritySpy so they become
+// blockers when testing without a SecuritySpy server available. Overriding
+// them with fakes makes testing (for most methods in this library) possible.
+type api interface {
+	secReq(apiPath string, params url.Values, httpClient *http.Client) (resp *http.Response, err error)
+	secReqXML(apiPath string, params url.Values) (body []byte, err error)
+	simpleReq(apiURI string, params url.Values, cameraNum int) error
+	getClient(timeout time.Duration) (httpClient *http.Client)
 }
 
 // YesNoBool is used to capture strings into boolean format. If the string has

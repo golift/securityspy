@@ -7,7 +7,7 @@ import (
 // CameraMode is a set of constants to deal with three specific camera modes.
 type CameraMode rune
 
-// Camera modes is used by the Camera scheduling methods. Use these constants
+// CameraMode* are used by the Camera scheduling methods. Use these constants
 // as inputs to a Camera's schedule methods.
 const (
 	CameraModeAll        CameraMode = 'X'
@@ -19,7 +19,9 @@ const (
 // scheduleContainer allows unmarshalling of ScheduleOverrides and SchedulePresets into a map.
 type scheduleContainer map[int]string
 
+// UnmarshalXML turns the XML schedule lists returned by SecuritySpy's API into a map[int]string.
 func (m *scheduleContainer) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	// Loop each list element.
 	for (*m) = make(scheduleContainer); ; {
 		var schedule struct {
 			Name string `xml:"name"`

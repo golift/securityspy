@@ -118,7 +118,7 @@ func (z *PTZ) Stop() error {
 func (z *PTZ) ptzReq(command ptzCommand) error {
 	params := make(url.Values)
 	params.Set("command", strconv.Itoa(int(command)))
-	return z.camera.server.simpleReq("++ptz/command", params, z.camera.Number)
+	return z.camera.server.api.simpleReq("++ptz/command", params, z.camera.Number)
 }
 
 // UnmarshalXML method converts ptzCapbilities bitmask from an XML payload into true/false abilities.

@@ -35,6 +35,7 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 		verifySSL:  verifySSL,
 	}
 	// Assign all the sub-interface structs.
+	server.api = server
 	server.Info = server.systemInfo.Server
 	server.Files = &Files{server: server}
 	server.Events = &Events{server: server,
@@ -49,7 +50,7 @@ func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
 func (s *Server) Refresh() error {
 	s.Info.Lock()
 	defer s.Info.Unlock()
-	if xmldata, err := s.secReqXML("++systemInfo", nil); err != nil {
+	if xmldata, err := s.api.secReqXML("++systemInfo", nil); err != nil {
 		return err
 	} else if err := xml.Unmarshal(xmldata, s.systemInfo); err != nil {
 		return errors.Wrap(err, "xml.Unmarshal(++systemInfo)")
@@ -75,7 +76,7 @@ func (s *Server) GetScripts() ([]string, error) {
 	var val struct {
 		Names []string `xml:"name"`
 	}
-	if xmldata, err := s.secReqXML("++scripts", nil); err != nil {
+	if xmldata, err := s.api.secReqXML("++scripts", nil); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &val); err != nil {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++scripts)")
@@ -89,7 +90,7 @@ func (s *Server) GetSounds() ([]string, error) {
 	var val struct {
 		Names []string `xml:"name"`
 	}
-	if xmldata, err := s.secReqXML("++sounds", nil); err != nil {
+	if xmldata, err := s.api.secReqXML("++sounds", nil); err != nil {
 		return nil, err
 	} else if err := xml.Unmarshal(xmldata, &val); err != nil {
 		return nil, errors.Wrap(err, "xml.Unmarshal(++sounds)")
@@ -99,21 +100,24 @@ func (s *Server) GetSounds() ([]string, error) {
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
-// secReq is a helper function that formats the http request to SecuritySpy
-func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration) (resp *http.Response, err error) {
-	if params == nil {
-		params = make(url.Values)
-	}
-	httpClient := &http.Client{
+func (s *Server) getClient(timeout time.Duration) (httpClient *http.Client) {
+	return &http.Client{
 		Timeout:   timeout,
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.verifySSL}},
 	}
-	req, err := http.NewRequest("GET", s.baseURL+apiPath, nil)
-	if err != nil {
-		return resp, errors.Wrap(err, "http.NewRequest()")
+}
+
+// secReq is a helper function that formats the http request to SecuritySpy
+func (s *Server) secReq(apiPath string, params url.Values, httpClient *http.Client) (*http.Response, error) {
+	if params == nil {
+		params = make(url.Values)
 	}
 	if s.authB64 != "" {
 		params.Set("auth", s.authB64)
+	}
+	req, err := http.NewRequest("GET", s.baseURL+apiPath, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "http.NewRequest()")
 	}
 	if a := apiPath; !strings.HasPrefix(a, "++getfile") && !strings.HasPrefix(a, "++event") &&
 		!strings.HasPrefix(a, "++image") && !strings.HasPrefix(a, "++audio") &&
@@ -122,29 +126,23 @@ func (s *Server) secReq(apiPath string, params url.Values, timeout time.Duration
 		req.Header.Add("Accept", "application/xml")
 	}
 	req.URL.RawQuery = params.Encode()
-	resp, err = httpClient.Do(req)
-	if err != nil {
-		return resp, errors.Wrap(err, "http.Do(req)")
-	}
-	return resp, nil
+	return httpClient.Do(req)
 }
 
 // secReqXML returns raw http body, so it can be unmarshaled into an xml struct.
-func (s *Server) secReqXML(apiPath string, params url.Values) (body []byte, err error) {
-	resp, err := s.secReq(apiPath, params, DefaultTimeout)
+func (s *Server) secReqXML(apiPath string, params url.Values) ([]byte, error) {
+	resp, err := s.api.secReq(apiPath, params, s.getClient(DefaultTimeout))
 	if err != nil {
-		return body, err
+		return nil, err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode != http.StatusOK {
-		return body, errors.Errorf("request failed (%v): %v (status: %v/%v)",
+		return nil, errors.Errorf("request failed (%v): %v (status: %v/%v)",
 			s.username, s.baseURL+apiPath, resp.StatusCode, resp.Status)
-	} else if body, err = ioutil.ReadAll(resp.Body); err == nil {
-		return body, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
 	}
-	return body, nil
+	return ioutil.ReadAll(resp.Body)
 }
 
 // simpleReq performes HTTP req, checks for OK at end of output.
@@ -152,16 +150,14 @@ func (s *Server) simpleReq(apiURI string, params url.Values, cameraNum int) erro
 	if cameraNum != -1 {
 		params.Set("cameraNum", strconv.Itoa(cameraNum))
 	}
-	resp, err := s.secReq(apiURI, params, DefaultTimeout)
+	resp, err := s.api.secReq(apiURI, params, s.getClient(DefaultTimeout))
 	if err != nil {
 		return err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	if body, err := ioutil.ReadAll(resp.Body); err != nil {
-		return err
-	} else if !strings.HasSuffix(string(body), "OK") {
+	if body, err := ioutil.ReadAll(resp.Body); err != nil || !strings.HasSuffix(string(body), "OK") {
 		return ErrorCmdNotOK
 	}
 	return nil
