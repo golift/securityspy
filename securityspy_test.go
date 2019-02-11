@@ -36,7 +36,7 @@ func TestGetServer(t *testing.T) {
 	assert.NotNil(server.Events.server, "Events and Events.server pointers must be created by GetServer")
 	assert.NotNil(server.Events.eventBinds, "eventBinds map must be created by GetServer")
 	assert.NotNil(server.Events.eventChans, "eventChans map must be created by GetServer")
-	assert.Contains(err.Error(), "http.Do(req)", "the wrong error was returned")
+	assert.Contains(err.Error(), "connection refused", "the wrong error was returned")
 	assert.Equal(user, server.username, "the username must be saved by GetServer")
 	assert.Equal(URL+"/", server.baseURL, "the url must be saved by GetServer after adding a / suffix")
 	assert.Equal(b64, server.authB64, "the base64 encoding of user/pass must be saved by GetServer")

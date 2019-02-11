@@ -108,16 +108,16 @@ func (s *Server) getClient(timeout time.Duration) (httpClient *http.Client) {
 }
 
 // secReq is a helper function that formats the http request to SecuritySpy
-func (s *Server) secReq(apiPath string, params url.Values, httpClient *http.Client) (resp *http.Response, err error) {
+func (s *Server) secReq(apiPath string, params url.Values, httpClient *http.Client) (*http.Response, error) {
 	if params == nil {
 		params = make(url.Values)
 	}
-	req, err := http.NewRequest("GET", s.baseURL+apiPath, nil)
-	if err != nil {
-		return resp, errors.Wrap(err, "http.NewRequest()")
-	}
 	if s.authB64 != "" {
 		params.Set("auth", s.authB64)
+	}
+	req, err := http.NewRequest("GET", s.baseURL+apiPath, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "http.NewRequest()")
 	}
 	if a := apiPath; !strings.HasPrefix(a, "++getfile") && !strings.HasPrefix(a, "++event") &&
 		!strings.HasPrefix(a, "++image") && !strings.HasPrefix(a, "++audio") &&
@@ -126,11 +126,7 @@ func (s *Server) secReq(apiPath string, params url.Values, httpClient *http.Clie
 		req.Header.Add("Accept", "application/xml")
 	}
 	req.URL.RawQuery = params.Encode()
-	resp, err = httpClient.Do(req)
-	if err != nil {
-		return resp, errors.Wrap(err, "http.Do(req)")
-	}
-	return resp, nil
+	return httpClient.Do(req)
 }
 
 // secReqXML returns raw http body, so it can be unmarshaled into an xml struct.

@@ -93,7 +93,6 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 // StreamMJPG makes a web request to retreive a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-
 	resp, err := c.server.api.secReq("++video", c.makeRequestParams(ops), c.server.getClient(DefaultTimeout))
 	if err != nil {
 		return nil, err
