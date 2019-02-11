@@ -23,13 +23,13 @@ type scheduleContainer map[int]string
 func (m *scheduleContainer) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	// Loop each list element.
 	for (*m) = make(scheduleContainer); ; {
-		token, err := d.Token()
-		if err != nil {
-			return err
-		}
 		var schedule struct {
 			Name string `xml:"name"`
 			ID   int    `xml:"id"`
+		}
+		token, err := d.Token()
+		if err != nil {
+			return err
 		}
 		switch e := token.(type) {
 		case xml.StartElement:

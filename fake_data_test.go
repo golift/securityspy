@@ -1,5 +1,8 @@
 package securityspy
 
+// Test data for Test methods.
+// This is all copied directly from ++systemInfo, ++scripts and ++sounds
+
 var testServerInfo = `<server>
 	<name>SecuritySpy</name>
 	<version>4.2.10</version>
@@ -143,78 +146,66 @@ var testCameraTwo = `<camera>
 	<permissions>62975</permissions>
 </camera>`
 
-var testScheduleList = `<schedule>
-  <name>Unarmed 24/7</name>
-  <id>0</id>
-</schedule>
-<schedule>
-  <name>Armed 24/7</name>
-  <id>1</id>
-</schedule>
-<schedule>
-  <name>Armed Sunrise To Sunset</name>
-  <id>2</id>
-</schedule>
-<schedule>
-  <name>Armed Sunset To Sunrise</name>
-  <id>3</id>
-</schedule>
-<schedule>
-  <name>MyFirstSchedule</name>
-  <id>4903</id>
-</schedule>
-<schedule>
-  <name>AnotherSchedule</name>
-  <id>1741</id>
-</schedule>`
+var testScheduleList = `<schedulelist>
+  <schedule>
+    <name>Unarmed 24/7</name>
+    <id>0</id>
+  </schedule>
+  <schedule>
+    <name>Armed 24/7</name>
+    <id>1</id>
+  </schedule>
+  <schedule>
+    <name>Armed Sunrise To Sunset</name>
+    <id>2</id>
+  </schedule>
+  <schedule>
+    <name>Armed Sunset To Sunrise</name>
+    <id>3</id>
+  </schedule>
+  <schedule>
+    <name>MyFirstSchedule</name>
+    <id>4903</id>
+  </schedule>
+  <schedule>
+    <name>AnotherSchedule</name>
+    <id>1741</id>
+  </schedule>
+</schedulelist>`
 
-var testSchedulePresetList = `<schedulepreset>
-  <name>MyFirstPreset</name>
-  <id>1930238093</id>
-</schedulepreset>`
+var testSchedulePresetList = `<schedulepresetlist>
+  <schedulepreset>
+    <name>MyFirstPreset</name>
+    <id>1930238093</id>
+  </schedulepreset>
+</schedulepresetlist>`
 
-var testScheduleOverrideList = `<scheduleoverride>
-  <name>None</name>
-  <id>0</id>
-</scheduleoverride>
-<scheduleoverride>
-  <name>Unarmed Until Next Scheduled Event</name>
-  <id>1</id>
-</scheduleoverride>
-<scheduleoverride>
-  <name>Armed Until Next Scheduled Event</name>
-  <id>2</id>
-</scheduleoverride>
-<scheduleoverride>
-  <name>Unarmed For 1 Hour</name>
-  <id>3</id>
-</scheduleoverride>
-<scheduleoverride>
-  <name>Armed For 1 Hour</name>
-  <id>4</id>
-</scheduleoverride>`
+var testScheduleOverrideList = `<scheduleoverridelist>
+  <scheduleoverride>
+    <name>None</name>
+    <id>0</id>
+  </scheduleoverride>
+  <scheduleoverride>
+    <name>Unarmed Until Next Scheduled Event</name>
+    <id>1</id>
+  </scheduleoverride>
+  <scheduleoverride>
+    <name>Armed Until Next Scheduled Event</name>
+    <id>2</id>
+  </scheduleoverride>
+  <scheduleoverride>
+    <name>Unarmed For 1 Hour</name>
+    <id>3</id>
+  </scheduleoverride>
+  <scheduleoverride>
+    <name>Armed For 1 Hour</name>
+    <id>4</id>
+  </scheduleoverride>
+</scheduleoverridelist>`
 
-var testSystemInfo = `<?xml version="1.0" encoding="utf-8"?>
-<system>
-` + testServerInfo + `
-
-	<cameralist>
-` + testCameraOne + testCameraTwo + `
-  </cameralist>
-
-  <schedulelist>
-` + testScheduleList + `
-  </schedulelist>
-
-  <scheduleoverridelist>
-` + testScheduleOverrideList + `
-  </scheduleoverridelist>
-
-  <schedulepresetlist>
-` + testSchedulePresetList + `
-  </schedulepresetlist>
-</system>
-`
+var testSystemInfo = `<?xml version="1.0" encoding="utf-8"?><system>` + testServerInfo +
+	`<cameralist>` + testCameraOne + testCameraTwo + `</cameralist>` +
+	testScheduleList + testScheduleOverrideList + testSchedulePresetList + `</system>`
 
 var testSoundsList = `<?xml version="1.0" encoding="utf-8"?>
 <sounds>
