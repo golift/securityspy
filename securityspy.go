@@ -145,10 +145,8 @@ func (s *Server) secReqXML(apiPath string, params url.Values) (body []byte, err 
 	if resp.StatusCode != http.StatusOK {
 		return body, errors.Errorf("request failed (%v): %v (status: %v/%v)",
 			s.username, s.baseURL+apiPath, resp.StatusCode, resp.Status)
-	} else if body, err = ioutil.ReadAll(resp.Body); err != nil {
-		return body, errors.Wrap(err, "ioutil.ReadAll(resp.Body)")
 	}
-	return body, nil
+	return ioutil.ReadAll(resp.Body)
 }
 
 // simpleReq performes HTTP req, checks for OK at end of output.
@@ -163,9 +161,7 @@ func (s *Server) simpleReq(apiURI string, params url.Values, cameraNum int) erro
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	if body, err := ioutil.ReadAll(resp.Body); err != nil {
-		return err
-	} else if !strings.HasSuffix(string(body), "OK") {
+	if body, err := ioutil.ReadAll(resp.Body); err != nil || !strings.HasSuffix(string(body), "OK") {
 		return ErrorCmdNotOK
 	}
 	return nil
