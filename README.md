@@ -1,63 +1,63 @@
 # go-securityspy
 
+![reportcard](https://goreportcard.com/badge/golift.io/securityspy)
+
 ## OVERVIEW
 
 Full Featured Go Library for [SecuritySpy](https://www.bensoftware.com/securityspy/)'s
 web API. Read about the [API here](https://www.bensoftware.com/securityspy/web-server-spec.html).
 
-Everything is reasonably tested and working. Feedback is welcomed! Lots of docs to come.
+Everything is reasonably tested and working. Feedback is welcomed!
 
 `ffmpeg` is used if you want video snippets, but not required for most functions.
 
-My server doesn't have auth enabled, so I really have no idea if this works with a password. lemme know?
-
 A command line interface app that uses this library exists. Most of the testing is done with this app.
-Find it here: https://github.com/davidnewhall/SecSpyCLI - full of great examples on how to use this library.
+Find it here: [https://github.com/davidnewhall/SecSpyCLI](https://github.com/davidnewhall/SecSpyCLI)
+It's full of great examples on how to use this library, and can be easily installed with homebrew.
 
-- Requires [SecuritySpy 4.2.10b9](https://www.bensoftware.com/securityspy/download-beta.html) or later.
-- There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy).
+-   Works with SecuritySpy 4 and 5.
+-   There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy).
 
 ## FEATURES
 
 #### Server
 
- - All server and system Info is exposed with one API web request.
- - Schedule Presets can be retrieved and invoked.
+-   All server and system Info is exposed with one API web request.
+-   Schedule Presets can be retrieved and invoked.
 
 #### Cameras
 
-- Stream live H264 or MJPEG video from an `io.ReadCloser`.
-- Stream live G711 audio from an `io.ReadCloser`.
-- Submit G711 audio (files or microphone) to a camera from an `io.ReadCloser`.
-- Save live video snippets locally (requires `FFMPEG`).
-- Get live JPEG images in `image` format, or save files locally.
-- Arm and Disarm actions, motion capture and continuous capture.
-- Trigger Motion.
-- Set schedules and schedule overrides.
-- Inspect PTZ capabilities.
-- Control all PTZ actions including invoking and saving presets.
+-   Stream live H264 or MJPEG video from an `io.ReadCloser`.
+-   Stream live G711 audio from an `io.ReadCloser`.
+-   Submit G711 audio (files or microphone) to a camera from an `io.ReadCloser`.
+-   Save live video snippets locally (requires `FFMPEG`).
+-   Get live JPEG images in `image` format, or save files locally.
+-   Arm and Disarm actions, motion capture and continuous capture.
+-   Trigger Motion.
+-   Set schedules and schedule overrides.
+-   Inspect PTZ capabilities.
+-   Control all PTZ actions including invoking and saving presets.
 
 #### Events
 
 SecuritySpy has a handy event stream; you can bind functions and/or channels to
 all or specific events. When a bound event fires the callback method it's bound
 to is run. In the case of a channel binding, the event is sent to the channel
-fo consumption by a worker (pool).
+for consumption by a worker (pool).
 
-- Exposes all 11 SecuritySpy events.
-- Exposes 6 custom events.
-- Method to inject custom events into the event stream.
+-   Exposes all SecuritySpy events.
+-   Exposes 6 custom events.
+-   Method to inject custom events into the event stream.
 
 #### Files
 
 SecuritySpy saves video and image files based on motion and continuous capture
 settings. These files can be listed and downloaded with this library.
 
-- List and retrieve captured images.
-- List and retrieve continuous captured videos.
-- List and retrieve motion captured videos.
-- Save files locally or stream from `io.ReadCloser`.
-
+-   List and retrieve captured images.
+-   List and retrieve continuous captured videos.
+-   List and retrieve motion captured videos.
+-   Save files locally or stream from `io.ReadCloser`.
 
 ## EXAMPLE
 
@@ -74,7 +74,11 @@ import (
 )
 
 func main() {
-	server, err := securityspy.GetServer("admin", "password", "http://127.0.0.1:8000", false)
+  server, err := securityspy.GetServer(&securityspy.Config{
+		Username:  "admin",
+		Password:  "password",
+		URL:       "http://127.0.0.1:8000",
+		VerifySSL: false})
 	if err != nil {
 		panic(err)
 	}
@@ -112,5 +116,4 @@ SecuritySpy 4.2.10b9 @ 2019-02-09 16:20:00 -0700 MST (http://192.168.1.1:8000/) 
  ```
 
 ## LICENSE
-
 [MIT License](LICENSE) - Copyright (c) 2019 David Newhall II

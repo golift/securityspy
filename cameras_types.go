@@ -19,7 +19,7 @@ const (
 
 // VidOps are the frame options for a video that can be requested from SecuritySpy.
 // This same data struct is used for capturing JPEG files, in that case FPS is discarded.
-// Use this data type in the Camera methods that retreive live videos/images.
+// Use this data type in the Camera methods that retrieve live videos/images.
 type VidOps struct {
 	Width   int
 	Height  int
@@ -28,7 +28,7 @@ type VidOps struct {
 }
 
 // Cameras is an interface into the Camera system. Use the methods bound here
-// to retreive camera interfaces.
+// to retrieve camera interfaces.
 type Cameras struct {
 	server  *Server
 	Names   []string
@@ -109,5 +109,6 @@ type Camera struct {
 	PresetName6         string         `xml:"preset-name-6"`
 	PresetName7         string         `xml:"preset-name-7"`
 	PresetName8         string         `xml:"preset-name-8"`
-	Permissions         int64          `xml:"permissions"` // 63167, 63167, 62975, 6316...
+	Permissions         int64          `xml:"permissions"`  // 63167, 63167, 62975, 6316...
+	CapturePath         string         `xml:"capture-path"` // "/Volumes/Cameras/Porch" (v5+)
 }

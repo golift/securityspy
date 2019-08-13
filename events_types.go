@@ -23,21 +23,23 @@ var (
 
 	// ErrorCAMMissing like the errors above should never return.
 	// This is triggered by a corrupted event format.
-	ErrorCAMMissing = errors.New("CAM missing")
+	ErrorCAMMissing = errors.New("camera number missing")
 
 	// ErrorDateParseFail will only trigger if the time stamp format for events changes.
 	ErrorDateParseFail = errors.New("timestamp parse failed")
 
 	// ErrorDisconnect becomes the msg in a custom event when the SecSpy event stream is disconnected.
-	ErrorDisconnect = errors.New("event stream disconnected")
+	ErrorDisconnect = errors.New("server connection closed")
 )
 
-var (
-	// unknownEventText should only appear if SecuritySpy adds new event types.
-	unknownEventText = "Unknown Event"
-	// eventTimeFormat is the go-time-format returned by SecuritySpy's eventStream
+const (
+	// UnknownEventText should only appear if SecuritySpy adds new event types.
+	UnknownEventText = "Unknown Event"
+	// UnknownReasonText should only appear if SecuritySpy adds new motion detection reasons.
+	UnknownReasonText = "Unknown Reason"
+	// EventTimeFormat is the go-time-format returned by SecuritySpy's eventStream
 	// The GMT offset from ++systemInfo is appended later for unmarshaling w/ localization.
-	eventTimeFormat = "20060102150405"
+	EventTimeFormat = "20060102150405"
 )
 
 // Events is the main Events interface. Use the methods bound here to bind your
@@ -67,7 +69,7 @@ type Event struct {
 	Errors []error   // Errors populated by parse errors.
 }
 
-// EventType is a set of constant strings validated by the Event() method.
+// EventType is a set of constant strings validated by the EventNames map.
 type EventType string
 
 // Events that can be returned by the event stream.
@@ -83,9 +85,14 @@ const (
 	EventArmActions       EventType = "ARM_A"
 	EventSecSpyError      EventType = "ERROR"
 	EventConfigChange     EventType = "CONFIGCHANGE"
-	EventMotionDetected   EventType = "MOTION"
+	EventMotionDetected   EventType = "MOTION" // Legacy (v4)
 	EventOnline           EventType = "ONLINE"
 	EventOffline          EventType = "OFFLINE"
+	EventClassify         EventType = "CLASSIFY"
+	EventTriggerMotion    EventType = "TRIGGER_M"
+	EventTriggerAction    EventType = "TRIGGER_A"
+	EventFileWritten      EventType = "FILE"
+	EventKeepAlive        EventType = "NULL"
 	// The following belong to the library, not securityspy.
 	EventStreamDisconnect   EventType = "DISCONNECTED"
 	EventStreamConnect      EventType = "CONNECTED"
@@ -95,3 +102,60 @@ const (
 	EventWatcherRefreshFail EventType = "REFRESHFAIL"
 	EventStreamCustom       EventType = "CUSTOM"
 )
+
+// EventNames contains the human readable names for each event.
+var EventNames = map[EventType]string{
+	EventArmContinuous:    "Continuous Capture Armed",
+	EventDisarmContinuous: "Continuous Capture Disarmed",
+	EventArmMotion:        "Motion Capture Armed",
+	EventDisarmMotion:     "Motion Capture Disarmed",
+	EventArmActions:       "Actions Armed",
+	EventDisarmActions:    "Actions Disarmed",
+	EventSecSpyError:      "SecuritySpy Error",
+	EventConfigChange:     "Configuration Change",
+	EventMotionDetected:   "Motion Detected", // Legacy (v4)
+	EventOffline:          "Camera Offline",
+	EventOnline:           "Camera Online",
+	EventClassify:         "Classification",
+	EventTriggerMotion:    "Triggered Motion",
+	EventTriggerAction:    "Triggered Action",
+	EventFileWritten:      "File Written",
+	EventKeepAlive:        "Stream Keep Alive",
+	// The following belong to the library, not securityspy.
+	EventStreamDisconnect:   "Event Stream Disconnected",
+	EventStreamConnect:      "Event Stream Connected",
+	EventUnknownEvent:       UnknownEventText,
+	EventAllEvents:          "Any Event",
+	EventWatcherRefreshed:   "SystemInfo Refresh Success",
+	EventWatcherRefreshFail: "SystemInfo Refresh Failure",
+	EventStreamCustom:       "Custom Event",
+}
+
+// TriggerEvent represent the "Reason" a motion or action trigger occurred. v5+
+type TriggerEvent int
+
+// These are the trigger reasons SecuritySpy exposes. v5+
+const (
+	TriggerByMotion = TriggerEvent(1) << iota
+	TriggerByAudio
+	TriggerByScript
+	TriggerByCameraEvent
+	TriggerByWebServer
+	TriggerByOtherCamera
+	TriggerByManual
+	TriggerByHumanDetection
+	TriggerByVehicleDetection
+)
+
+// Reasons is the human-readable explanation for a motion detection reason.
+var Reasons = map[TriggerEvent]string{
+	TriggerByMotion:           "Motion Detected",
+	TriggerByAudio:            "Audio Detected",
+	TriggerByScript:           "AppleScript",
+	TriggerByCameraEvent:      "Camera Event",
+	TriggerByWebServer:        "Web Server",
+	TriggerByOtherCamera:      "Other Camera",
+	TriggerByManual:           "Manual",
+	TriggerByHumanDetection:   "Human Detected",
+	TriggerByVehicleDetection: "Vehicle Detected",
+}

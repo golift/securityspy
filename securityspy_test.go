@@ -25,7 +25,7 @@ func TestGetServer(t *testing.T) {
 	user := "user123"
 	pass := "pass456"
 	b64 := base64.URLEncoding.EncodeToString([]byte(user + ":" + pass))
-	server, err := GetServer(user, pass, URL, true)
+	server, err := GetServer(&Config{Username: user, Password: pass, URL: URL, VerifySSL: true})
 	assert.NotNil(err, "there is no server at the address provided so an error must exist")
 	assert.NotNil(server, "server must not be nil. even wiuth an error it must be returned")
 	assert.NotNil(server.systemInfo, "systemInfo pointer must be created by GetServer")
@@ -37,16 +37,16 @@ func TestGetServer(t *testing.T) {
 	assert.NotNil(server.Events.eventBinds, "eventBinds map must be created by GetServer")
 	assert.NotNil(server.Events.eventChans, "eventChans map must be created by GetServer")
 	assert.Contains(err.Error(), "connection refused", "the wrong error was returned")
-	assert.Equal(user, server.username, "the username must be saved by GetServer")
-	assert.Equal(URL+"/", server.baseURL, "the url must be saved by GetServer after adding a / suffix")
-	assert.Equal(b64, server.authB64, "the base64 encoding of user/pass must be saved by GetServer")
-	assert.True(server.verifySSL, "SSL certificate checking was requested so it must be true")
+	assert.Equal(user, server.Username, "the username must be saved by GetServer")
+	assert.Equal(URL+"/", server.URL, "the url must be saved by GetServer after adding a / suffix")
+	assert.Equal(b64, server.Password, "the base64 encoding of user/pass must be saved by GetServer")
+	assert.True(server.VerifySSL, "SSL certificate checking was requested so it must be true")
 }
 
 func TestRefresh(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
-	server, _ := GetServer("user", "pass", "http://127.0.0.1:5678", false)
+	server, _ := GetServer(&Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
 	fake := &fakeAPI{}                                 // create a fake api interface that provides introspection methods.
 	server.api = fake                                  // override our internal api interface with a fake interface.
 	fake.SecReqXMLReturns([]byte(testSystemInfo), nil) // Pass in a test XML payload.
@@ -79,7 +79,7 @@ func TestRefresh(t *testing.T) {
 func TestGetSounds(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
-	server, _ := GetServer("user", "pass", "http://127.0.0.1:5678", false)
+	server, _ := GetServer(&Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
 	fake := &fakeAPI{}                                 // create a fake api interface that provides introspection methods.
 	server.api = fake                                  // override our internal api interface with a fake interface.
 	fake.SecReqXMLReturns([]byte(testSoundsList), nil) // Pass in a test XML payload.
@@ -100,7 +100,7 @@ func TestGetSounds(t *testing.T) {
 func TestGetScripts(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
-	server, _ := GetServer("user", "pass", "http://127.0.0.1:5678", false)
+	server, _ := GetServer(&Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
 	fake := &fakeAPI{}                                  // create a fake api interface that provides introspection methods.
 	server.api = fake                                   // override our internal api interface with a fake interface.
 	fake.SecReqXMLReturns([]byte(testScriptsList), nil) // Pass in a test XML payload.
@@ -121,7 +121,7 @@ func TestGetScripts(t *testing.T) {
 func TestGetClient(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
-	server := &Server{verifySSL: true}
+	server := &Server{Config: &Config{VerifySSL: true}}
 	client := server.getClient(DefaultTimeout + 7*time.Second)
 	assert.Equal(DefaultTimeout+7*time.Second, client.Timeout, "timeout was not applied to the client")
 	// no way to check the verifySSL parameter?
@@ -130,14 +130,15 @@ func TestGetClient(t *testing.T) {
 func TestSecReq(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
-	server, _ := GetServer("user", "pass", "http://some.host:5678", false)
+	server, _ := GetServer(&Config{Username: "user", Password: "pass", URL: "http://some.host:5678", VerifySSL: false})
+
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal("xml", r.FormValue("format"), "format parameter was not added")
-		assert.Equal(server.authB64, r.FormValue("auth"), "auth parameter was not added")
+		assert.Equal(server.Password, r.FormValue("auth"), "auth parameter was not added")
 		assert.Equal("application/xml", r.Header.Get("Accept"), "accept header is not correct")
 		_, err := w.Write([]byte("request OK"))
 		assert.Nil(err, "the fake server must return an error writing to the client")
-		assert.Equal(server.baseURL, "http://"+r.Host+"/", "the host was not set correctly in the request")
+		assert.Equal(server.URL, "http://"+r.Host+"/", "the host was not set correctly in the request")
 	})
 	httpClient, close := testingHTTPClient(h)
 	defer close()
@@ -168,7 +169,7 @@ func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
 func TestSecReqXML(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
-	server, _ := GetServer("user", "pass", "http://some.host:5678", false)
+	server, _ := GetServer(&Config{Username: "user", Password: "pass", URL: "http://some.host:5678", VerifySSL: false})
 	fake := &fakeAPI{}
 	server.api = fake
 	params := make(url.Values)
@@ -201,7 +202,7 @@ func TestSecReqXML(t *testing.T) {
 func TestSimpleReq(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
-	server, _ := GetServer("user", "pass", "http://some.host:5678", false)
+	server, _ := GetServer(&Config{Username: "user", Password: "pass", URL: "http://some.host:5678", VerifySSL: false})
 	fake := &fakeAPI{}
 	server.api = fake
 	params := make(url.Values)
@@ -220,6 +221,7 @@ func TestSimpleReq(t *testing.T) {
 		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World is OK")),
 		StatusCode: http.StatusOK,
 	}
+
 	fake.SecReqReturns(client, nil)
 	err = server.simpleReq("++apipath", params, 3)
 	assert.Nil(err, "the responds ends with OK so we must have no error")

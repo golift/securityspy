@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golift/ffmpeg"
 	"github.com/pkg/errors"
+	"golift.io/ffmpeg"
 )
 
 // All returns interfaces for every camera.
@@ -55,12 +55,12 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 		Copy:   true,    // Always copy securityspy RTSP urls.
 	})
 	params := c.makeRequestParams(ops)
-	if c.server.authB64 != "" {
-		params.Set("auth", c.server.authB64)
+	if c.server.Password != "" {
+		params.Set("auth", c.server.Password)
 	}
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.server.baseURL, "http", "rtsp", 1) + "++stream"
+	url := strings.Replace(c.server.URL, "http", "rtsp", 1) + "++stream"
 	// RTSP doesn't rewally work with HTTPS, and FFMPEG doesn't care about the cert.
 	args, video, err := f.GetVideo(url+"?"+params.Encode(), c.Name)
 	return video, errors.Wrap(err, strings.Replace(args, "\n", " ", -1))
@@ -80,17 +80,17 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	})
 
 	params := c.makeRequestParams(ops)
-	if c.server.authB64 != "" {
-		params.Set("auth", c.server.authB64)
+	if c.server.Password != "" {
+		params.Set("auth", c.server.Password)
 	}
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.server.baseURL, "http", "rtsp", 1) + "++stream"
+	url := strings.Replace(c.server.URL, "http", "rtsp", 1) + "++stream"
 	_, out, err := f.SaveVideo(url+"?"+params.Encode(), outputFile, c.Name)
 	return errors.Wrap(err, strings.Replace(out, "\n", " ", -1))
 }
 
-// StreamMJPG makes a web request to retreive a motion JPEG stream.
+// StreamMJPG makes a web request to retrieve a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 	resp, err := c.server.api.secReq("++video", c.makeRequestParams(ops), c.server.getClient(DefaultTimeout))
@@ -100,7 +100,7 @@ func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-// StreamH264 makes a web request to retreive an H264 stream.
+// StreamH264 makes a web request to retrieve an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 	resp, err := c.server.api.secReq("++stream", c.makeRequestParams(ops), c.server.getClient(DefaultTimeout))
@@ -110,7 +110,7 @@ func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-// StreamG711 makes a web request to retreive an G711 audio stream.
+// StreamG711 makes a web request to retrieve an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamG711() (io.ReadCloser, error) {
 	resp, err := c.server.api.secReq("++audio", c.makeRequestParams(nil), c.server.getClient(DefaultTimeout))
@@ -128,12 +128,12 @@ func (c *Camera) PostG711(audio io.ReadCloser) error {
 		return nil
 	}
 	httpClient := c.server.api.getClient(DefaultTimeout) // use the api interface so it can be overridden.
-	req, err := http.NewRequest("POST", c.server.baseURL+"++audio", nil)
+	req, err := http.NewRequest("POST", c.server.URL+"++audio", nil)
 	if err != nil {
 		_ = audio.Close()
 		return errors.Wrap(err, "http.NewRequest()")
-	} else if c.server.authB64 != "" {
-		req.URL.RawQuery = "auth=" + c.server.authB64
+	} else if c.server.Password != "" {
+		req.URL.RawQuery = "auth=" + c.server.Password
 	}
 	req.Header.Add("Content-Type", "audio/g711-ulaw")
 	req.Body = audio // req.Body is automatically closed.

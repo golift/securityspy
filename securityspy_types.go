@@ -19,16 +19,22 @@ var ErrorCmdNotOK = errors.New("command unsuccessful")
 // DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
 var DefaultTimeout = 10 * time.Second
 
+// Config is the input data for this library. Only set VerifySSL to true if your server
+// has a valid SSL certificate. The password is auto-repalced with a base64 encoded string.
+type Config struct {
+	VerifySSL bool
+	URL       string
+	Password  string
+	Username  string
+}
+
 // Server is the main interface for this library.
 // Contains sub-interfaces for cameras, ptz, files & events
 // This is provided in exchange for a url, username and password.
 type Server struct {
 	// override the local methods with the interface methods.
 	api
-	verifySSL  bool
-	baseURL    string
-	authB64    string
-	username   string
+	*Config
 	systemInfo *systemInfo
 	Files      *Files      // Files interface.
 	Events     *Events     // Events interface.
@@ -59,6 +65,7 @@ type ServerInfo struct {
 	GmtOffset        Duration  `xml:"seconds-from-gmt"`   // -28800
 	DateFormat       string    `xml:"date-format"`        // MM/DD/YYYY
 	TimeFormat       string    `xml:"time-format"`        // 12, 24
+	CPUUsage         int       `xml:"cpu-usage"`          // 37 (v5+)
 	// These are all copied in/created by Refresh()
 	Refreshed         time.Time
 	ServerSchedules   map[int]string
