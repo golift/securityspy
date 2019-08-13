@@ -19,21 +19,18 @@ import (
 // GetServer returns an iterface to interact with SecuritySpy.
 // This is the only exportred function in the library.
 // All of the other interfaces are accessed through this interface.
-func GetServer(user, pass, url string, verifySSL bool) (*Server, error) {
-	if !strings.HasSuffix(url, "/") {
-		url += "/"
-	}
-	authB64 := ""
-	if user != "" && pass != "" {
-		authB64 = base64.URLEncoding.EncodeToString([]byte(user + ":" + pass))
-	}
+func GetServer(c *Config) (*Server, error) {
 	server := &Server{
+		Config:     c,
 		systemInfo: &systemInfo{Server: &ServerInfo{}},
-		baseURL:    url,
-		authB64:    authB64,
-		username:   user,
-		verifySSL:  verifySSL,
 	}
+	if !strings.HasSuffix(server.URL, "/") {
+		server.URL += "/"
+	}
+	if server.Username != "" && server.Password != "" {
+		server.Password = base64.URLEncoding.EncodeToString([]byte(server.Username + ":" + server.Password))
+	}
+
 	// Assign all the sub-interface structs.
 	server.api = server
 	server.Info = server.systemInfo.Server
@@ -103,7 +100,7 @@ func (s *Server) GetSounds() ([]string, error) {
 func (s *Server) getClient(timeout time.Duration) (httpClient *http.Client) {
 	return &http.Client{
 		Timeout:   timeout,
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.verifySSL}},
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.VerifySSL}},
 	}
 }
 
@@ -112,10 +109,10 @@ func (s *Server) secReq(apiPath string, params url.Values, httpClient *http.Clie
 	if params == nil {
 		params = make(url.Values)
 	}
-	if s.authB64 != "" {
-		params.Set("auth", s.authB64)
+	if s.Password != "" {
+		params.Set("auth", s.Password)
 	}
-	req, err := http.NewRequest("GET", s.baseURL+apiPath, nil)
+	req, err := http.NewRequest("GET", s.URL+apiPath, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "http.NewRequest()")
 	}
@@ -140,7 +137,7 @@ func (s *Server) secReqXML(apiPath string, params url.Values) ([]byte, error) {
 	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("request failed (%v): %v (status: %v/%v)",
-			s.username, s.baseURL+apiPath, resp.StatusCode, resp.Status)
+			s.Username, s.URL+apiPath, resp.StatusCode, resp.Status)
 	}
 	return ioutil.ReadAll(resp.Body)
 }

@@ -11,7 +11,7 @@ import (
 func TestSetSchedulePreset(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
-	server, _ := GetServer("user", "pass", "http://127.0.0.1:5678", false)
+	server, _ := GetServer(&Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
 	fake := &fakeAPI{} // create a fake api interface that provides introspection methods.
 	server.api = fake  // override our internal api interface with a fake interface.
 	assert.Nil(server.SetSchedulePreset(1), "this method must not return an error during testing")

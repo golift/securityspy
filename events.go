@@ -5,55 +5,19 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
 
-/* Event methods follow. */
-
 // String provides a description of an event.
 func (e *Event) String() string {
-	switch e.Type {
-	case EventArmContinuous:
-		return "Continuous Capture Armed"
-	case EventDisarmContinuous:
-		return "Continuous Capture Disarmed"
-	case EventArmMotion:
-		return "Motion Capture Armed"
-	case EventDisarmMotion:
-		return "Motion Capture Disarmed"
-	case EventArmActions:
-		return "Actions Armed"
-	case EventDisarmActions:
-		return "Actions Disarmed"
-	case EventSecSpyError:
-		return "SecuritySpy Error"
-	case EventConfigChange:
-		return "Configuration Change"
-	case EventMotionDetected:
-		return "Motion Detection"
-	case EventOffline:
-		return "Camera Offline"
-	case EventOnline:
-		return "Camera Online"
-		// The following belong to the library, not securityspy.
-	case EventStreamDisconnect:
-		return "Event Stream Disconnected"
-	case EventStreamConnect:
-		return "Event Stream Connected"
-	case EventUnknownEvent:
-		return unknownEventText
-	case EventAllEvents:
-		return "Any Event"
-	case EventWatcherRefreshed:
-		return "SystemInfo Refresh Success"
-	case EventWatcherRefreshFail:
-		return "SystemInfo Refresh Failure"
-	case EventStreamCustom:
-		return "Custom Event"
+	txt, ok := EventNames[e.Type]
+	if !ok {
+		return UnknownEventText
 	}
-	return unknownEventText
+	return txt
 }
 
 /* Events methods follow. */
@@ -129,7 +93,7 @@ func (e *Events) UnbindFunc(event EventType) {
 // call this.
 func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
 	e.Running = true
-	e.eventChan = make(chan Event, 10) // allow 10 events to buffer
+	e.eventChan = make(chan Event, 1000) // allow 1000 events to buffer
 	e.stopChan = make(chan bool)
 	go e.eventChannelSelector(refreshOnConfigChange)
 	e.eventStreamScanner(retryInterval)
@@ -141,8 +105,19 @@ func (e *Events) Custom(cameraNum int, msg string) {
 	if !e.Running {
 		return
 	}
-	e.eventChan <- e.parseEvent(time.Now().Format(eventTimeFormat) +
-		" -11000 CAM" + strconv.Itoa(cameraNum) + " " + string(EventStreamCustom) + " " + msg)
+	e.custom(EventStreamCustom, -11000, cameraNum, msg)
+}
+
+// custom allows a quick way to make events.
+func (e *Events) custom(t EventType, id int, cam int, msg string) {
+	e.eventChan <- Event{
+		Time:   time.Now().Round(time.Second),
+		When:   time.Now().Round(time.Second),
+		ID:     id,
+		Msg:    string(t) + " " + msg,
+		Type:   t,
+		Camera: e.server.Cameras.ByNum(cam),
+	}
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
@@ -163,12 +138,11 @@ func (e *Events) eventStreamScanner(retryInterval time.Duration) {
 		// Constantly scan for new events, then report them to the event channel.
 		if scanner != nil && scanner.Scan() {
 			if text := scanner.Text(); strings.Count(text, " ") > 2 {
-				e.eventChan <- e.parseEvent(text)
+				e.eventChan <- e.UnmarshalEvent(text)
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			raw := time.Now().Format(eventTimeFormat) + " -10000 CAM " + string(EventStreamDisconnect) + " " + err.Error()
-			e.eventChan <- e.parseEvent(raw)
+			e.custom(EventStreamDisconnect, -10000, -1, err.Error())
 			_ = body.Close()
 			time.Sleep(retryInterval)
 			body, scanner = e.eventStreamConnect(retryInterval)
@@ -180,18 +154,17 @@ func (e *Events) eventStreamScanner(retryInterval time.Duration) {
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
 func (e *Events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser, *bufio.Scanner) {
 	httpClient := e.server.api.getClient(0)
-	resp, err := e.server.api.secReq("++eventStream", nil, httpClient)
+	resp, err := e.server.api.secReq("++eventStream", url.Values{"version": []string{"3"}}, httpClient)
 	for err != nil {
-		raw := time.Now().Format(eventTimeFormat) + " -9999 CAM " + string(EventStreamDisconnect) + " " + err.Error()
-		e.eventChan <- e.parseEvent(raw)
+		// This for loops attempts to reconnect if the stream is down.
+		e.custom(EventStreamDisconnect, -9999, -1, EventNames[EventStreamDisconnect]+" "+err.Error())
 		time.Sleep(retryInterval)
 		if !e.Running {
-			return nil, nil
+			return nil, nil // Stopped externally while sleeping, bail out.
 		}
-		resp, err = e.server.api.secReq("++eventStream", nil, httpClient)
+		resp, err = e.server.api.secReq("++eventStream", url.Values{"version": []string{"3"}}, httpClient)
 	}
-	raw := time.Now().Format(eventTimeFormat) + " -1 CAM " + string(EventStreamConnect)
-	e.eventChan <- e.parseEvent(raw)
+	e.custom(EventStreamConnect, -9999, -1, EventNames[EventStreamConnect])
 	return resp.Body, bufio.NewScanner(resp.Body)
 }
 
@@ -207,18 +180,20 @@ func (e *Events) eventChannelSelector(refreshOnConfigChange bool) {
 		case event := <-e.eventChan:
 			if refreshOnConfigChange && event.Type == EventConfigChange {
 				go func() {
-					raw := time.Now().Format(eventTimeFormat) + " -9998 CAM " + string(EventWatcherRefreshed)
 					if err := e.server.Refresh(); err != nil {
-						raw = time.Now().Format(eventTimeFormat) + " -9997 CAM " + string(EventWatcherRefreshFail) + " " + err.Error()
+						e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
+						return
 					}
-					e.eventChan <- e.parseEvent(raw)
+					e.custom(EventWatcherRefreshed, -9998, -1, EventNames[EventWatcherRefreshed])
 				}()
 			}
+
 			go func() {
 				e.binds.RLock()
 				event.callBacks(e.eventBinds)
 				e.binds.RUnlock()
 			}() // these can punt and fire in any order.
+
 			go func() {
 				e.chans.RLock()
 				event.eventChans(e.eventChans)
@@ -230,30 +205,41 @@ func (e *Events) eventChannelSelector(refreshOnConfigChange bool) {
 	}
 }
 
-// parseEvent turns raw text into an Event that can fire callbacks.
-func (e *Events) parseEvent(text string) Event {
-	/* [TIME] is specified in the order year, month, day, hour, minute, second and is always 14 characters long
-		 * [EVENT NUMBER] increases by 1 for each subsequent event
-		 * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15
-		 * [EVENT] describes the event: ARM_C, DISARM_C, ARM_M, DISARM_M, ARM_A, DISARM_A, ERROR, CONFIGCHANGE, MOTION, OFFLINE, ONLINE
-	     Example Event Stream Flow:
-			 20190114200911 104519 CAM2 MOTION
-			 20190114201129 104520 CAM5 DISARM_C
-			 20190114201129 104521 CAM5 DISARM_M
-			 20190114201129 104522 CAM5 DISARM_A
-			 20190114201129 104523 CAM5 OFFLINE
-			 20190114201139 104524 CAM0 ERROR 10,835 Error communicating with the network device "Porch".
-			 20190114201155 104525 CAM5 ERROR 70900,800 Error communicating with the network device "Pool".
-			 20190114201206 104526 CAM5 ONLINE
-			 20190114201206 104527 CAM5 ARM_C
-			 20190114201206 104528 CAM5 ARM_M
-			 20190114201206 104529 CAM5 ARM_A */
+// UnmarshalEvent turns raw text into an Event that can fire callbacks.
+// You generally shouldn't need to call this method, it's exposed for convenience.
+/* [TIME] is specified in the order year, month, day, hour, minute, second and is always 14 characters long
+ * [EVENT NUMBER] increases by 1 for each subsequent event
+ * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15
+ * [EVENT] describes the event: ARM_C, DISARM_C, ARM_M, DISARM_M, ARM_A, DISARM_A, ERROR, CONFIGCHANGE, MOTION, OFFLINE, ONLINE
+	Example Event Stream Flow:
+	(old, v4)
+	20190114200911 104519 CAM2 MOTION
+	20190114201129 104520 CAM5 DISARM_C
+	20190114201129 104521 CAM5 DISARM_M
+	20190114201129 104522 CAM5 DISARM_A
+	20190114201129 104523 CAM5 OFFLINE
+	20190114201139 104524 CAM0 ERROR 10,835 Error communicating with the network device "Porch".
+	20190114201155 104525 CAM5 ERROR 70900,800 Error communicating with the network device "Pool".
+	20190114201206 104526 CAM5 ONLINE
+	20190114201206 104527 CAM5 ARM_C
+	20190114201206 104528 CAM5 ARM_M
+	20190114201206 104529 CAM5 ARM_A
+	(new, v5)
+	20190927092026 3 3 CLASSIFY HUMAN 99
+	20190927092026 4 3 TRIGGER_M 9
+	20190927092036 5 3 CLASSIFY HUMAN 5 VEHICLE 95
+	20190927092040 5 X NULL
+	20190927092050 6 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
+	20190927092055 7 3 DISARM_M
+	20190927092056 8 3 OFFLINE */
+func (e *Events) UnmarshalEvent(text string) Event {
 	var err error
 	parts := strings.SplitN(text, " ", 4)
 	newEvent := Event{Msg: parts[3], ID: -1, Time: time.Now()}
+
 	// Parse the time stamp; append the Offset from ++systemInfo to get the right time-location.
 	eventTime := fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
-	if newEvent.When, err = time.ParseInLocation(eventTimeFormat+"-07", eventTime, time.Local); err != nil {
+	if newEvent.When, err = time.ParseInLocation(EventTimeFormat+"-07", eventTime, time.Local); err != nil {
 		newEvent.When = time.Now()
 		newEvent.Errors = append(newEvent.Errors, ErrorDateParseFail)
 	}
@@ -263,21 +249,43 @@ func (e *Events) parseEvent(text string) Event {
 		newEvent.ID = -2
 		newEvent.Errors = append(newEvent.Errors, ErrorIDParseFail)
 	}
+
 	// Parse the camera number.
-	if !strings.HasPrefix(parts[2], "CAM") || len(parts[2]) < 4 {
-		newEvent.Errors = append(newEvent.Errors, ErrorCAMMissing)
-	} else if cameraNum, err := strconv.Atoi(parts[2][3:]); err != nil {
-		newEvent.Camera = nil
-		newEvent.Errors = append(newEvent.Errors, ErrorCAMParseFail)
-	} else if newEvent.Camera = e.server.Cameras.ByNum(cameraNum); newEvent.Camera == nil {
-		newEvent.Errors = append(newEvent.Errors, ErrorCAMParseFail)
+	parts[2] = strings.TrimPrefix(parts[2], "CAM")
+	if parts[2] != "X" {
+		if cameraNum, err := strconv.Atoi(parts[2]); err != nil {
+			newEvent.Errors = append(newEvent.Errors, ErrorCAMParseFail)
+		} else if newEvent.Camera = e.server.Cameras.ByNum(cameraNum); newEvent.Camera == nil {
+			newEvent.Errors = append(newEvent.Errors, ErrorCAMMissing)
+		}
 	}
+
 	// Parse and convert the type string to EventType.
-	newEvent.Type = EventType(strings.Split(parts[3], " ")[0])
+	parts = strings.Split(newEvent.Msg, " ")
+	newEvent.Type = EventType(parts[0])
 	// Check if the type we just converted is a known event.
-	if newEvent.String() == unknownEventText {
+	if _, ok := EventNames[newEvent.Type]; !ok {
 		newEvent.Errors = append(newEvent.Errors, ErrorUnknownEvent)
 		newEvent.Type = EventUnknownEvent
+	}
+
+	// If this is a trigger-type event, add the trigger reason(s)
+	if newEvent.Type == EventTriggerAction || newEvent.Type == EventTriggerMotion && len(parts) == 2 {
+		b, _ := strconv.Atoi(parts[1])
+		msg := ""
+		// Check if this bitmask contains any of our known reasons.
+		for flag, txt := range Reasons {
+			if b&int(flag) != 0 {
+				if msg != "" {
+					msg += ", "
+				}
+				msg += txt
+			}
+		}
+		newEvent.Msg += " - Reasons: " + msg
+		if msg == "" {
+			newEvent.Msg += UnknownReasonText
+		}
 	}
 	return newEvent
 }
