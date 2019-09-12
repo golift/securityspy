@@ -48,7 +48,6 @@ const (
 // watcher routine is active.
 type Events struct {
 	server     *Server
-	stopChan   chan bool
 	eventChan  chan Event
 	eventBinds map[EventType][]func(event Event)
 	eventChans map[EventType][]chan Event

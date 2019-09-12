@@ -55,10 +55,16 @@ func (e *Events) BindChan(event EventType, channel chan Event) {
 
 // Stop stops Watch() loops and disconnects from the event stream.
 // No further callback messages will fire after this is called.
+// This also closes all channels that were passed to BindChan.
 func (e *Events) Stop() {
 	defer func() { e.Running = false }()
 	if e.Running {
-		e.stopChan <- e.Running
+		close(e.eventChan)
+	}
+	for _, chans := range e.eventChans {
+		for i := range chans {
+			close(chans[i])
+		}
 	}
 }
 
@@ -94,7 +100,6 @@ func (e *Events) UnbindFunc(event EventType) {
 func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
 	e.Running = true
 	e.eventChan = make(chan Event, 1000) // allow 1000 events to buffer
-	e.stopChan = make(chan bool)
 	go e.eventChannelSelector(refreshOnConfigChange)
 	e.eventStreamScanner(retryInterval)
 }
@@ -171,37 +176,25 @@ func (e *Events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser,
 // eventChannelSelector watches a few internal channels for events and updates.
 // Fires bound event call back functions.
 func (e *Events) eventChannelSelector(refreshOnConfigChange bool) {
-	done := make(chan bool)
-	for {
-		// Watch for new events, a stop signal, or a refresh interval.
-		select {
-		case <-e.stopChan:
-			return
-		case event := <-e.eventChan:
-			if refreshOnConfigChange && event.Type == EventConfigChange {
-				go func() {
-					if err := e.server.Refresh(); err != nil {
-						e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
-						return
-					}
-					e.custom(EventWatcherRefreshed, -9998, -1, EventNames[EventWatcherRefreshed])
-				}()
-			}
-
+	for event := range e.eventChan {
+		if refreshOnConfigChange && event.Type == EventConfigChange {
 			go func() {
-				e.binds.RLock()
-				event.callBacks(e.eventBinds)
-				e.binds.RUnlock()
-			}() // these can punt and fire in any order.
-
-			go func() {
-				e.chans.RLock()
-				event.eventChans(e.eventChans)
-				e.chans.RUnlock()
-				done <- true
+				if err := e.server.Refresh(); err != nil {
+					e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
+					return
+				}
+				e.custom(EventWatcherRefreshed, -9998, -1, EventNames[EventWatcherRefreshed])
 			}()
-			<-done // channels block to keep proper ordering.
 		}
+
+		go func() {
+			e.binds.RLock()
+			event.callBacks(e.eventBinds)
+			e.binds.RUnlock()
+		}() // these can punt and fire in any order.
+		e.chans.RLock()
+		event.eventChans(e.eventChans)
+		e.chans.RUnlock()
 	}
 }
 
