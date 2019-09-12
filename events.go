@@ -173,29 +173,32 @@ func (e *Events) eventStreamConnect(retryInterval time.Duration) (io.ReadCloser,
 	return resp.Body, bufio.NewScanner(resp.Body)
 }
 
-// eventChannelSelector watches a few internal channels for events and updates.
+// eventChannelSelector watches the event channel.
 // Fires bound event call back functions.
 func (e *Events) eventChannelSelector(refreshOnConfigChange bool) {
 	for event := range e.eventChan {
 		if refreshOnConfigChange && event.Type == EventConfigChange {
-			go func() {
-				if err := e.server.Refresh(); err != nil {
-					e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
-					return
-				}
-				e.custom(EventWatcherRefreshed, -9998, -1, EventNames[EventWatcherRefreshed])
-			}()
+			go e.serverRefresh()
 		}
-
+		// these can punt and fire in any order.
 		go func() {
 			e.binds.RLock()
 			event.callBacks(e.eventBinds)
 			e.binds.RUnlock()
-		}() // these can punt and fire in any order.
+		}()
+		// these fire in order.
 		e.chans.RLock()
 		event.eventChans(e.eventChans)
 		e.chans.RUnlock()
 	}
+}
+
+func (e *Events) serverRefresh() {
+	if err := e.server.Refresh(); err != nil {
+		e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
+		return
+	}
+	e.custom(EventWatcherRefreshed, -9998, -1, EventNames[EventWatcherRefreshed])
 }
 
 // UnmarshalEvent turns raw text into an Event that can fire callbacks.
@@ -304,14 +307,11 @@ func (e *Event) callBacks(binds map[EventType][]func(Event)) {
 
 // eventChans is run for each event to notify external channels
 func (e *Event) eventChans(chans map[EventType][]chan Event) {
-	if chans, ok := chans[e.Type]; ok {
-		for i := range chans {
-			chans[i] <- *e
-		}
-	}
-	if chans, ok := chans[EventAllEvents]; ok {
-		for i := range chans {
-			chans[i] <- *e
+	for _, t := range []EventType{e.Type, EventAllEvents} {
+		if chans, ok := chans[t]; ok {
+			for i := range chans {
+				chans[i] <- *e
+			}
 		}
 	}
 }
