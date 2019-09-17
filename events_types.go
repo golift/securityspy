@@ -1,6 +1,7 @@
 package securityspy
 
 import (
+	"io"
 	"sync"
 	"time"
 
@@ -48,6 +49,7 @@ const (
 // watcher routine is active.
 type Events struct {
 	server     *Server
+	stream     io.ReadCloser
 	eventChan  chan Event
 	eventBinds map[EventType][]func(event Event)
 	eventChans map[EventType][]chan Event
@@ -100,6 +102,7 @@ const (
 	EventWatcherRefreshed   EventType = "REFRESH"
 	EventWatcherRefreshFail EventType = "REFRESHFAIL"
 	EventStreamCustom       EventType = "CUSTOM"
+	eventStreamStop         EventType = "STOP"
 )
 
 // EventNames contains the human readable names for each event.
