@@ -1,4 +1,4 @@
-package securityspy
+package securityspy_test
 
 // Test data for Test methods.
 // This is all copied directly from ++systemInfo, ++scripts and ++sounds

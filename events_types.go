@@ -12,22 +12,17 @@ var (
 	// ErrorUnknownEvent never really returns, but will fire if SecuritySpy
 	// adds new events this library doesn't know about.
 	ErrorUnknownEvent = fmt.Errorf("unknown event")
-
 	// ErrorCAMParseFail will return if the camera number in an event stream does not exist.
 	// If you see this, run Refresh() more often, or fix your flaky camera connection.
 	ErrorCAMParseFail = fmt.Errorf("CAM parse failed")
-
 	// ErrorIDParseFail will return if the camera number provided by the event stream is not a number.
 	// This should never happen, but future versions of SecuritySpy could trigger this if formats change.
 	ErrorIDParseFail = fmt.Errorf("ID parse failed")
-
 	// ErrorCAMMissing like the errors above should never return.
 	// This is triggered by a corrupted event format.
 	ErrorCAMMissing = fmt.Errorf("camera number missing")
-
 	// ErrorDateParseFail will only trigger if the time stamp format for events changes.
 	ErrorDateParseFail = fmt.Errorf("timestamp parse failed")
-
 	// ErrorDisconnect becomes the msg in a custom event when the SecSpy event stream is disconnected.
 	ErrorDisconnect = fmt.Errorf("server connection closed")
 )
@@ -155,7 +150,7 @@ const (
 )
 
 // Reasons is the human-readable explanation for a motion detection reason.
-var Reasons = map[TriggerEvent]string{
+var Reasons = map[TriggerEvent]string{ //nolint:gochecknoglobals
 	TriggerByMotion:           "Motion Detected",
 	TriggerByAudio:            "Audio Detected",
 	TriggerByScript:           "AppleScript",

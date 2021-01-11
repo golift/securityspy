@@ -2,45 +2,29 @@ package securityspy
 
 import (
 	"encoding/xml"
-	"fmt"
-	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"golift.io/securityspy/server"
 )
-
-// ErrorCmdNotOK is returned for any command that has a successful web request,
-// but the reply does not end with the word OK.
-var ErrorCmdNotOK = fmt.Errorf("command unsuccessful")
-
-// defaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
-const defaultTimeout = 10 * time.Second
-
-// Config is the input data for this library. Only set VerifySSL to true if your server
-// has a valid SSL certificate. The password is auto-repalced with a base64 encoded string.
-type Config struct {
-	Client    *http.Client
-	VerifySSL bool
-	URL       string
-	Password  string
-	Username  string
-	Timeout   time.Duration
-}
 
 // Server is the main interface for this library.
 // Contains sub-interfaces for cameras, ptz, files & events
 // This is provided in exchange for a url, username and password.
+// If your app calls Refresh(), it is your duty to use Rlock() on
+// this struct if there's a chance you may call methods while
+// Refresh() is running.
 type Server struct {
-	// override the local methods with the interface methods.
-	api
-	*Config
-	systemInfo *systemInfo
-	Files      *Files      // Files interface.
-	Events     *Events     // Events interface.
-	Cameras    *Cameras    // Cameras & PTZ interfaces.
-	Info       *ServerInfo // ServerInfo struct (no methods).
+	server.API
+	Encoder      string
+	config       *server.Config
+	Files        *Files      // Files interface.
+	Events       *Events     // Events interface.
+	Cameras      *Cameras    // Cameras & PTZ interfaces.
+	Info         *ServerInfo // ServerInfo struct (no methods).
+	sync.RWMutex             // Lock for Refresh().
 }
 
 // ServerInfo represents all the SecuritySpy server's information.
@@ -72,8 +56,6 @@ type ServerInfo struct {
 	ServerSchedules   map[int]string
 	SchedulePresets   map[int]string
 	ScheduleOverrides map[int]string
-	// If there is a chance of calling Refresh() while reading these maps, lock them.
-	sync.RWMutex
 }
 
 // systemInfo reresents ++systemInfo api path.
@@ -84,19 +66,9 @@ type systemInfo struct {
 		Cameras []*Camera `xml:"camera"`
 	} `xml:"cameralist"`
 	// All of these sub-lists get copied into ServerInfo by Refresh()
-	Schedules         scheduleContainer `xml:"schedulelist"`
-	SchedulePresets   scheduleContainer `xml:"schedulepresetlist"`
-	ScheduleOverrides scheduleContainer `xml:"scheduleoverridelist"`
-}
-
-// api interface is provided only to allow overriding local methods during local testing.
-// The methods in this interface connect to SecuritySpy so they become
-// blockers when testing without a SecuritySpy server available. Overriding
-// them with fakes makes testing (for most methods in this library) possible.
-type api interface {
-	secReq(apiPath string, params url.Values, httpClient *http.Client) (resp *http.Response, err error)
-	secReqXML(apiPath string, params url.Values) (body []byte, err error)
-	simpleReq(apiURI string, params url.Values, cameraNum int) error
+	Schedules         ScheduleContainer `xml:"schedulelist"`
+	SchedulePresets   ScheduleContainer `xml:"schedulepresetlist"`
+	ScheduleOverrides ScheduleContainer `xml:"scheduleoverridelist"`
 }
 
 // YesNoBool is used to capture strings into boolean format. If the string has

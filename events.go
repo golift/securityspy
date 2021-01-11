@@ -35,6 +35,7 @@ func (e *Events) BindFunc(event EventType, callBack func(Event)) {
 
 	if val, ok := e.eventBinds[event]; ok {
 		e.eventBinds[event] = append(val, callBack)
+
 		return
 	}
 
@@ -54,6 +55,7 @@ func (e *Events) BindChan(event EventType, channel chan Event) {
 
 	if val, ok := e.eventChans[event]; ok {
 		e.eventChans[event] = append(val, channel)
+
 		return
 	}
 
@@ -183,9 +185,9 @@ func (e *Events) eventStreamConnect() error {
 		e.stream = nil
 	}
 
-	resp, err := e.server.api.secReq("++eventStream", url.Values{"version": []string{"3"}}, e.server.Client)
+	resp, err := e.server.Get("++eventStream", url.Values{"version": []string{"3"}})
 	if err != nil {
-		return err
+		return fmt.Errorf("connecting event stream: %w", err)
 	}
 
 	e.stream = resp.Body
@@ -206,7 +208,7 @@ Loop:
 			break Loop // Stop() called.
 		case EventConfigChange:
 			if refreshOnConfigChange {
-				go e.serverRefresh()
+				e.serverRefresh()
 			}
 		case EventStreamDisconnect:
 			// reconnect to event stream
@@ -229,6 +231,7 @@ Loop:
 func (e *Events) serverRefresh() {
 	if err := e.server.Refresh(); err != nil {
 		e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
+
 		return
 	}
 
@@ -263,7 +266,7 @@ func (e *Events) serverRefresh() {
 	20190927092050 6 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
 	20190927092055 7 3 DISARM_M
 	20190927092056 8 3 OFFLINE */
-func (e *Events) UnmarshalEvent(text string) Event {
+func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen
 	var (
 		err      error
 		parts    = strings.SplitN(text, " ", 4)
