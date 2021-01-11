@@ -205,11 +205,11 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, contin
 	// ++download automatically paginates. Follow the continuation.
 	if feed.Continuation != "" && feed.Continuation != "FFFFFFFFFFFFFFFF" {
 		moreFiles, err := f.getFiles(cameraNums, from, to, fileTypes, feed.Continuation)
-
-		if entries = append(entries, moreFiles...); err != nil {
-			// We got some files, but one of the pages returned an error.
+		if err != nil { // We got some files, but one of the pages returned an error.
 			return entries, err
 		}
+
+		entries = append(entries, moreFiles...)
 	}
 
 	return entries, nil
