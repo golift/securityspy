@@ -31,7 +31,7 @@ func NewMust(c *server.Config) *Server {
 	}
 
 	// Assign all the sub-interface structs.
-	server := &Server{config: c, API: c, Encoder: DefaultEncoder}
+	server := &Server{API: c, Encoder: DefaultEncoder}
 	server.Files = &Files{server: server}
 	server.Events = &Events{
 		server:     server,

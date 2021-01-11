@@ -109,10 +109,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 // StreamMJPG makes a web request to retrieve a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.server.config.Timeout)
-	defer cancel()
-
-	resp, err := c.server.GetContext(ctx, "++video", c.makeRequestParams(ops))
+	resp, err := c.server.Get("++video", c.makeRequestParams(ops))
 	if err != nil {
 		return nil, fmt.Errorf("getting video: %w", err)
 	}
@@ -123,10 +120,7 @@ func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // StreamH264 makes a web request to retrieve an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.server.config.Timeout)
-	defer cancel()
-
-	resp, err := c.server.GetContext(ctx, "++stream", c.makeRequestParams(ops))
+	resp, err := c.server.Get("++stream", c.makeRequestParams(ops))
 	if err != nil {
 		return nil, fmt.Errorf("getting stream: %w", err)
 	}
@@ -137,10 +131,7 @@ func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 // StreamG711 makes a web request to retrieve an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamG711() (io.ReadCloser, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.server.config.Timeout)
-	defer cancel()
-
-	resp, err := c.server.GetContext(ctx, "++audio", c.makeRequestParams(nil))
+	resp, err := c.server.Get("++audio", c.makeRequestParams(nil))
 	if err != nil {
 		return nil, fmt.Errorf("getting audio: %w", err)
 	}
@@ -169,7 +160,7 @@ func (c *Camera) PostG711(audio io.ReadCloser) ([]byte, error) {
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.server.config.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), c.server.TimeoutDur())
 	defer cancel()
 
 	resp, err := c.server.GetContext(ctx, "++image", c.makeRequestParams(ops))

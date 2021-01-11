@@ -19,7 +19,6 @@ import (
 type Server struct {
 	server.API
 	Encoder      string
-	config       *server.Config
 	Files        *Files      // Files interface.
 	Events       *Events     // Events interface.
 	Cameras      *Cameras    // Cameras & PTZ interfaces.

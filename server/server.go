@@ -59,6 +59,11 @@ func (s *Config) Auth() string {
 	return s.Password
 }
 
+// TimeoutDur returns the configured timeout.
+func (s *Config) TimeoutDur() time.Duration {
+	return s.Timeout
+}
+
 func (s *Config) GetContext(ctx context.Context, apiPath string, params url.Values) (*http.Response, error) {
 	s.getClient()
 

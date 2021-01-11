@@ -3,7 +3,6 @@ package securityspy
 /* This file handles all file transfers for media saved by security spy. */
 
 import (
-	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -169,10 +168,7 @@ func (f *File) Get(highBandwidth bool) (io.ReadCloser, error) {
 		uri = strings.Replace(f.Link.HREF, "++getfile/", "++getfilehb/", 1)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), f.server.config.Timeout)
-	defer cancel()
-
-	resp, err := f.server.GetContext(ctx, uri, make(url.Values))
+	resp, err := f.server.Get(uri, make(url.Values))
 	if err != nil {
 		return nil, fmt.Errorf("getting file: %w", err)
 	}

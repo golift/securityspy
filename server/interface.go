@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // API interface is provided only to allow overriding local methods during local testing.
@@ -19,6 +20,7 @@ type API interface {
 	Post(apiPath string, params url.Values, post io.ReadCloser) (body []byte, err error)
 	GetXML(apiPath string, params url.Values, v interface{}) (err error)
 	SimpleReq(apiURI string, params url.Values, cameraNum int) error
+	TimeoutDur() time.Duration
 	BaseURL() string
 	Auth() string
 }

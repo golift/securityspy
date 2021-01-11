@@ -10,6 +10,7 @@ import (
 	http "net/http"
 	url "net/url"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 )
@@ -136,4 +137,18 @@ func (m *MockAPI) SimpleReq(arg0 string, arg1 url.Values, arg2 int) error {
 func (mr *MockAPIMockRecorder) SimpleReq(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimpleReq", reflect.TypeOf((*MockAPI)(nil).SimpleReq), arg0, arg1, arg2)
+}
+
+// TimeoutDur mocks base method.
+func (m *MockAPI) TimeoutDur() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TimeoutDur")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// TimeoutDur indicates an expected call of TimeoutDur.
+func (mr *MockAPIMockRecorder) TimeoutDur() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TimeoutDur", reflect.TypeOf((*MockAPI)(nil).TimeoutDur))
 }
