@@ -166,7 +166,11 @@ func (e *Events) eventStreamScanner() {
 		return
 	}
 
-	e.custom(EventStreamConnect, -9999, -1, EventName(EventStreamConnect))
+	defer func() {
+		e.stream.Close()
+		e.stream = nil
+	}()
+
 	scanner := bufio.NewScanner(e.stream)
 	scanner.Split(scanLinesCR)
 
@@ -180,17 +184,14 @@ func (e *Events) eventStreamScanner() {
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
 func (e *Events) eventStreamConnect() error {
-	if e.stream != nil {
-		_ = e.stream.Close()
-		e.stream = nil
-	}
-
 	resp, err := e.server.Get("++eventStream", url.Values{"version": []string{"3"}})
 	if err != nil {
 		return fmt.Errorf("connecting event stream: %w", err)
 	}
 
 	e.stream = resp.Body
+
+	e.custom(EventStreamConnect, -9999, -1, EventName(EventStreamConnect))
 
 	return nil
 }

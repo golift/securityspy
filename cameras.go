@@ -24,7 +24,7 @@ func (c *Cameras) All() (cams []*Camera) {
 func (c *Cameras) ByNum(number int) *Camera {
 	for _, cam := range c.cameras {
 		if cam.Number == number {
-			return c.setupCam(cam)
+			return cam
 		}
 	}
 
@@ -35,7 +35,7 @@ func (c *Cameras) ByNum(number int) *Camera {
 func (c *Cameras) ByName(name string) *Camera {
 	for _, cam := range c.cameras {
 		if cam.Name == name {
-			return c.setupCam(cam)
+			return cam
 		}
 	}
 
@@ -266,21 +266,6 @@ func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
-
-// setupCam fills in missing pieces on a camera's struct.
-func (c *Cameras) setupCam(cam *Camera) *Camera {
-	cam.server = c.server
-	cam.PTZ.camera = cam
-	// Fill in the missing schedule names (all we have are IDs, so fetch the names from systemInfo)
-	cam.ScheduleIDA.Name = c.server.Info.ServerSchedules[cam.ScheduleIDA.ID]
-	cam.ScheduleIDCC.Name = c.server.Info.ServerSchedules[cam.ScheduleIDCC.ID]
-	cam.ScheduleIDMC.Name = c.server.Info.ServerSchedules[cam.ScheduleIDMC.ID]
-	cam.ScheduleOverrideA.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]
-	cam.ScheduleOverrideCC.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]
-	cam.ScheduleOverrideMC.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]
-
-	return cam
-}
 
 const (
 	maxQuality = 100

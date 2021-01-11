@@ -64,6 +64,18 @@ func (s *Server) Refresh() error {
 	s.Info.SchedulePresets = sysInfo.SchedulePresets
 	s.Info.ScheduleOverrides = sysInfo.ScheduleOverrides
 
+	for i, cam := range s.Cameras.cameras {
+		s.Cameras.cameras[i].server = s
+		s.Cameras.cameras[i].PTZ.camera = s.Cameras.cameras[i]
+		// Fill in the missing schedule names (all we have are IDs, so fetch the names from systemInfo)
+		s.Cameras.cameras[i].ScheduleIDA.Name = s.Info.ServerSchedules[cam.ScheduleIDA.ID]
+		s.Cameras.cameras[i].ScheduleIDCC.Name = s.Info.ServerSchedules[cam.ScheduleIDCC.ID]
+		s.Cameras.cameras[i].ScheduleIDMC.Name = s.Info.ServerSchedules[cam.ScheduleIDMC.ID]
+		s.Cameras.cameras[i].ScheduleOverrideA.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]
+		s.Cameras.cameras[i].ScheduleOverrideCC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]
+		s.Cameras.cameras[i].ScheduleOverrideMC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]
+	}
+
 	return nil
 }
 
