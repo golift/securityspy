@@ -2,6 +2,7 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"fmt"
 )
 
 // CameraMode is a set of constants to deal with three specific camera modes.
@@ -27,15 +28,18 @@ func (m *scheduleContainer) UnmarshalXML(d *xml.Decoder, start xml.StartElement)
 			Name string `xml:"name"`
 			ID   int    `xml:"id"`
 		}
+
 		token, err := d.Token()
 		if err != nil {
-			return err
+			return fmt.Errorf("bad XML token: %w", err)
 		}
+
 		switch e := token.(type) {
 		case xml.StartElement:
 			if err = d.DecodeElement(&schedule, &e); err != nil {
-				return err
+				return fmt.Errorf("XML decode: %w", err)
 			}
+
 			(*m)[schedule.ID] = schedule.Name
 		case xml.EndElement:
 			if e == start.End() {

@@ -1,9 +1,11 @@
 package securityspy
 
 import (
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"golift.io/ffmpeg"
 )
 
@@ -20,6 +21,7 @@ func (c *Cameras) All() (cams []*Camera) {
 	for _, cam := range c.server.systemInfo.CameraList.Cameras {
 		cams = append(cams, c.setupCam(cam))
 	}
+
 	return
 }
 
@@ -30,6 +32,7 @@ func (c *Cameras) ByNum(number int) *Camera {
 			return c.setupCam(cam)
 		}
 	}
+
 	return nil
 }
 
@@ -40,6 +43,7 @@ func (c *Cameras) ByName(name string) *Camera {
 			return c.setupCam(cam)
 		}
 	}
+
 	return nil
 }
 
@@ -54,16 +58,24 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 		Size:   maxsize, // max file size (always goes over). use 2000000 for 2.5MB
 		Copy:   true,    // Always copy securityspy RTSP urls.
 	})
+
 	params := c.makeRequestParams(ops)
+
 	if c.server.Password != "" {
 		params.Set("auth", c.server.Password)
 	}
+
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 	url := strings.Replace(c.server.URL, "http", "rtsp", 1) + "++stream"
+
 	// RTSP doesn't rewally work with HTTPS, and FFMPEG doesn't care about the cert.
 	args, video, err := f.GetVideo(url+"?"+params.Encode(), c.Name)
-	return video, errors.Wrap(err, strings.Replace(args, "\n", " ", -1))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", err, strings.ReplaceAll(args, "\n", " "))
+	}
+
+	return video, nil
 }
 
 // SaveVideo saves a segment of video from a camera to a file using FFMPEG.
@@ -71,6 +83,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
 		return ErrorPathExists
 	}
+
 	f := ffmpeg.Get(&ffmpeg.Config{
 		FFMPEG: Encoder,
 		Time:   int(length.Seconds()),
@@ -80,43 +93,54 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	})
 
 	params := c.makeRequestParams(ops)
+
 	if c.server.Password != "" {
 		params.Set("auth", c.server.Password)
 	}
+
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
+
 	url := strings.Replace(c.server.URL, "http", "rtsp", 1) + "++stream"
+
 	_, out, err := f.SaveVideo(url+"?"+params.Encode(), outputFile, c.Name)
-	return errors.Wrap(err, strings.Replace(out, "\n", " ", -1))
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.ReplaceAll(out, "\n", " "))
+	}
+
+	return nil
 }
 
 // StreamMJPG makes a web request to retrieve a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.api.secReq("++video", c.makeRequestParams(ops), c.server.getClient(DefaultTimeout))
+	resp, err := c.server.api.secReq("++video", c.makeRequestParams(ops), c.server.getClient())
 	if err != nil {
 		return nil, err
 	}
+
 	return resp.Body, nil
 }
 
 // StreamH264 makes a web request to retrieve an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.api.secReq("++stream", c.makeRequestParams(ops), c.server.getClient(DefaultTimeout))
+	resp, err := c.server.api.secReq("++stream", c.makeRequestParams(ops), c.server.getClient())
 	if err != nil {
 		return nil, err
 	}
+
 	return resp.Body, nil
 }
 
 // StreamG711 makes a web request to retrieve an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamG711() (io.ReadCloser, error) {
-	resp, err := c.server.api.secReq("++audio", c.makeRequestParams(nil), c.server.getClient(DefaultTimeout))
+	resp, err := c.server.api.secReq("++audio", c.makeRequestParams(nil), c.server.getClient())
 	if err != nil {
 		return nil, err
 	}
+
 	return resp.Body, nil
 }
 
@@ -127,39 +151,46 @@ func (c *Camera) PostG711(audio io.ReadCloser) error {
 	if audio == nil {
 		return nil
 	}
-	httpClient := c.server.api.getClient(DefaultTimeout) // use the api interface so it can be overridden.
-	req, err := http.NewRequest("POST", c.server.URL+"++audio", nil)
+
+	req, err := http.NewRequest(http.MethodPost, c.server.URL+"++audio", nil)
 	if err != nil {
 		_ = audio.Close()
-		return errors.Wrap(err, "http.NewRequest()")
+		return fmt.Errorf("http.NewRequest(): %w", err)
 	} else if c.server.Password != "" {
 		req.URL.RawQuery = "auth=" + c.server.Password
 	}
+
 	req.Header.Add("Content-Type", "audio/g711-ulaw")
 	req.Body = audio // req.Body is automatically closed.
-	resp, err := httpClient.Do(req)
+
+	resp, err := c.server.Client.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "http.Do(req)")
+		return fmt.Errorf("http.Do(req): %w", err)
 	}
-	return resp.Body.Close()
+	defer resp.Body.Close()
+
+	_, err = ioutil.ReadAll(resp.Body)
+
+	return fmt.Errorf("ioutil.ReadAll(body): %w", err)
 }
 
 // GetJPEG returns an images from a camera.
 // VidOps defines the image size. ops.FPS is ignored.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 	ops.FPS = -1 // not used for single image
-	resp, err := c.server.api.secReq("++image", c.makeRequestParams(ops), c.server.getClient(DefaultTimeout))
+
+	resp, err := c.server.api.secReq("++image", c.makeRequestParams(ops), c.server.getClient())
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer resp.Body.Close()
+
 	jpgImage, err := jpeg.Decode(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decoding jpeg: %w", err)
 	}
-	return jpgImage, err
+
+	return jpgImage, nil
 }
 
 // SaveJPEG gets a picture from a camera and puts it in a file (path).
@@ -169,24 +200,31 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return ErrorPathExists
 	}
+
 	jpgImage, err := c.GetJPEG(ops)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting jpeg: %w", err)
 	}
+
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("os.Create: %w", err)
 	}
-	defer func() {
-		_ = f.Close()
-	}()
-	return jpeg.Encode(f, jpgImage, nil)
+	defer f.Close()
+
+	err = jpeg.Encode(f, jpgImage, nil)
+	if err != nil {
+		return fmt.Errorf("encoding jpeg: %w", err)
+	}
+
+	return nil
 }
 
 // ToggleContinuous arms (true) or disarms (false) a camera's continuous capture mode.
 func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
+
 	return c.server.api.simpleReq("++ssControlContinuous", params, c.Number)
 }
 
@@ -194,6 +232,7 @@ func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
 func (c *Camera) ToggleMotion(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
+
 	return c.server.api.simpleReq("++ssControlMotionCapture", params, c.Number)
 }
 
@@ -201,6 +240,7 @@ func (c *Camera) ToggleMotion(arm CameraArmMode) error {
 func (c *Camera) ToggleActions(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
+
 	return c.server.api.simpleReq("++ssControlActions", params, c.Number)
 }
 
@@ -212,21 +252,23 @@ func (c *Camera) TriggerMotion() error {
 
 // SetSchedule configures a camera mode's primary schedule.
 // Get a list of schedules IDs you can use here from server.Info.Schedules.
-// CameraModes are constants with names that start with CameraMode*
+// CameraModes are constants with names that start with CameraMode*.
 func (c *Camera) SetSchedule(mode CameraMode, scheduleID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
 	params.Set("id", strconv.Itoa(scheduleID))
+
 	return c.server.api.simpleReq("++ssSetSchedule", params, c.Number)
 }
 
 // SetScheduleOverride temporarily overrides a camera mode's current schedule.
 // Get a list of overrides IDs you can use here from server.Info.ScheduleOverrides.
-// CameraModes are constants with names that start with CameraMode*
+// CameraModes are constants with names that start with CameraMode*.
 func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))
-	params.Set("id", string(overrideID))
+	params.Set("id", strconv.Itoa(overrideID))
+
 	return c.server.api.simpleReq("++ssSetOverride", params, c.Number)
 }
 
@@ -243,33 +285,47 @@ func (c *Cameras) setupCam(cam *Camera) *Camera {
 	cam.ScheduleOverrideA.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]
 	cam.ScheduleOverrideCC.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]
 	cam.ScheduleOverrideMC.Name = c.server.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]
+
 	return cam
 }
 
-// makeRequestParams converts passed in ops to url.Values
+const (
+	maxQuality = 100
+	maxFPS     = 60
+)
+
+// makeRequestParams converts passed in ops to url.Values.
 func (c *Camera) makeRequestParams(ops *VidOps) url.Values {
 	params := make(url.Values)
 	params.Set("cameraNum", strconv.Itoa(c.Number))
+
 	if ops == nil {
 		return params
 	}
+
 	if ops.Width != 0 {
 		params.Set("width", strconv.Itoa(ops.Width))
 	}
+
 	if ops.Height != 0 {
 		params.Set("height", strconv.Itoa(ops.Height))
 	}
-	if ops.Quality > 100 {
-		ops.Quality = 100
+
+	if ops.Quality > maxQuality {
+		ops.Quality = maxQuality
 	}
+
 	if ops.Quality > 0 {
 		params.Set("quality", strconv.Itoa(ops.Quality))
 	}
+
+	if ops.FPS > maxFPS {
+		ops.FPS = maxFPS
+	}
+
 	if ops.FPS > 0 {
-		if ops.FPS > 60 {
-			ops.FPS = 60
-		}
 		params.Set("req_fps", strconv.Itoa(ops.FPS))
 	}
+
 	return params
 }

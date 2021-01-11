@@ -2,30 +2,31 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // ErrorCmdNotOK is returned for any command that has a successful web request,
 // but the reply does not end with the word OK.
-var ErrorCmdNotOK = errors.New("command unsuccessful")
+var ErrorCmdNotOK = fmt.Errorf("command unsuccessful")
 
-// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
-var DefaultTimeout = 10 * time.Second
+// defaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
+const defaultTimeout = 10 * time.Second
 
 // Config is the input data for this library. Only set VerifySSL to true if your server
 // has a valid SSL certificate. The password is auto-repalced with a base64 encoded string.
 type Config struct {
+	Client    *http.Client
 	VerifySSL bool
 	URL       string
 	Password  string
 	Username  string
+	Timeout   time.Duration
 }
 
 // Server is the main interface for this library.
@@ -75,7 +76,7 @@ type ServerInfo struct {
 	sync.RWMutex
 }
 
-// systemInfo reresents ++systemInfo
+// systemInfo reresents ++systemInfo api path.
 type systemInfo struct {
 	XMLName    xml.Name    `xml:"system"`
 	Server     *ServerInfo `xml:"server"`
@@ -96,7 +97,6 @@ type api interface {
 	secReq(apiPath string, params url.Values, httpClient *http.Client) (resp *http.Response, err error)
 	secReqXML(apiPath string, params url.Values) (body []byte, err error)
 	simpleReq(apiURI string, params url.Values, cameraNum int) error
-	getClient(timeout time.Duration) (httpClient *http.Client)
 }
 
 // YesNoBool is used to capture strings into boolean format. If the string has
@@ -114,6 +114,7 @@ func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
 	_ = d.DecodeElement(&bit.Txt, &start)
 	bit.Val = bit.Txt == "1" || strings.EqualFold(bit.Txt, "true") || strings.EqualFold(bit.Txt, "yes") ||
 		strings.EqualFold(bit.Txt, "armed") || strings.EqualFold(bit.Txt, "active") || strings.EqualFold(bit.Txt, "enabled")
+
 	return nil
 }
 
@@ -128,6 +129,7 @@ type Duration struct {
 func (bit *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	_ = d.DecodeElement(&bit.Val, &start)
 	r, _ := strconv.Atoi(bit.Val)
+
 	if bit.Duration = time.Second * time.Duration(r); bit.Val == "" {
 		// In the context of this application -1ns will significantly make
 		// obvious the fact that this value was empty and not a number.
@@ -135,5 +137,6 @@ func (bit *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error 
 		// when one has yet to happen [since securityspy started].
 		bit.Duration = -1
 	}
+
 	return nil
 }

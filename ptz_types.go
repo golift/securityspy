@@ -1,14 +1,14 @@
 package securityspy
 
-import "github.com/pkg/errors"
+import "fmt"
 
 var (
 	// ErrorPTZNotOK is returned for any command that has a successful web request,
 	// but the reply does not end with the word OK.
-	ErrorPTZNotOK = errors.New("PTZ command not OK")
+	ErrorPTZNotOK = fmt.Errorf("PTZ command not OK")
 
 	// ErrorPTZRange returns when a PTZ preset outside of 1-8 is provided.
-	ErrorPTZRange = errors.New("PTZ preset out of range 1-8")
+	ErrorPTZRange = fmt.Errorf("PTZ preset out of range 1-8")
 )
 
 // PTZ are what "things" a camera can do. Use the bound methods to interact
@@ -23,7 +23,7 @@ type PTZ struct {
 	Continuous bool // true if the camera supports continuous movement.
 }
 
-// PTZpreset locks our presets to a max of 8
+// PTZpreset locks our presets to a max of 8.
 type PTZpreset rune
 
 // Presets are 1 through 8. Use these constants as inputs to the PTZ methods.

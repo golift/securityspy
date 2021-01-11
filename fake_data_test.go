@@ -3,7 +3,8 @@ package securityspy
 // Test data for Test methods.
 // This is all copied directly from ++systemInfo, ++scripts and ++sounds
 
-var testServerInfo = `<server>
+const (
+	testServerInfo = `<server>
 	<name>SecuritySpy</name>
 	<version>4.2.10</version>
 	<uuid>C02L1333A8J2FkXIZC2O</uuid>
@@ -26,7 +27,7 @@ var testServerInfo = `<server>
 	<time-format>24</time-format>
 </server>`
 
-var testCameraOne = `<camera>
+	testCameraOne = `<camera>
 	<number>1</number>
 	<connected>yes</connected>
 	<width>2304</width>
@@ -86,7 +87,7 @@ var testCameraOne = `<camera>
 	<permissions>63167</permissions>
 </camera>`
 
-var testCameraTwo = `<camera>
+	testCameraTwo = `<camera>
 	<number>2</number>
 	<connected>yes</connected>
 	<width>2592</width>
@@ -146,7 +147,7 @@ var testCameraTwo = `<camera>
 	<permissions>62975</permissions>
 </camera>`
 
-var testScheduleList = `<schedulelist>
+	testScheduleList = `<schedulelist>
   <schedule>
     <name>Unarmed 24/7</name>
     <id>0</id>
@@ -173,14 +174,14 @@ var testScheduleList = `<schedulelist>
   </schedule>
 </schedulelist>`
 
-var testSchedulePresetList = `<schedulepresetlist>
+	testSchedulePresetList = `<schedulepresetlist>
   <schedulepreset>
     <name>MyFirstPreset</name>
     <id>1930238093</id>
   </schedulepreset>
 </schedulepresetlist>`
 
-var testScheduleOverrideList = `<scheduleoverridelist>
+	testScheduleOverrideList = `<scheduleoverridelist>
   <scheduleoverride>
     <name>None</name>
     <id>0</id>
@@ -203,11 +204,11 @@ var testScheduleOverrideList = `<scheduleoverridelist>
   </scheduleoverride>
 </scheduleoverridelist>`
 
-var testSystemInfo = `<?xml version="1.0" encoding="utf-8"?><system>` + testServerInfo +
-	`<cameralist>` + testCameraOne + testCameraTwo + `</cameralist>` +
-	testScheduleList + testScheduleOverrideList + testSchedulePresetList + `</system>`
+	testSystemInfo = `<?xml version="1.0" encoding="utf-8"?><system>` + testServerInfo +
+		`<cameralist>` + testCameraOne + testCameraTwo + `</cameralist>` +
+		testScheduleList + testScheduleOverrideList + testSchedulePresetList + `</system>`
 
-var testSoundsList = `<?xml version="1.0" encoding="utf-8"?>
+	testSoundsList = `<?xml version="1.0" encoding="utf-8"?>
 <sounds>
 <name>Beeps.aif</name>
 <name>Bell ring.aif</name>
@@ -231,7 +232,7 @@ var testSoundsList = `<?xml version="1.0" encoding="utf-8"?>
 <name>Tink.aiff</name>
 </sounds>`
 
-var testScriptsList = `<?xml version="1.0" encoding="utf-8"?>
+	testScriptsList = `<?xml version="1.0" encoding="utf-8"?>
 <scripts>
 <name>Web-i Activate Relay 1.scpt</name>
 <name>Web-i Activate Relay 2.scpt</name>
@@ -250,3 +251,4 @@ var testScriptsList = `<?xml version="1.0" encoding="utf-8"?>
 <name>WebRelay Activate Relay 7.scpt</name>
 <name>WebRelay Activate Relay 8.scpt</name>
 </scripts>`
+)

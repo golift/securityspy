@@ -2,10 +2,9 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"fmt"
 	"net/url"
 	"strconv"
-
-	"github.com/pkg/errors"
 )
 
 // Home sends a camera to the home position.
@@ -58,6 +57,7 @@ func (z *PTZ) Zoom(in bool) error {
 	if in {
 		return z.ptzReq(ptzCommandZoomIn)
 	}
+
 	return z.ptzReq(ptzCommandZoomOut)
 }
 
@@ -80,8 +80,9 @@ func (z *PTZ) Preset(preset PTZpreset) error {
 		return z.ptzReq(ptzCommandSavePreset7)
 	case PTZpreset8:
 		return z.ptzReq(ptzCommandSavePreset8)
+	default:
+		return ErrorPTZRange
 	}
-	return ErrorPTZRange
 }
 
 // PresetSave instructs a preset to be permanently saved. good luck!
@@ -103,8 +104,9 @@ func (z *PTZ) PresetSave(preset PTZpreset) error {
 		return z.ptzReq(ptzCommandPreset7)
 	case PTZpreset8:
 		return z.ptzReq(ptzCommandPreset8)
+	default:
+		return ErrorPTZRange
 	}
-	return ErrorPTZRange
 }
 
 // Stop instructs a camera to stop moving, assuming it supports continuous movement.
@@ -118,6 +120,7 @@ func (z *PTZ) Stop() error {
 func (z *PTZ) ptzReq(command ptzCommand) error {
 	params := make(url.Values)
 	params.Set("command", strconv.Itoa(int(command)))
+
 	return z.camera.server.api.simpleReq("++ptz/command", params, z.camera.Number)
 }
 
@@ -125,12 +128,14 @@ func (z *PTZ) ptzReq(command ptzCommand) error {
 // This isn't a method you should ever call directly; it is only used during data initialization.
 func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	if err := d.DecodeElement(&z.rawCaps, &start); err != nil {
-		return errors.Wrap(err, "ptz caps")
+		return fmt.Errorf("ptz caps: %w", err)
 	}
+
 	z.HasPanTilt = z.rawCaps&ptzPanTilt == ptzPanTilt
 	z.HasHome = z.rawCaps&ptzHome == ptzHome
 	z.HasZoom = z.rawCaps&ptzZoom == ptzZoom
 	z.HasPresets = z.rawCaps&ptzPresets == ptzPresets
 	z.Continuous = z.rawCaps&ptzContinuous == ptzContinuous
+
 	return nil
 }

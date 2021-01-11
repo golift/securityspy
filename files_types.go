@@ -2,30 +2,29 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"fmt"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
-var (
-	// downloadDateFormat is the format the SecuritySpy ++download method accepts.
+const (
+	// DownloadDateFormat is the format the SecuritySpy ++download method accepts.
 	// This matches the ++download inputs AND the folder names files are saved into.
 	// The file1/file2 inputs this gets passed into are actually undocuemnted and were
 	// created specifically for programmtic SDK access (ie. this library).
-	downloadDateFormat = "2006-01-02"
-	// Arbitrary date format used for saved files we hope doesn't change.
+	DownloadDateFormat = "2006-01-02"
+	// FileDateFormat is an arbitrary date format used for saved files; we hope doesn't change.
 	// This is used in the actual name of files that are saved. No where else.
 	// The GetFile() method uses this to construct arbitrary file download paths.
-	fileDateFormat = "01-02-2006"
+	FileDateFormat = "01-02-2006"
 )
 
 // Errors returned by the Files type methods.
 var (
 	// ErrorPathExists returns when a requested write path already exists.
-	ErrorPathExists = errors.New("cannot overwrite existing path")
+	ErrorPathExists = fmt.Errorf("cannot overwrite existing path")
 
 	// ErrorInvalidName returns when requesting a file download and the filename is invalid.
-	ErrorInvalidName = errors.New("invalid file name")
+	ErrorInvalidName = fmt.Errorf("invalid file name")
 )
 
 // Files powers the Files interface.
@@ -34,7 +33,7 @@ type Files struct {
 	server *Server
 }
 
-// fileFeed represents the XML data from ++download
+// fileFeed represents the XML data from ++download api path.
 type fileFeed struct {
 	XMLName      xml.Name `xml:"feed"`
 	BSL          string   `xml:"bsl,attr"`     // http://www.bensoftware.com/
