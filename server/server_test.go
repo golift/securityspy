@@ -34,8 +34,8 @@ func TestGet(t *testing.T) {
 		assert.Equal(c.URL, "http://"+r.Host+"/", "the host was not set correctly in the request")
 	})
 
-	httpClient, close := testingHTTPClient(h)
-	defer close()
+	httpClient, fakeServer := testingHTTPClient(h)
+	defer fakeServer.Close()
 
 	c.Client = httpClient
 	resp, err := c.Get("++path", make(url.Values))
@@ -51,7 +51,7 @@ func TestGet(t *testing.T) {
 }
 
 // testingHTTPClient sets up a fake server for testing secReq().
-func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
+func testingHTTPClient(handler http.Handler) (*http.Client, *httptest.Server) {
 	fakeServer := httptest.NewServer(handler)
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -61,7 +61,7 @@ func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
 		},
 	}
 
-	return client, fakeServer.Close
+	return client, fakeServer
 }
 
 /*
