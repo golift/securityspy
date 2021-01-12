@@ -27,26 +27,43 @@ type Config struct {
 	URL       string
 	Password  string
 	Username  string
-	Client    *http.Client  // Provide an HTTP client, or:
-	Timeout   time.Duration // Only used if you do not provide an HTTP client.
-	VerifySSL bool          // Also only used if you do not provide an HTTP client.
+	Client    *http.Client // Provide an HTTP client, or:
+	Timeout   Duration     // Only used if you do not provide an HTTP client.
+	VerifySSL bool         // Also only used if you do not provide an HTTP client.
 }
 
-func (s *Config) getClient() {
-	if s.Client != nil {
-		return
+func (s *Config) HTTPClient() *http.Client {
+	if s.Timeout.Duration == 0 {
+		s.Timeout.Duration = DefaultTimeout
 	}
 
-	if s.Timeout == 0 {
-		s.Timeout = DefaultTimeout
-	}
-
-	s.Client = &http.Client{
-		Timeout: s.Timeout,
+	return &http.Client{
+		Timeout: s.Timeout.Duration,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.VerifySSL}, //nolint:gosec
+			DisableKeepAlives: true, // SecuritySpy has a Keep-Alive Bug.
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: !s.VerifySSL, //nolint:gosec
+			},
 		},
 	}
+}
+
+// Duration allows you to pass the server Config struct in from a json file.
+type Duration struct {
+	time.Duration
+}
+
+// UnmarshalText parses a duration type from a config file. This method works
+// with the Duration type to allow unmarshaling of durations from files and
+// env variables in the same struct. You won't generally call this directly.
+func (d *Duration) UnmarshalText(b []byte) (err error) {
+	d.Duration, err = time.ParseDuration(string(b))
+
+	if err != nil {
+		return fmt.Errorf("parsing Go duration '%s': %w", b, err)
+	}
+
+	return nil
 }
 
 // BaseURL returns the URL.
@@ -61,12 +78,12 @@ func (s *Config) Auth() string {
 
 // TimeoutDur returns the configured timeout.
 func (s *Config) TimeoutDur() time.Duration {
-	return s.Timeout
+	return s.Timeout.Duration
 }
 
-func (s *Config) GetContext(ctx context.Context, apiPath string, params url.Values) (*http.Response, error) {
-	s.getClient()
-
+// GetContextClient is the same as Get except you can pass in your own context and http Client.
+func (s *Config) GetContextClient(ctx context.Context, api string, params url.Values,
+	client *http.Client) (*http.Response, error) {
 	if params == nil {
 		params = make(url.Values)
 	}
@@ -75,12 +92,12 @@ func (s *Config) GetContext(ctx context.Context, apiPath string, params url.Valu
 		params.Set("auth", s.Password)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL+apiPath, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL+api, nil)
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequest(): %w", err)
 	}
 
-	if a := apiPath; !strings.HasPrefix(a, "++getfile") && !strings.HasPrefix(a, "++event") &&
+	if a := api; !strings.HasPrefix(a, "++getfile") && !strings.HasPrefix(a, "++event") &&
 		!strings.HasPrefix(a, "++image") && !strings.HasPrefix(a, "++audio") &&
 		!strings.HasPrefix(a, "++stream") && !strings.HasPrefix(a, "++video") {
 		params.Set("format", "xml")
@@ -89,17 +106,37 @@ func (s *Config) GetContext(ctx context.Context, apiPath string, params url.Valu
 
 	req.URL.RawQuery = params.Encode()
 
-	return s.Client.Do(req)
+	return client.Do(req)
+}
+
+// GetContext is the same as Get except you can pass in your own context.
+func (s *Config) GetContext(ctx context.Context, apiPath string, params url.Values) (*http.Response, error) {
+	if s.Client == nil {
+		s.Client = s.HTTPClient()
+	}
+
+	return s.GetContextClient(ctx, apiPath, params, s.Client)
+}
+
+// GetClient is the same as Get except you can pass in your own http Client.
+func (s *Config) GetClient(apiPath string, params url.Values, client *http.Client) (*http.Response, error) {
+	return s.GetContextClient(context.TODO(), apiPath, params, client)
 }
 
 // Get is a helper function that formats the http request to SecuritySpy.
 func (s *Config) Get(apiPath string, params url.Values) (*http.Response, error) {
-	return s.GetContext(context.TODO(), apiPath, params)
+	if s.Client == nil {
+		s.Client = s.HTTPClient()
+	}
+
+	return s.GetContextClient(context.TODO(), apiPath, params, s.Client)
 }
 
 // Post is a helper function that formats the http request to SecuritySpy.
 func (s *Config) Post(apiPath string, params url.Values, body io.ReadCloser) ([]byte, error) {
-	s.getClient()
+	if s.Client == nil {
+		s.Client = s.HTTPClient()
+	}
 
 	if params == nil {
 		params = make(url.Values)
@@ -109,7 +146,7 @@ func (s *Config) Post(apiPath string, params url.Values, body io.ReadCloser) ([]
 		params.Set("auth", s.Password)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), s.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), s.Timeout.Duration)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL+apiPath, body)

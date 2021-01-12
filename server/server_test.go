@@ -23,7 +23,7 @@ func TestGet(t *testing.T) {
 		Password:  "pass",
 		URL:       "http://some.host:5678/",
 		VerifySSL: false,
-		Timeout:   time.Second,
+		Timeout:   server.Duration{time.Second},
 	}
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal("xml", r.FormValue("format"), "format parameter was not added")

@@ -184,7 +184,10 @@ func (e *Events) eventStreamScanner() {
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
 func (e *Events) eventStreamConnect() error {
-	resp, err := e.server.Get("++eventStream", url.Values{"version": []string{"3"}})
+	client := e.server.HTTPClient()
+	client.Timeout = 0
+
+	resp, err := e.server.GetClient("++eventStream", url.Values{"version": []string{"3"}}, client)
 	if err != nil {
 		return fmt.Errorf("connecting event stream: %w", err)
 	}

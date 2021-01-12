@@ -81,6 +81,21 @@ func (mr *MockAPIMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAPI)(nil).Get), arg0, arg1)
 }
 
+// GetClient mocks base method.
+func (m *MockAPI) GetClient(arg0 string, arg1 url.Values, arg2 *http.Client) (*http.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClient", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*http.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClient indicates an expected call of GetClient.
+func (mr *MockAPIMockRecorder) GetClient(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClient", reflect.TypeOf((*MockAPI)(nil).GetClient), arg0, arg1, arg2)
+}
+
 // GetContext mocks base method.
 func (m *MockAPI) GetContext(arg0 context.Context, arg1 string, arg2 url.Values) (*http.Response, error) {
 	m.ctrl.T.Helper()
@@ -96,6 +111,21 @@ func (mr *MockAPIMockRecorder) GetContext(arg0, arg1, arg2 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContext", reflect.TypeOf((*MockAPI)(nil).GetContext), arg0, arg1, arg2)
 }
 
+// GetContextClient mocks base method.
+func (m *MockAPI) GetContextClient(arg0 context.Context, arg1 string, arg2 url.Values, arg3 *http.Client) (*http.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContextClient", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*http.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetContextClient indicates an expected call of GetContextClient.
+func (mr *MockAPIMockRecorder) GetContextClient(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContextClient", reflect.TypeOf((*MockAPI)(nil).GetContextClient), arg0, arg1, arg2, arg3)
+}
+
 // GetXML mocks base method.
 func (m *MockAPI) GetXML(arg0 string, arg1 url.Values, arg2 interface{}) error {
 	m.ctrl.T.Helper()
@@ -108,6 +138,20 @@ func (m *MockAPI) GetXML(arg0 string, arg1 url.Values, arg2 interface{}) error {
 func (mr *MockAPIMockRecorder) GetXML(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetXML", reflect.TypeOf((*MockAPI)(nil).GetXML), arg0, arg1, arg2)
+}
+
+// HTTPClient mocks base method.
+func (m *MockAPI) HTTPClient() *http.Client {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HTTPClient")
+	ret0, _ := ret[0].(*http.Client)
+	return ret0
+}
+
+// HTTPClient indicates an expected call of HTTPClient.
+func (mr *MockAPIMockRecorder) HTTPClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockAPI)(nil).HTTPClient))
 }
 
 // Post mocks base method.
