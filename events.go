@@ -13,10 +13,11 @@ import (
 
 // String provides a description of an event.
 func (e *Event) String() string {
-	txt, ok := EventNames[e.Type]
-	if !ok {
+	txt := EventName(e.Type)
+	if txt == "" {
 		return UnknownEventText
 	}
+
 	return txt
 }
 
@@ -28,12 +29,16 @@ func (e *Events) BindFunc(event EventType, callBack func(Event)) {
 	if callBack == nil {
 		return
 	}
+
 	e.binds.Lock()
 	defer e.binds.Unlock()
+
 	if val, ok := e.eventBinds[event]; ok {
 		e.eventBinds[event] = append(val, callBack)
+
 		return
 	}
+
 	e.eventBinds[event] = []func(Event){callBack}
 }
 
@@ -44,12 +49,16 @@ func (e *Events) BindChan(event EventType, channel chan Event) {
 	if channel == nil {
 		return
 	}
+
 	e.chans.Lock()
 	defer e.chans.Unlock()
+
 	if val, ok := e.eventChans[event]; ok {
 		e.eventChans[event] = append(val, channel)
+
 		return
 	}
+
 	e.eventChans[event] = []chan Event{channel}
 }
 
@@ -59,17 +68,22 @@ func (e *Events) BindChan(event EventType, channel chan Event) {
 // Stop writing to the channels with Custom() before calling Stop().
 func (e *Events) Stop(closeChans bool) {
 	defer func() { e.Running = false }()
+
 	if e.Running {
 		e.custom(eventStreamStop, -1, -1, "") // signal
+
 		if e.stream != nil {
 			_ = e.stream.Close()
 			e.stream = nil
 		}
+
 		close(e.eventChan)
 	}
+
 	if !closeChans {
 		return
 	}
+
 	for _, chans := range e.eventChans {
 		for i := range chans {
 			close(chans[i])
@@ -81,10 +95,12 @@ func (e *Events) Stop(closeChans bool) {
 func (e *Events) UnbindAll() {
 	e.binds.Lock()
 	e.chans.Lock()
+
 	defer func() {
 		e.binds.Unlock()
 		e.chans.Unlock()
 	}()
+
 	e.eventBinds = make(map[EventType][]func(Event))
 	e.eventChans = make(map[EventType][]chan Event)
 }
@@ -93,14 +109,16 @@ func (e *Events) UnbindAll() {
 func (e *Events) UnbindChan(event EventType) {
 	e.chans.Lock()
 	defer e.chans.Unlock()
+
 	delete(e.eventChans, event)
 }
 
 // UnbindFunc removes all bound callbacks for a particular event.
-// EventType is a set of constants that begin with Event*
+// EventType is a set of constants that begin with Event*.
 func (e *Events) UnbindFunc(event EventType) {
 	e.binds.Lock()
 	defer e.binds.Unlock()
+
 	delete(e.eventBinds, event)
 }
 
@@ -110,7 +128,8 @@ func (e *Events) UnbindFunc(event EventType) {
 // call this. Call Stop() to close the connection when you're done with it.
 func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
 	e.Running = true
-	e.eventChan = make(chan Event, 1000) // allow 1000 events to buffer
+	e.eventChan = make(chan Event, EventBuffer) // allow 1000 events to buffer
+
 	go e.eventStreamSelector(refreshOnConfigChange, retryInterval)
 	go e.eventStreamScanner()
 }
@@ -126,6 +145,7 @@ func (e *Events) custom(t EventType, id int, cam int, msg string) {
 	if !e.Running {
 		return
 	}
+
 	e.eventChan <- Event{
 		Time:   time.Now().Round(time.Second),
 		When:   time.Now().Round(time.Second),
@@ -141,15 +161,22 @@ func (e *Events) custom(t EventType, id int, cam int, msg string) {
 // eventStreamScanner connects to the securityspy event stream and fires events into a channel.
 func (e *Events) eventStreamScanner() {
 	defer e.custom(EventStreamDisconnect, -10000, -1, "Connection Closed")
+
 	if err := e.eventStreamConnect(); err != nil {
 		return
 	}
-	e.custom(EventStreamConnect, -9999, -1, EventNames[EventStreamConnect])
+
+	defer func() {
+		e.stream.Close()
+		e.stream = nil
+	}()
+
 	scanner := bufio.NewScanner(e.stream)
 	scanner.Split(scanLinesCR)
+
 	for scanner.Scan() {
 		// Constantly scan for new events, then report them to the event channel.
-		if text := scanner.Text(); strings.Count(text, " ") > 2 {
+		if text := scanner.Text(); strings.Count(text, " ") > 2 { // nolint:gomnd
 			e.eventChan <- e.UnmarshalEvent(text)
 		}
 	}
@@ -157,17 +184,18 @@ func (e *Events) eventStreamScanner() {
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
 func (e *Events) eventStreamConnect() error {
-	if e.stream != nil {
-		_ = e.stream.Close()
-		e.stream = nil
-	}
-	httpClient := e.server.api.getClient(0) // timeout=0
-	httpParams := url.Values{"version": []string{"3"}}
-	resp, err := e.server.api.secReq("++eventStream", httpParams, httpClient)
+	client := e.server.HTTPClient()
+	client.Timeout = 0
+
+	resp, err := e.server.GetClient("++eventStream", url.Values{"version": []string{"3"}}, client)
 	if err != nil {
-		return err
+		return fmt.Errorf("connecting event stream: %w", err)
 	}
+
 	e.stream = resp.Body
+
+	e.custom(EventStreamConnect, -9999, -1, EventName(EventStreamConnect))
+
 	return nil
 }
 
@@ -175,16 +203,16 @@ func (e *Events) eventStreamConnect() error {
 // Fires bound event call back functions.
 // Also reconnects to the event stream if the connection fails.
 // There is a "loop" that occurs among the eventStream* methods.
-// Stop() properly handles the shutdown of the loop, so if can be safely restarted w/ Watch()
+// Stop() properly handles the shutdown of the loop, so if can be safely restarted w/ Watch().
 func (e *Events) eventStreamSelector(refreshOnConfigChange bool, retryInterval time.Duration) {
 Loop:
 	for event := range e.eventChan {
-		switch event.Type {
+		switch event.Type { //nolint:exhaustive
 		case eventStreamStop:
 			break Loop // Stop() called.
 		case EventConfigChange:
 			if refreshOnConfigChange {
-				go e.serverRefresh()
+				e.serverRefresh()
 			}
 		case EventStreamDisconnect:
 			// reconnect to event stream
@@ -193,6 +221,7 @@ Loop:
 				e.eventStreamScanner()
 			}()
 		}
+
 		// All events run binds.
 		e.binds.RLock()
 		event.callBacks(e.eventBinds)
@@ -206,9 +235,11 @@ Loop:
 func (e *Events) serverRefresh() {
 	if err := e.server.Refresh(); err != nil {
 		e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
+
 		return
 	}
-	e.custom(EventWatcherRefreshed, -9998, -1, EventNames[EventWatcherRefreshed])
+
+	e.custom(EventWatcherRefreshed, -9998, -1, EventName(EventWatcherRefreshed))
 }
 
 // UnmarshalEvent turns raw text into an Event that can fire callbacks.
@@ -216,7 +247,8 @@ func (e *Events) serverRefresh() {
 /* [TIME] is specified in the order year, month, day, hour, minute, second and is always 14 characters long
  * [EVENT NUMBER] increases by 1 for each subsequent event
  * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15
- * [EVENT] describes the event: ARM_C, DISARM_C, ARM_M, DISARM_M, ARM_A, DISARM_A, ERROR, CONFIGCHANGE, MOTION, OFFLINE, ONLINE
+ * [EVENT] describes the event: ARM_C, DISARM_C, ARM_M, DISARM_M, ARM_A, DISARM_A, ERROR,
+           CONFIGCHANGE, MOTION, OFFLINE, ONLINE
 	Example Event Stream Flow:
 	(old, v4)
 	20190114200911 104519 CAM2 MOTION
@@ -238,13 +270,15 @@ func (e *Events) serverRefresh() {
 	20190927092050 6 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
 	20190927092055 7 3 DISARM_M
 	20190927092056 8 3 OFFLINE */
-func (e *Events) UnmarshalEvent(text string) Event {
-	var err error
-	parts := strings.SplitN(text, " ", 4)
-	newEvent := Event{Msg: parts[3], ID: -1, Time: time.Now()}
+func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen
+	var (
+		err      error
+		parts    = strings.SplitN(text, " ", 4)
+		newEvent = Event{Msg: parts[3], ID: -1, Time: time.Now()}
+		// Parse the time stamp; append the Offset from ++systemInfo to get the right time-location.
+		eventTime = fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
+	)
 
-	// Parse the time stamp; append the Offset from ++systemInfo to get the right time-location.
-	eventTime := fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
 	if newEvent.When, err = time.ParseInLocation(EventTimeFormat+"-07", eventTime, time.Local); err != nil {
 		newEvent.When = time.Now()
 		newEvent.Errors = append(newEvent.Errors, ErrorDateParseFail)
@@ -252,7 +286,7 @@ func (e *Events) UnmarshalEvent(text string) Event {
 
 	// Parse the ID
 	if newEvent.ID, err = strconv.Atoi(parts[1]); err != nil {
-		newEvent.ID = -2
+		newEvent.ID = BadID
 		newEvent.Errors = append(newEvent.Errors, ErrorIDParseFail)
 	}
 
@@ -268,9 +302,10 @@ func (e *Events) UnmarshalEvent(text string) Event {
 
 	// Parse and convert the type string to EventType.
 	parts = strings.Split(newEvent.Msg, " ")
+
 	newEvent.Type = EventType(parts[0])
 	// Check if the type we just converted is a known event.
-	if _, ok := EventNames[newEvent.Type]; !ok {
+	if name := EventName(newEvent.Type); name == "" {
 		newEvent.Errors = append(newEvent.Errors, ErrorUnknownEvent)
 		newEvent.Type = EventUnknownEvent
 	}
@@ -279,20 +314,24 @@ func (e *Events) UnmarshalEvent(text string) Event {
 	if newEvent.Type == EventTriggerAction || newEvent.Type == EventTriggerMotion && len(parts) == 2 {
 		b, _ := strconv.Atoi(parts[1])
 		msg := ""
+
 		// Check if this bitmask contains any of our known reasons.
 		for flag, txt := range Reasons {
 			if b&int(flag) != 0 {
 				if msg != "" {
 					msg += ", "
 				}
+
 				msg += txt
 			}
 		}
+
 		newEvent.Msg += " - Reasons: " + msg
 		if msg == "" {
 			newEvent.Msg += UnknownReasonText
 		}
 	}
+
 	return newEvent
 }
 
@@ -305,17 +344,19 @@ func (e *Event) callBacks(binds map[EventType][]func(Event)) {
 			}
 		}
 	}
+
 	if _, ok := binds[e.Type]; ok {
 		callbacks(binds[e.Type])
 	} else if _, ok := binds[EventUnknownEvent]; ok && e.Type != EventUnknownEvent {
 		callbacks(binds[EventUnknownEvent])
 	}
+
 	if _, ok := binds[EventAllEvents]; ok {
 		callbacks(binds[EventAllEvents])
 	}
 }
 
-// eventChans is run for each event to notify external channels
+// eventChans is run for each event to notify external channels.
 func (e *Event) eventChans(chans map[EventType][]chan Event) {
 	for _, t := range []EventType{e.Type, EventAllEvents} {
 		if chans, ok := chans[t]; ok {
@@ -331,14 +372,17 @@ func scanLinesCR(data []byte, atEOF bool) (advance int, token []byte, err error)
 	if atEOF && len(data) == 0 {
 		return 0, nil, ErrorDisconnect
 	}
+
 	if i := bytes.IndexByte(data, '\r'); i >= 0 {
 		// We have a full CR-terminated line.
 		return i + 1, data[0:i], nil
 	}
+
 	// If we're at EOF, we have a final, non-terminated line. Return it.
 	if atEOF {
 		return len(data), data, io.ErrShortBuffer
 	}
+
 	// Request more data.
 	return 0, nil, nil
 }

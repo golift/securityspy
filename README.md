@@ -25,6 +25,10 @@ It's full of great examples on how to use this library, and can be easily instal
 -   All server and system Info is exposed with one API web request.
 -   Schedule Presets can be retrieved and invoked.
 
+#### Settings
+
+-   No support for settings yet.
+
 #### Cameras
 
 -   Stream live H264 or MJPEG video from an `io.ReadCloser`.
@@ -70,29 +74,35 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	"golift.io/securityspy"
+	"golift.io/securityspy/server"
 )
 
 func main() {
-  server, err := securityspy.GetServer(&securityspy.Config{
+	sspy, err := securityspy.New(&server.Config{
 		Username:  "admin",
 		Password:  "password",
 		URL:       "http://127.0.0.1:8000",
-		VerifySSL: false})
+		Timeout:   time.Minute,
+		VerifySSL: false,
+	})
 	if err != nil {
 		panic(err)
 	}
-	scripts, _ := server.GetScripts()
-	sounds, _ := server.GetSounds()
+
+	scripts, _ := sspy.GetScripts()
+	sounds, _ := sspy.GetSounds()
 
 	// Print server info.
 	fmt.Printf("%v %v @ %v (http://%v:%v/) %d cameras, %d scripts, %d sounds, %d schedules, %d schedule presets\n",
-		server.Info.Name, server.Info.Version, server.Info.CurrentTime,
-		server.Info.IP1, server.Info.HTTPPort, len(server.Cameras.Names),
-		len(scripts), len(sounds), len(server.Info.ServerSchedules), len(server.Info.SchedulePresets))
+		sspy.Info.Name, sspy.Info.Version, sspy.Info.CurrentTime,
+		sspy.Info.IP1, sspy.Info.HTTPPort, len(sspy.Cameras.All()),
+		len(scripts), len(sounds), len(sspy.Info.ServerSchedules), len(sspy.Info.SchedulePresets))
 
 	// Print info for each camera.
-	for _, camera := range server.Cameras.All() {
+	for _, camera := range sspy.Cameras.All() {
 		fmt.Printf("%2v: %-14v (%-4vx%-4v %5v/%-7v %v) connected: %3v, down %v, modes: C:%-8v M:%-8v A:%-8v "+
 			"%2vFPS, Audio:%3v, MD: %3v/pre:%v/post:%3v idle %-10v Script: %v (reset %v)\n",
 			camera.Number, camera.Name, camera.Width, camera.Height, camera.DeviceName, camera.DeviceType, camera.Address,
@@ -116,4 +126,4 @@ SecuritySpy 4.2.10b9 @ 2019-02-09 16:20:00 -0700 MST (http://192.168.1.1:8000/) 
  ```
 
 ## LICENSE
-[MIT License](LICENSE) - Copyright (c) 2019 David Newhall II
+[MIT License](LICENSE) - Copyright (c) 2019-2021 David Newhall II

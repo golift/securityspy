@@ -1,39 +1,37 @@
 package securityspy
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // This is a list of errors returned by the Events methods.
 var (
 	// ErrorUnknownEvent never really returns, but will fire if SecuritySpy
 	// adds new events this library doesn't know about.
-	ErrorUnknownEvent = errors.New("unknown event")
-
+	ErrorUnknownEvent = fmt.Errorf("unknown event")
 	// ErrorCAMParseFail will return if the camera number in an event stream does not exist.
 	// If you see this, run Refresh() more often, or fix your flaky camera connection.
-	ErrorCAMParseFail = errors.New("CAM parse failed")
-
+	ErrorCAMParseFail = fmt.Errorf("CAM parse failed")
 	// ErrorIDParseFail will return if the camera number provided by the event stream is not a number.
 	// This should never happen, but future versions of SecuritySpy could trigger this if formats change.
-	ErrorIDParseFail = errors.New("ID parse failed")
-
+	ErrorIDParseFail = fmt.Errorf("ID parse failed")
 	// ErrorCAMMissing like the errors above should never return.
 	// This is triggered by a corrupted event format.
-	ErrorCAMMissing = errors.New("camera number missing")
-
+	ErrorCAMMissing = fmt.Errorf("camera number missing")
 	// ErrorDateParseFail will only trigger if the time stamp format for events changes.
-	ErrorDateParseFail = errors.New("timestamp parse failed")
-
+	ErrorDateParseFail = fmt.Errorf("timestamp parse failed")
 	// ErrorDisconnect becomes the msg in a custom event when the SecSpy event stream is disconnected.
-	ErrorDisconnect = errors.New("server connection closed")
+	ErrorDisconnect = fmt.Errorf("server connection closed")
 )
 
 const (
+	// BadID happens when the ID cannot be parsed.
+	BadID = -2
+	// EventBuffer is the channel buffer size for securityspy events.
+	EventBuffer = 10000
 	// UnknownEventText should only appear if SecuritySpy adds new event types.
 	UnknownEventText = "Unknown Event"
 	// UnknownReasonText should only appear if SecuritySpy adds new motion detection reasons.
@@ -105,38 +103,40 @@ const (
 	eventStreamStop         EventType = "STOP"
 )
 
-// EventNames contains the human readable names for each event.
-var EventNames = map[EventType]string{
-	EventArmContinuous:    "Continuous Capture Armed",
-	EventDisarmContinuous: "Continuous Capture Disarmed",
-	EventArmMotion:        "Motion Capture Armed",
-	EventDisarmMotion:     "Motion Capture Disarmed",
-	EventArmActions:       "Actions Armed",
-	EventDisarmActions:    "Actions Disarmed",
-	EventSecSpyError:      "SecuritySpy Error",
-	EventConfigChange:     "Configuration Change",
-	EventMotionDetected:   "Motion Detected", // Legacy (v4)
-	EventOffline:          "Camera Offline",
-	EventOnline:           "Camera Online",
-	EventClassify:         "Classification",
-	EventTriggerMotion:    "Triggered Motion",
-	EventTriggerAction:    "Triggered Action",
-	EventFileWritten:      "File Written",
-	EventKeepAlive:        "Stream Keep Alive",
-	// The following belong to the library, not securityspy.
-	EventStreamDisconnect:   "Event Stream Disconnected",
-	EventStreamConnect:      "Event Stream Connected",
-	EventUnknownEvent:       UnknownEventText,
-	EventAllEvents:          "Any Event",
-	EventWatcherRefreshed:   "SystemInfo Refresh Success",
-	EventWatcherRefreshFail: "SystemInfo Refresh Failure",
-	EventStreamCustom:       "Custom Event",
+// EventName returns the human readable names for each event.
+func EventName(e EventType) string {
+	return map[EventType]string{
+		EventArmContinuous:    "Continuous Capture Armed",
+		EventDisarmContinuous: "Continuous Capture Disarmed",
+		EventArmMotion:        "Motion Capture Armed",
+		EventDisarmMotion:     "Motion Capture Disarmed",
+		EventArmActions:       "Actions Armed",
+		EventDisarmActions:    "Actions Disarmed",
+		EventSecSpyError:      "SecuritySpy Error",
+		EventConfigChange:     "Configuration Change",
+		EventMotionDetected:   "Motion Detected", // Legacy (v4)
+		EventOffline:          "Camera Offline",
+		EventOnline:           "Camera Online",
+		EventClassify:         "Classification",
+		EventTriggerMotion:    "Triggered Motion",
+		EventTriggerAction:    "Triggered Action",
+		EventFileWritten:      "File Written",
+		EventKeepAlive:        "Stream Keep Alive",
+		// The following belong to the library, not securityspy.
+		EventStreamDisconnect:   "Event Stream Disconnected",
+		EventStreamConnect:      "Event Stream Connected",
+		EventUnknownEvent:       UnknownEventText,
+		EventAllEvents:          "Any Event",
+		EventWatcherRefreshed:   "SystemInfo Refresh Success",
+		EventWatcherRefreshFail: "SystemInfo Refresh Failure",
+		EventStreamCustom:       "Custom Event",
+	}[e]
 }
 
-// TriggerEvent represent the "Reason" a motion or action trigger occurred. v5+
+// TriggerEvent represent the "Reason" a motion or action trigger occurred. v5+ only.
 type TriggerEvent int
 
-// These are the trigger reasons SecuritySpy exposes. v5+
+// These are the trigger reasons SecuritySpy exposes. v5+ only.
 const (
 	TriggerByMotion = TriggerEvent(1) << iota
 	TriggerByAudio
@@ -150,7 +150,7 @@ const (
 )
 
 // Reasons is the human-readable explanation for a motion detection reason.
-var Reasons = map[TriggerEvent]string{
+var Reasons = map[TriggerEvent]string{ //nolint:gochecknoglobals
 	TriggerByMotion:           "Motion Detected",
 	TriggerByAudio:            "Audio Detected",
 	TriggerByScript:           "AppleScript",

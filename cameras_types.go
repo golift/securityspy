@@ -5,7 +5,7 @@ import (
 )
 
 // Encoder is the path to ffmpeg.
-var Encoder = "/usr/local/bin/ffmpeg"
+const DefaultEncoder = "/usr/local/bin/ffmpeg"
 
 // CameraArmMode locks arming to an integer of 0 or 1.
 type CameraArmMode rune
@@ -30,9 +30,8 @@ type VidOps struct {
 // Cameras is an interface into the Camera system. Use the methods bound here
 // to retrieve camera interfaces.
 type Cameras struct {
+	cameras []*Camera
 	server  *Server
-	Names   []string
-	Numbers []int
 }
 
 // CameraSchedule contains schedule info for a camera's properties.
