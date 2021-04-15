@@ -65,5 +65,9 @@ func (s *Server) SetSchedulePreset(presetID int) error {
 	params := make(url.Values)
 	params.Set("id", strconv.Itoa(presetID))
 
-	return s.SimpleReq("++ssSetPreset", params, -1)
+	if err := s.SimpleReq("++ssSetPreset", params, -1); err != nil {
+		return fmt.Errorf("http request: %w", err)
+	}
+
+	return nil
 }

@@ -106,7 +106,12 @@ func (s *Config) GetContextClient(ctx context.Context, api string, params url.Va
 
 	req.URL.RawQuery = params.Encode()
 
-	return client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return resp, fmt.Errorf("http request: %w", err)
+	}
+
+	return resp, nil
 }
 
 // GetContext is the same as Get except you can pass in your own context.

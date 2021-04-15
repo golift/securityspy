@@ -2,6 +2,7 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"fmt"
 )
 
 // Encoder is the path to ffmpeg.
@@ -44,7 +45,11 @@ type CameraSchedule struct {
 // UnmarshalXML stores a schedule ID into a CameraSchedule type.
 // This isn't a method you should ever call directly; it is only used during data initialization.
 func (bit *CameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	return d.DecodeElement(&bit.ID, &start)
+	if err := d.DecodeElement(&bit.ID, &start); err != nil {
+		return fmt.Errorf("decoding xml: %w", err)
+	}
+
+	return nil
 }
 
 // Camera defines the data returned from the SecuritySpy API. This data is directly

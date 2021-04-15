@@ -56,7 +56,7 @@ func testingHTTPClient(handler http.Handler) (*http.Client, *httptest.Server) {
 	client := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, network, _ string) (net.Conn, error) {
-				return net.Dial(network, fakeServer.Listener.Addr().String())
+				return net.Dial(network, fakeServer.Listener.Addr().String()) //nolint:wrapcheck
 			},
 		},
 	}

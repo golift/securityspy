@@ -209,7 +209,11 @@ func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 
-	return c.server.SimpleReq("++ssControlContinuous", params, c.Number)
+	if err := c.server.SimpleReq("++ssControlContinuous", params, c.Number); err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	return nil
 }
 
 // ToggleMotion arms (true) or disarms (false) a camera's motion capture mode.
@@ -217,7 +221,11 @@ func (c *Camera) ToggleMotion(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 
-	return c.server.SimpleReq("++ssControlMotionCapture", params, c.Number)
+	if err := c.server.SimpleReq("++ssControlMotionCapture", params, c.Number); err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	return nil
 }
 
 // ToggleActions arms (true) or disarms (false) a camera's actions.
@@ -225,13 +233,21 @@ func (c *Camera) ToggleActions(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 
-	return c.server.SimpleReq("++ssControlActions", params, c.Number)
+	if err := c.server.SimpleReq("++ssControlActions", params, c.Number); err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	return nil
 }
 
 // TriggerMotion sets a camera as currently seeing motion.
 // Other actions likely occur because of this!
 func (c *Camera) TriggerMotion() error {
-	return c.server.SimpleReq("++triggermd", make(url.Values), c.Number)
+	if err := c.server.SimpleReq("++triggermd", make(url.Values), c.Number); err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	return nil
 }
 
 // SetSchedule configures a camera mode's primary schedule.
@@ -242,7 +258,11 @@ func (c *Camera) SetSchedule(mode CameraMode, scheduleID int) error {
 	params.Set("mode", string(mode))
 	params.Set("id", strconv.Itoa(scheduleID))
 
-	return c.server.SimpleReq("++ssSetSchedule", params, c.Number)
+	if err := c.server.SimpleReq("++ssSetSchedule", params, c.Number); err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	return nil
 }
 
 // SetScheduleOverride temporarily overrides a camera mode's current schedule.
@@ -253,7 +273,11 @@ func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 	params.Set("mode", string(mode))
 	params.Set("id", strconv.Itoa(overrideID))
 
-	return c.server.SimpleReq("++ssSetOverride", params, c.Number)
+	if err := c.server.SimpleReq("++ssSetOverride", params, c.Number); err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	return nil
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
