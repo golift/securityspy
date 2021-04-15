@@ -82,7 +82,7 @@ func (s *Config) TimeoutDur() time.Duration {
 }
 
 // GetContextClient is the same as Get except you can pass in your own context and http Client.
-func (s *Config) GetContextClient(ctx context.Context, api string, params url.Values,
+func (s *Config) GetContextClient(ctx context.Context, api string, params url.Values, //nolint:cyclop
 	client *http.Client) (*http.Response, error) {
 	if params == nil {
 		params = make(url.Values)
@@ -97,9 +97,9 @@ func (s *Config) GetContextClient(ctx context.Context, api string, params url.Va
 		return nil, fmt.Errorf("http.NewRequest(): %w", err)
 	}
 
-	if a := api; !strings.HasPrefix(a, "++getfile") && !strings.HasPrefix(a, "++event") &&
-		!strings.HasPrefix(a, "++image") && !strings.HasPrefix(a, "++audio") &&
-		!strings.HasPrefix(a, "++stream") && !strings.HasPrefix(a, "++video") {
+	if !strings.HasPrefix(api, "++getfile") && !strings.HasPrefix(api, "++event") &&
+		!strings.HasPrefix(api, "++image") && !strings.HasPrefix(api, "++audio") &&
+		!strings.HasPrefix(api, "++stream") && !strings.HasPrefix(api, "++video") {
 		params.Set("format", "xml")
 		req.Header.Add("Accept", "application/xml")
 	}
