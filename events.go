@@ -270,7 +270,7 @@ func (e *Events) serverRefresh() {
 	20190927092050 6 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
 	20190927092055 7 3 DISARM_M
 	20190927092056 8 3 OFFLINE */
-func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen
+func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen,cyclop
 	var (
 		err      error
 		parts    = strings.SplitN(text, " ", 4)

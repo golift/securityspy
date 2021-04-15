@@ -151,7 +151,7 @@ func (f *File) Save(path string) (int64, error) {
 
 	size, err := io.Copy(newFile, body)
 	if err != nil {
-		return size, nil
+		return size, fmt.Errorf("io.Copy(): %w", err)
 	}
 
 	return size, nil
