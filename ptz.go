@@ -8,12 +8,11 @@ import (
 )
 
 var (
-	// ErrorPTZNotOK is returned for any command that has a successful web request,
+	// ErrPTZNotOK is returned for any command that has a successful web request,
 	// but the reply does not end with the word OK.
-	ErrorPTZNotOK = fmt.Errorf("PTZ command not OK")
-
-	// ErrorPTZRange returns when a PTZ preset outside of 1-8 is provided.
-	ErrorPTZRange = fmt.Errorf("PTZ preset out of range 1-8")
+	ErrPTZNotOK = fmt.Errorf("PTZ command not OK")
+	// ErrPTZRange returns when a PTZ preset outside of 1-8 is provided.
+	ErrPTZRange = fmt.Errorf("PTZ preset out of range 1-8")
 )
 
 // PTZ are what "things" a camera can do. Use the bound methods to interact
@@ -163,7 +162,7 @@ func (z *PTZ) Preset(preset PTZpreset) error {
 	case PTZpreset8:
 		return z.ptzReq(ptzCommandSavePreset8)
 	default:
-		return ErrorPTZRange
+		return ErrPTZRange
 	}
 }
 
@@ -187,7 +186,7 @@ func (z *PTZ) PresetSave(preset PTZpreset) error {
 	case PTZpreset8:
 		return z.ptzReq(ptzCommandPreset8)
 	default:
-		return ErrorPTZRange
+		return ErrPTZRange
 	}
 }
 

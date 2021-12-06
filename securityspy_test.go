@@ -170,7 +170,7 @@ func TestUnmarshalXMLDuration(t *testing.T) {
 	for _, val := range good {
 		assert.Nil(xml.Unmarshal([]byte("<tag>"+val+"</tag>"), &bit), "unmarshalling must not produce an error")
 		assert.Equal(val, bit.Val, "the value was not unmarshalled correctly")
-		num, err := strconv.ParseFloat(val, 10)
+		num, err := strconv.ParseFloat(val, 64)
 		assert.Nil(err, "must not be an error parsing test numbers")
 		assert.Equal(num, bit.Seconds(), "the value was not unmarshalled correctly")
 		assert.Equal(val, bit.Val, "the value was not unmarshalled correctly")

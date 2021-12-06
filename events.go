@@ -273,7 +273,7 @@ func (e *Events) serverRefresh() {
 func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen,cyclop
 	var (
 		err      error
-		parts    = strings.SplitN(text, " ", 4)
+		parts    = strings.SplitN(text, " ", 4) //nolint:gomnd
 		newEvent = Event{Msg: parts[3], ID: -1, Time: time.Now()}
 		// Parse the time stamp; append the Offset from ++systemInfo to get the right time-location.
 		eventTime = fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
@@ -281,22 +281,22 @@ func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen,cyclop
 
 	if newEvent.When, err = time.ParseInLocation(EventTimeFormat+"-07", eventTime, time.Local); err != nil {
 		newEvent.When = time.Now()
-		newEvent.Errors = append(newEvent.Errors, ErrorDateParseFail)
+		newEvent.Errors = append(newEvent.Errors, ErrDateParseFail)
 	}
 
 	// Parse the ID
 	if newEvent.ID, err = strconv.Atoi(parts[1]); err != nil {
 		newEvent.ID = BadID
-		newEvent.Errors = append(newEvent.Errors, ErrorIDParseFail)
+		newEvent.Errors = append(newEvent.Errors, ErrIDParseFail)
 	}
 
 	// Parse the camera number.
 	parts[2] = strings.TrimPrefix(parts[2], "CAM")
 	if parts[2] != "X" {
 		if cameraNum, err := strconv.Atoi(parts[2]); err != nil {
-			newEvent.Errors = append(newEvent.Errors, ErrorCAMParseFail)
+			newEvent.Errors = append(newEvent.Errors, ErrCAMParseFail)
 		} else if newEvent.Camera = e.server.Cameras.ByNum(cameraNum); newEvent.Camera == nil {
-			newEvent.Errors = append(newEvent.Errors, ErrorCAMMissing)
+			newEvent.Errors = append(newEvent.Errors, ErrCAMMissing)
 		}
 	}
 
@@ -306,7 +306,7 @@ func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen,cyclop
 	newEvent.Type = EventType(parts[0])
 	// Check if the type we just converted is a known event.
 	if name := EventName(newEvent.Type); name == "" {
-		newEvent.Errors = append(newEvent.Errors, ErrorUnknownEvent)
+		newEvent.Errors = append(newEvent.Errors, ErrUnknownEvent)
 		newEvent.Type = EventUnknownEvent
 	}
 
@@ -370,7 +370,7 @@ func (e *Event) eventChans(chans map[EventType][]chan Event) {
 // scanLinesCR is a custom bufio.Scanner to read SecuritySpy eventStream.
 func scanLinesCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
-		return 0, nil, ErrorDisconnect
+		return 0, nil, ErrDisconnect
 	}
 
 	if i := bytes.IndexByte(data, '\r'); i >= 0 {

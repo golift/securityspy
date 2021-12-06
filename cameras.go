@@ -39,6 +39,13 @@ func (c *Cameras) ByName(name string) *Camera {
 		}
 	}
 
+	// Try again, case-insensitive.
+	for _, cam := range c.cameras {
+		if strings.EqualFold(cam.Name, name) {
+			return cam
+		}
+	}
+
 	return nil
 }
 
@@ -76,7 +83,7 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 // SaveVideo saves a segment of video from a camera to a file using FFMPEG.
 func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, outputFile string) error {
 	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
-		return ErrorPathExists
+		return ErrPathExists
 	}
 
 	f := ffmpeg.Get(&ffmpeg.Config{
@@ -182,7 +189,7 @@ func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 // VidOps defines the image size. ops.FPS is ignored.
 func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return ErrorPathExists
+		return ErrPathExists
 	}
 
 	jpgImage, err := c.GetJPEG(ops)

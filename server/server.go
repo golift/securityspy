@@ -14,9 +14,9 @@ import (
 	"time"
 )
 
-// ErrorCmdNotOK is returned for any command that has a successful web request,
+// ErrCmdNotOK is returned for any command that has a successful web request,
 // but the reply does not end with the word OK.
-var ErrorCmdNotOK = fmt.Errorf("command unsuccessful")
+var ErrCmdNotOK = fmt.Errorf("command unsuccessful")
 
 // DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
 const DefaultTimeout = 10 * time.Second
@@ -220,7 +220,7 @@ func (s *Config) SimpleReq(apiURI string, params url.Values, cameraNum int) erro
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil || !strings.HasSuffix(string(body), "OK") {
-		return ErrorCmdNotOK
+		return ErrCmdNotOK
 	}
 
 	return nil
