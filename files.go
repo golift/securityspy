@@ -27,11 +27,10 @@ const (
 
 // Errors returned by the Files type methods.
 var (
-	// ErrorPathExists returns when a requested write path already exists.
-	ErrorPathExists = fmt.Errorf("cannot overwrite existing path")
-
-	// ErrorInvalidName returns when requesting a file download and the filename is invalid.
-	ErrorInvalidName = fmt.Errorf("invalid file name")
+	// ErrPathExists returns when a requested write path already exists.
+	ErrPathExists = fmt.Errorf("cannot overwrite existing path")
+	// ErrInvalidName returns when requesting a file download and the filename is invalid.
+	ErrInvalidName = fmt.Errorf("invalid file name")
 )
 
 // Files powers the Files interface.
@@ -110,13 +109,13 @@ func (f *Files) GetFile(name string) (*File, error) {
 	}
 
 	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != fileParts {
-		return file, ErrorInvalidName
+		return file, ErrInvalidName
 	} else if nameDateSplit := strings.Split(fileExtSplit[0], " "); len(fileExtSplit) < fileParts {
-		return file, ErrorInvalidName
+		return file, ErrInvalidName
 	} else if file.Updated, err = time.Parse(FileDateFormat, nameDateSplit[0]); err != nil {
-		return file, ErrorInvalidName
+		return file, ErrInvalidName
 	} else if file.Camera = f.server.Cameras.ByName(nameDateSplit[len(nameDateSplit)-1]); file.Camera == nil {
-		return file, ErrorCAMMissing
+		return file, ErrCAMMissing
 	} else if file.Link.Type = "video/quicktime"; fileExtSplit[1] == "jpg" {
 		file.Link.Type = "image/jpeg"
 	}
@@ -134,7 +133,7 @@ func (f *Files) GetFile(name string) (*File, error) {
 // Returns an error if path exists.
 func (f *File) Save(path string) (int64, error) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return 0, ErrorPathExists
+		return 0, ErrPathExists
 	}
 
 	body, err := f.Get(true)

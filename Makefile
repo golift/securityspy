@@ -1,4 +1,4 @@
-GOLANGCI_ARGS=-D exhaustivestruct
+GOLANGCI_ARGS=-D exhaustivestruct,varnamelen,interfacer,maligned,scopelint,golint
 
 all:
 	@echo "try: make test"

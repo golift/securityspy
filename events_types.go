@@ -9,22 +9,22 @@ import (
 
 // This is a list of errors returned by the Events methods.
 var (
-	// ErrorUnknownEvent never really returns, but will fire if SecuritySpy
+	// ErrUnknownEvent never really returns, but will fire if SecuritySpy
 	// adds new events this library doesn't know about.
-	ErrorUnknownEvent = fmt.Errorf("unknown event")
-	// ErrorCAMParseFail will return if the camera number in an event stream does not exist.
+	ErrUnknownEvent = fmt.Errorf("unknown event")
+	// ErrCAMParseFail will return if the camera number in an event stream does not exist.
 	// If you see this, run Refresh() more often, or fix your flaky camera connection.
-	ErrorCAMParseFail = fmt.Errorf("CAM parse failed")
-	// ErrorIDParseFail will return if the camera number provided by the event stream is not a number.
+	ErrCAMParseFail = fmt.Errorf("CAM parse failed")
+	// ErrIDParseFail will return if the camera number provided by the event stream is not a number.
 	// This should never happen, but future versions of SecuritySpy could trigger this if formats change.
-	ErrorIDParseFail = fmt.Errorf("ID parse failed")
-	// ErrorCAMMissing like the errors above should never return.
+	ErrIDParseFail = fmt.Errorf("ID parse failed")
+	// ErrCAMMissing like the errors above should never return.
 	// This is triggered by a corrupted event format.
-	ErrorCAMMissing = fmt.Errorf("camera number missing")
-	// ErrorDateParseFail will only trigger if the time stamp format for events changes.
-	ErrorDateParseFail = fmt.Errorf("timestamp parse failed")
-	// ErrorDisconnect becomes the msg in a custom event when the SecSpy event stream is disconnected.
-	ErrorDisconnect = fmt.Errorf("server connection closed")
+	ErrCAMMissing = fmt.Errorf("camera number missing")
+	// ErrDateParseFail will only trigger if the time stamp format for events changes.
+	ErrDateParseFail = fmt.Errorf("timestamp parse failed")
+	// ErrDisconnect becomes the msg in a custom event when the SecSpy event stream is disconnected.
+	ErrDisconnect = fmt.Errorf("server connection closed")
 )
 
 const (

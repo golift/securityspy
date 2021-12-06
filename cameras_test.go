@@ -45,7 +45,7 @@ func TestAll(t *testing.T) {
 	assert.EqualValues(2, len(cams), "the data contains two cameras, two cameras must be returned")
 }
 
-func TestByNum(t *testing.T) { //nolint:dupl
+func TestByNum(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 
@@ -69,7 +69,7 @@ func TestByNum(t *testing.T) { //nolint:dupl
 	assert.Nil(server.Cameras.ByNum(99), "a non-existent camera must return nil")
 }
 
-func TestByName(t *testing.T) { //nolint:dupl
+func TestByName(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 
@@ -89,6 +89,13 @@ func TestByName(t *testing.T) { //nolint:dupl
 	assert.Nil(server.Refresh(), "there must no error when loading fake data") // load the fake testSystemInfo data.
 
 	cam := server.Cameras.ByName("Porch")
+	assert.EqualValues(1, cam.Number, "camera 1 is Porch in the test data")
+	assert.Nil(server.Cameras.ByName("not here"), "a non-existent camera must return nil")
+
+	cam = server.Cameras.ByName("porch2")
+	assert.Nil(cam, "there is no camera named porch2")
+
+	cam = server.Cameras.ByName("porch")
 	assert.EqualValues(1, cam.Number, "camera 1 is Porch in the test data")
 	assert.Nil(server.Cameras.ByName("not here"), "a non-existent camera must return nil")
 }
