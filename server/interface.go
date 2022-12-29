@@ -14,7 +14,8 @@ import (
 // The methods in this interface connect to SecuritySpy so they become
 // blockers when testing without a SecuritySpy server available. Overriding
 // them with fakes makes testing (for most methods in this library) possible.
-type API interface {
+// One day this will be ripped out and you can test with a mock http server.
+type API interface { //nolint:interfacebloat
 	Get(apiPath string, params url.Values) (resp *http.Response, err error)
 	GetContext(ctx context.Context, apiPath string, params url.Values) (resp *http.Response, err error)
 	GetContextClient(context.Context, string, url.Values, *http.Client) (resp *http.Response, err error)

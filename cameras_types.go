@@ -55,6 +55,8 @@ func (bit *CameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) 
 // Camera defines the data returned from the SecuritySpy API. This data is directly
 // unmarshalled from the XML returned by the ++systemInfo method. Use the attached
 // methods to control a camera in various ways.
+//
+//nolint:dupword
 type Camera struct {
 	server              *Server
 	Number              int            `xml:"number"`               // 0, 1, 2, 3, 4, 5, 6

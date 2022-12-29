@@ -31,7 +31,7 @@ const (
 type ScheduleContainer map[int]string
 
 // UnmarshalXML turns the XML schedule lists returned by SecuritySpy's API into a map[int]string.
-func (m *ScheduleContainer) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (m *ScheduleContainer) UnmarshalXML(decoder *xml.Decoder, start xml.StartElement) error {
 	// Loop each list element.
 	for (*m) = make(ScheduleContainer); ; {
 		var schedule struct {
@@ -39,20 +39,20 @@ func (m *ScheduleContainer) UnmarshalXML(d *xml.Decoder, start xml.StartElement)
 			ID   int    `xml:"id"`
 		}
 
-		token, err := d.Token()
+		token, err := decoder.Token()
 		if err != nil {
 			return fmt.Errorf("bad XML token: %w", err)
 		}
 
-		switch e := token.(type) {
+		switch xmlToken := token.(type) {
 		case xml.StartElement:
-			if err = d.DecodeElement(&schedule, &e); err != nil {
+			if err = decoder.DecodeElement(&schedule, &xmlToken); err != nil {
 				return fmt.Errorf("XML decode: %w", err)
 			}
 
 			(*m)[schedule.ID] = schedule.Name
 		case xml.EndElement:
-			if e == start.End() {
+			if xmlToken == start.End() {
 				return nil
 			}
 		}

@@ -55,7 +55,7 @@ type fileFeed struct {
 type File struct {
 	Title string `xml:"title"` // 01-12-2019 M Gate.m4v, 01...
 	Link  struct {
-		Rel    string `xml:"rel,attr"`    // alternate, alternate, alternate
+		Rel    string `xml:"rel,attr"`    // alternate
 		Type   string `xml:"type,attr"`   // video/quicktime, video/quicktime
 		Length int64  `xml:"length,attr"` // 358472320, 483306152, 900789978,
 		HREF   string `xml:"href,attr"`   // ++getfile/4/2018-10-17/10-17-2018+M+Gate.m4v
@@ -178,11 +178,11 @@ func (f *File) Get(highBandwidth bool) (io.ReadCloser, error) {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // getFiles is a helper function to do all the work for GetVideos, GetPhotos & GetAll.
-func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, continuation string) ([]*File, error) {
+func (f *Files) getFiles(cameraNums []int, start, end time.Time, fileTypes, continuation string) ([]*File, error) {
 	var (
 		entries = []*File{}
 		feed    fileFeed
-		params  = makeFilesParams(cameraNums, from, to, fileTypes, continuation)
+		params  = makeFilesParams(cameraNums, start, end, fileTypes, continuation)
 	)
 
 	if err := f.server.GetXML("++download", params, &feed); err != nil {
@@ -199,7 +199,7 @@ func (f *Files) getFiles(cameraNums []int, from, to time.Time, fileTypes, contin
 
 	// ++download automatically paginates. Follow the continuation.
 	if feed.Continuation != "" && feed.Continuation != "FFFFFFFFFFFFFFFF" {
-		moreFiles, err := f.getFiles(cameraNums, from, to, fileTypes, feed.Continuation)
+		moreFiles, err := f.getFiles(cameraNums, start, end, fileTypes, feed.Continuation)
 		if err != nil { // We got some files, but one of the pages returned an error.
 			return entries, err
 		}

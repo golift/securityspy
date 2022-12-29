@@ -33,17 +33,17 @@ func TestUnmarshalXMLscheduleContainer(t *testing.T) {
 
 	assert := assert.New(t)
 
-	var s securityspy.ScheduleContainer
+	var schedule securityspy.ScheduleContainer
 
-	err := xml.Unmarshal([]byte(testScheduleList), &s)
+	err := xml.Unmarshal([]byte(testScheduleList), &schedule)
 	assert.Nil(err, "valid data must not produce an error")
-	assert.Equal("Armed 24/7", s[1], "the scheduleContainer data did not unmarshal properly")
-	assert.Equal(6, len(s))
+	assert.Equal("Armed 24/7", schedule[1], "the scheduleContainer data did not unmarshal properly")
+	assert.Equal(6, len(schedule))
 
-	err = xml.Unmarshal([]byte("<gotrekt>"), &s)
+	err = xml.Unmarshal([]byte("<gotrekt>"), &schedule)
 	assert.NotNil(err, "invalid data must produce an error")
 
-	err = xml.Unmarshal([]byte("<gotrekt><server></gotrekt>"), &s)
+	err = xml.Unmarshal([]byte("<gotrekt><server></gotrekt>"), &schedule)
 	assert.NotNil(err, "invalid data must produce an error")
 }
 

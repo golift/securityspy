@@ -59,13 +59,14 @@ type Events struct {
 // Event represents a SecuritySpy event from the Stream Reply.
 // This is the INPUT data for an event that is sent to a bound callback method or channel.
 type Event struct {
-	Time   time.Time // Local time event was recorded.
-	When   time.Time // Event time according to server.
-	ID     int       // Negative numbers are custom events.
-	Camera *Camera   // Each event gets a camera interface.
-	Type   EventType // Event identifier
-	Msg    string    // Event Text
-	Errors []error   // Errors populated by parse errors.
+	Time    time.Time      // Local time event was recorded.
+	When    time.Time      // Event time according to server.
+	ID      int            // Negative numbers are custom events.
+	Camera  *Camera        // Each event gets a camera interface.
+	Type    EventType      // Event identifier
+	Msg     string         // Event Text
+	Errors  []error        // Errors populated by parse errors.
+	Reasons []TriggerEvent // Bitmask of trigger reasons.
 }
 
 // EventType is a set of constant strings validated by the EventNames map.
@@ -85,6 +86,7 @@ const (
 	EventSecSpyError      EventType = "ERROR"
 	EventConfigChange     EventType = "CONFIGCHANGE"
 	EventMotionDetected   EventType = "MOTION" // Legacy (v4)
+	EventMotionEnd        EventType = "MOTION_END"
 	EventOnline           EventType = "ONLINE"
 	EventOffline          EventType = "OFFLINE"
 	EventClassify         EventType = "CLASSIFY"
@@ -104,7 +106,7 @@ const (
 )
 
 // EventName returns the human readable names for each event.
-func EventName(e EventType) string {
+func EventName(eventType EventType) string {
 	return map[EventType]string{
 		EventArmContinuous:    "Continuous Capture Armed",
 		EventDisarmContinuous: "Continuous Capture Disarmed",
@@ -130,7 +132,7 @@ func EventName(e EventType) string {
 		EventWatcherRefreshed:   "SystemInfo Refresh Success",
 		EventWatcherRefreshFail: "SystemInfo Refresh Failure",
 		EventStreamCustom:       "Custom Event",
-	}[e]
+	}[eventType]
 }
 
 // TriggerEvent represent the "Reason" a motion or action trigger occurred. v5+ only.
@@ -160,4 +162,8 @@ var Reasons = map[TriggerEvent]string{ //nolint:gochecknoglobals
 	TriggerByManual:           "Manual",
 	TriggerByHumanDetection:   "Human Detected",
 	TriggerByVehicleDetection: "Vehicle Detected",
+}
+
+func (reason TriggerEvent) String() string {
+	return Reasons[reason]
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -56,7 +55,8 @@ type Duration struct {
 // UnmarshalText parses a duration type from a config file. This method works
 // with the Duration type to allow unmarshaling of durations from files and
 // env variables in the same struct. You won't generally call this directly.
-func (d *Duration) UnmarshalText(b []byte) (err error) {
+func (d *Duration) UnmarshalText(b []byte) error {
+	var err error
 	d.Duration, err = time.ParseDuration(string(b))
 
 	if err != nil {
@@ -82,8 +82,12 @@ func (s *Config) TimeoutDur() time.Duration {
 }
 
 // GetContextClient is the same as Get except you can pass in your own context and http Client.
-func (s *Config) GetContextClient(ctx context.Context, api string, params url.Values, //nolint:cyclop
-	client *http.Client) (*http.Response, error) {
+func (s *Config) GetContextClient( //nolint:cyclop
+	ctx context.Context,
+	api string,
+	params url.Values,
+	client *http.Client,
+) (*http.Response, error) {
 	if params == nil {
 		params = make(url.Values)
 	}
@@ -171,7 +175,7 @@ func (s *Config) Post(apiPath string, params url.Values, body io.ReadCloser) ([]
 	}
 	defer resp.Body.Close()
 
-	reply, err := ioutil.ReadAll(resp.Body)
+	reply, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("reading body: %w", err)
 	}
@@ -185,7 +189,7 @@ func (s *Config) Post(apiPath string, params url.Values, body io.ReadCloser) ([]
 }
 
 // GetXML returns raw http body, so it can be unmarshaled into an xml struct.
-func (s *Config) GetXML(apiPath string, params url.Values, v interface{}) error {
+func (s *Config) GetXML(apiPath string, params url.Values, val interface{}) error {
 	resp, err := s.Get(apiPath, params)
 	if err != nil {
 		return err
@@ -193,13 +197,13 @@ func (s *Config) GetXML(apiPath string, params url.Values, v interface{}) error 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 
 		return fmt.Errorf("request failed (%v): %v (status: %v/%v): %w: %s",
 			s.Username, s.URL+apiPath, resp.StatusCode, resp.Status, err, string(body))
 	}
 
-	if err = xml.NewDecoder(resp.Body).Decode(v); err != nil {
+	if err = xml.NewDecoder(resp.Body).Decode(val); err != nil {
 		return fmt.Errorf("reading body: %w", err)
 	}
 
@@ -218,7 +222,7 @@ func (s *Config) SimpleReq(apiURI string, params url.Values, cameraNum int) erro
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil || !strings.HasSuffix(string(body), "OK") {
 		return ErrCmdNotOK
 	}

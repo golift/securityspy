@@ -142,7 +142,7 @@ func (z *PTZ) Zoom(in bool) error {
 	return z.ptzReq(ptzCommandZoomOut)
 }
 
-// Preset instructs a a camera to move a preset position.
+// Preset instructs a camera to move a preset position.
 func (z *PTZ) Preset(preset PTZpreset) error {
 	switch preset {
 	case PTZpreset1:

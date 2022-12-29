@@ -141,7 +141,7 @@ func (e *Events) Custom(cameraNum int, msg string) {
 }
 
 // custom allows a quick way to make events.
-func (e *Events) custom(t EventType, id int, cam int, msg string) {
+func (e *Events) custom(eventType EventType, eventID int, cam int, msg string) {
 	if !e.Running {
 		return
 	}
@@ -149,9 +149,9 @@ func (e *Events) custom(t EventType, id int, cam int, msg string) {
 	e.eventChan <- Event{
 		Time:   time.Now().Round(time.Second),
 		When:   time.Now().Round(time.Second),
-		ID:     id,
-		Msg:    string(t) + " " + msg,
-		Type:   t,
+		ID:     eventID,
+		Msg:    string(eventType) + " " + msg,
+		Type:   eventType,
 		Camera: e.server.Cameras.ByNum(cam),
 	}
 }
@@ -176,7 +176,7 @@ func (e *Events) eventStreamScanner() {
 
 	for scanner.Scan() {
 		// Constantly scan for new events, then report them to the event channel.
-		if text := scanner.Text(); strings.Count(text, " ") > 2 { // nolint:gomnd
+		if text := scanner.Text(); strings.Count(text, " ") > 2 { //nolint:gomnd,nolintlint
 			e.eventChan <- e.UnmarshalEvent(text)
 		}
 	}
@@ -242,35 +242,26 @@ func (e *Events) serverRefresh() {
 	e.custom(EventWatcherRefreshed, -9998, -1, EventName(EventWatcherRefreshed))
 }
 
+//nolint:dupword
+/* 	Example Event Stream Flow:
+(new, v5)
+20190927092026 3 3 CLASSIFY HUMAN 99
+20190927092026 4 3 TRIGGER_M 9
+20190927092036 5 3 CLASSIFY HUMAN 5 VEHICLE 95
+20190927092040 5 X NULL
+20190927092050 6 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
+20190927092055 7 3 DISARM_M
+20190927092056 8 3 OFFLINE
+*/
+
 // UnmarshalEvent turns raw text into an Event that can fire callbacks.
 // You generally shouldn't need to call this method, it's exposed for convenience.
-/* [TIME] is specified in the order year, month, day, hour, minute, second and is always 14 characters long
- * [EVENT NUMBER] increases by 1 for each subsequent event
- * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15
+/* [TIME] is specified in the order: "year, month, day, hour, minute, second" and is always 14 characters long.
+ * [EVENT NUMBER] increases by 1 for each subsequent event.
+ * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15.
  * [EVENT] describes the event: ARM_C, DISARM_C, ARM_M, DISARM_M, ARM_A, DISARM_A, ERROR,
-           CONFIGCHANGE, MOTION, OFFLINE, ONLINE
-	Example Event Stream Flow:
-	(old, v4)
-	20190114200911 104519 CAM2 MOTION
-	20190114201129 104520 CAM5 DISARM_C
-	20190114201129 104521 CAM5 DISARM_M
-	20190114201129 104522 CAM5 DISARM_A
-	20190114201129 104523 CAM5 OFFLINE
-	20190114201139 104524 CAM0 ERROR 10,835 Error communicating with the network device "Porch".
-	20190114201155 104525 CAM5 ERROR 70900,800 Error communicating with the network device "Pool".
-	20190114201206 104526 CAM5 ONLINE
-	20190114201206 104527 CAM5 ARM_C
-	20190114201206 104528 CAM5 ARM_M
-	20190114201206 104529 CAM5 ARM_A
-	(new, v5)
-	20190927092026 3 3 CLASSIFY HUMAN 99
-	20190927092026 4 3 TRIGGER_M 9
-	20190927092036 5 3 CLASSIFY HUMAN 5 VEHICLE 95
-	20190927092040 5 X NULL
-	20190927092050 6 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
-	20190927092055 7 3 DISARM_M
-	20190927092056 8 3 OFFLINE */
-func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen,cyclop
+           CONFIGCHANGE, MOTION, OFFLINE, ONLINE */
+func (e *Events) UnmarshalEvent(text string) Event { //nolint:funlen,cyclop
 	var (
 		err      error
 		parts    = strings.SplitN(text, " ", 4) //nolint:gomnd
@@ -322,6 +313,7 @@ func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen,cyclop
 					msg += ", "
 				}
 
+				newEvent.Reasons = append(newEvent.Reasons, flag)
 				msg += txt
 			}
 		}
@@ -368,7 +360,7 @@ func (e *Event) eventChans(chans map[EventType][]chan Event) {
 }
 
 // scanLinesCR is a custom bufio.Scanner to read SecuritySpy eventStream.
-func scanLinesCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
+func scanLinesCR(data []byte, atEOF bool) (int, []byte, error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, ErrDisconnect
 	}
