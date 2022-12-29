@@ -16,7 +16,7 @@ import (
 )
 
 // All returns interfaces for every camera.
-func (c *Cameras) All() (cams []*Camera) {
+func (c *Cameras) All() []*Camera {
 	return c.cameras
 }
 
@@ -53,7 +53,7 @@ func (c *Cameras) ByName(name string) *Camera {
 // VidOps defines the video options for the video stream.
 // Returns an io.ReadCloser with the video stream. Close() it when finished.
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
-	f := ffmpeg.Get(&ffmpeg.Config{
+	ffmpg := ffmpeg.Get(&ffmpeg.Config{
 		FFMPEG: c.server.Encoder,
 		Time:   int(length.Seconds()),
 		Audio:  true,    // Sure why not.
@@ -72,7 +72,7 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 	url := strings.Replace(c.server.BaseURL(), "http", "rtsp", 1) + "++stream"
 
 	// RTSP doesn't rewally work with HTTPS, and FFMPEG doesn't care about the cert.
-	args, video, err := f.GetVideo(url+"?"+params.Encode(), c.Name)
+	args, video, err := ffmpg.GetVideo(url+"?"+params.Encode(), c.Name)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", err, strings.ReplaceAll(args, "\n", " "))
 	}
@@ -86,7 +86,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 		return ErrPathExists
 	}
 
-	f := ffmpeg.Get(&ffmpeg.Config{
+	ffmpg := ffmpeg.Get(&ffmpeg.Config{
 		FFMPEG: c.server.Encoder,
 		Time:   int(length.Seconds()),
 		Audio:  true,
@@ -105,7 +105,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 
 	url := strings.Replace(c.server.BaseURL(), "http", "rtsp", 1) + "++stream"
 
-	_, out, err := f.SaveVideo(url+"?"+params.Encode(), outputFile, c.Name)
+	_, out, err := ffmpg.SaveVideo(url+"?"+params.Encode(), outputFile, c.Name)
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, strings.ReplaceAll(out, "\n", " "))
 	}
@@ -197,13 +197,13 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 		return fmt.Errorf("getting jpeg: %w", err)
 	}
 
-	f, err := os.Create(path)
+	oFile, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("os.Create: %w", err)
 	}
-	defer f.Close()
+	defer oFile.Close()
 
-	err = jpeg.Encode(f, jpgImage, nil)
+	err = jpeg.Encode(oFile, jpgImage, nil)
 	if err != nil {
 		return fmt.Errorf("encoding jpeg: %w", err)
 	}

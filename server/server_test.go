@@ -2,7 +2,7 @@ package server_test
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -18,33 +18,33 @@ func TestGet(t *testing.T) {
 	t.Parallel()
 
 	assert := assert.New(t)
-	c := &server.Config{
+	config := &server.Config{
 		Username:  "user",
 		Password:  "pass",
 		URL:       "http://some.host:5678/",
 		VerifySSL: false,
 		Timeout:   server.Duration{time.Second},
 	}
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal("xml", r.FormValue("format"), "format parameter was not added")
-		assert.Equal(c.Password, r.FormValue("auth"), "auth parameter was not added")
-		assert.Equal("application/xml", r.Header.Get("Accept"), "accept header is not correct")
-		_, err := w.Write([]byte("request OK"))
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		assert.Equal("xml", req.FormValue("format"), "format parameter was not added")
+		assert.Equal(config.Password, req.FormValue("auth"), "auth parameter was not added")
+		assert.Equal("application/xml", req.Header.Get("Accept"), "accept header is not correct")
+		_, err := resp.Write([]byte("request OK"))
 		assert.Nil(err, "the fake server must return an error writing to the client")
-		assert.Equal(c.URL, "http://"+r.Host+"/", "the host was not set correctly in the request")
+		assert.Equal(config.URL, "http://"+req.Host+"/", "the host was not set correctly in the request")
 	})
 
-	httpClient, fakeServer := testingHTTPClient(h)
+	httpClient, fakeServer := testingHTTPClient(handler)
 	defer fakeServer.Close()
 
-	c.Client = httpClient
-	resp, err := c.Get("++path", make(url.Values))
+	config.Client = httpClient
+	resp, err := config.Get("++path", make(url.Values))
 	assert.Nil(err, "the method must not return an error when given a valid server to query")
 
 	if err == nil {
 		defer resp.Body.Close()
 		assert.Equal(http.StatusOK, resp.StatusCode, "the server must return a 200 response code")
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		assert.Nil(err, "must not be an error reading the response body")
 		assert.Equal("request OK", string(body), "wrong data was returned from the server")
 	}
@@ -82,7 +82,7 @@ func TestGetXML(t *testing.T) {
 	params.Add("myKey", "theValue")
 
 	client := &http.Response{
-		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World")),
+		Body:       io.NopCloser(bytes.NewBufferString("Hello World")),
 		StatusCode: http.StatusOK,
 	}
 
@@ -100,7 +100,7 @@ func TestGetXML(t *testing.T) {
 
 	// try again with a bad status.
 	client = &http.Response{
-		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World")),
+		Body:       io.NopCloser(bytes.NewBufferString("Hello World")),
 		StatusCode: http.StatusForbidden,
 	}
 	fake.SecReqReturns(client, nil)
@@ -126,7 +126,7 @@ func TestSimpleReq(t *testing.T) {
 	params.Add("myKey", "theValue")
 
 	client := &http.Response{
-		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World")),
+		Body:       io.NopCloser(bytes.NewBufferString("Hello World")),
 		StatusCode: http.StatusOK,
 	}
 	fake.SecReqReturns(client, nil)
@@ -137,7 +137,7 @@ func TestSimpleReq(t *testing.T) {
 
 	// OK response.
 	client = &http.Response{
-		Body:       ioutil.NopCloser(bytes.NewBufferString("Hello World is OK")),
+		Body:       io.NopCloser(bytes.NewBufferString("Hello World is OK")),
 		StatusCode: http.StatusOK,
 	}
 

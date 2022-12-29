@@ -106,7 +106,7 @@ const (
 )
 
 // EventName returns the human readable names for each event.
-func EventName(e EventType) string {
+func EventName(eventType EventType) string {
 	return map[EventType]string{
 		EventArmContinuous:    "Continuous Capture Armed",
 		EventDisarmContinuous: "Continuous Capture Disarmed",
@@ -132,7 +132,7 @@ func EventName(e EventType) string {
 		EventWatcherRefreshed:   "SystemInfo Refresh Success",
 		EventWatcherRefreshFail: "SystemInfo Refresh Failure",
 		EventStreamCustom:       "Custom Event",
-	}[e]
+	}[eventType]
 }
 
 // TriggerEvent represent the "Reason" a motion or action trigger occurred. v5+ only.

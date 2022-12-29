@@ -21,17 +21,17 @@ func New(c *server.Config) (*Server, error) {
 // NewMust returns an iterface to interact with SecuritySpy.
 // This does not attempt to connect to SecuritySpy first.
 // You must call s.Refresh() before attempting to access other datas.
-func NewMust(c *server.Config) *Server {
-	if !strings.HasSuffix(c.URL, "/") {
-		c.URL += "/"
+func NewMust(config *server.Config) *Server {
+	if !strings.HasSuffix(config.URL, "/") {
+		config.URL += "/"
 	}
 
-	if c.Username != "" && c.Password != "" {
-		c.Password = base64.URLEncoding.EncodeToString([]byte(c.Username + ":" + c.Password))
+	if config.Username != "" && config.Password != "" {
+		config.Password = base64.URLEncoding.EncodeToString([]byte(config.Username + ":" + config.Password))
 	}
 
 	// Assign all the sub-interface structs.
-	server := &Server{API: c, Encoder: DefaultEncoder}
+	server := &Server{API: config, Encoder: DefaultEncoder}
 	server.Files = &Files{server: server}
 	server.Events = &Events{
 		server:     server,
@@ -64,16 +64,16 @@ func (s *Server) Refresh() error {
 	s.Info.SchedulePresets = sysInfo.SchedulePresets
 	s.Info.ScheduleOverrides = sysInfo.ScheduleOverrides
 
-	for i, cam := range s.Cameras.cameras {
-		s.Cameras.cameras[i].server = s
-		s.Cameras.cameras[i].PTZ.camera = s.Cameras.cameras[i]
+	for idx, cam := range s.Cameras.cameras {
+		s.Cameras.cameras[idx].server = s
+		s.Cameras.cameras[idx].PTZ.camera = s.Cameras.cameras[idx]
 		// Fill in the missing schedule names (all we have are IDs, so fetch the names from systemInfo)
-		s.Cameras.cameras[i].ScheduleIDA.Name = s.Info.ServerSchedules[cam.ScheduleIDA.ID]
-		s.Cameras.cameras[i].ScheduleIDCC.Name = s.Info.ServerSchedules[cam.ScheduleIDCC.ID]
-		s.Cameras.cameras[i].ScheduleIDMC.Name = s.Info.ServerSchedules[cam.ScheduleIDMC.ID]
-		s.Cameras.cameras[i].ScheduleOverrideA.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]
-		s.Cameras.cameras[i].ScheduleOverrideCC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]
-		s.Cameras.cameras[i].ScheduleOverrideMC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]
+		s.Cameras.cameras[idx].ScheduleIDA.Name = s.Info.ServerSchedules[cam.ScheduleIDA.ID]
+		s.Cameras.cameras[idx].ScheduleIDCC.Name = s.Info.ServerSchedules[cam.ScheduleIDCC.ID]
+		s.Cameras.cameras[idx].ScheduleIDMC.Name = s.Info.ServerSchedules[cam.ScheduleIDMC.ID]
+		s.Cameras.cameras[idx].ScheduleOverrideA.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]
+		s.Cameras.cameras[idx].ScheduleOverrideCC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]
+		s.Cameras.cameras[idx].ScheduleOverrideMC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]
 	}
 
 	return nil
