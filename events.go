@@ -322,6 +322,7 @@ func (e *Events) UnmarshalEvent(text string) Event { // nolint:funlen,cyclop
 					msg += ", "
 				}
 
+				newEvent.Reasons = append(newEvent.Reasons, flag)
 				msg += txt
 			}
 		}
