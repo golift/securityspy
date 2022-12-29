@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,7 +29,11 @@ func TestGetServer(t *testing.T) {
 	assert.NotNil(err, "there is no server at the address provided so an error must exist")
 	assert.NotNil(server, "server must not be nil. even wiuth an error it must be returned")
 	assert.NotNil(server.API, "api interface pointer must be created by GetServer")
-	assert.Contains(err.Error(), "connection refused", "the wrong error was returned")
+
+	if !strings.Contains(err.Error(), "target machine actively refused it") &&
+		!strings.Contains(err.Error(), "connection refused") {
+		t.Error("error does not contain the correct messages.")
+	}
 }
 
 func TestRefresh(t *testing.T) {
