@@ -13,7 +13,7 @@ jobs:
         os: [macos, windows, ubuntu]
     runs-on: ${{ matrix.os }}-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: actions/setup-go@v4
         with:
           go-version: 1.19
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: 1.19
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -50,7 +50,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: 1.19
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
