@@ -3,6 +3,8 @@ package securityspy
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -67,26 +69,45 @@ func (e *Events) BindChan(event EventType, channel chan Event) {
 // Closes all channels that were passed to BindChan if closeChans=true.
 // Stop writing to the channels with Custom() before calling Stop().
 func (e *Events) Stop(closeChans bool) {
-	defer func() { e.Running = false }()
+	e.mu.Lock()
+	running := e.Running
+	cancel := e.cancel
+	stream := e.stream
+	e.Running = false
+	e.cancel = nil
+	e.ctx = nil
+	e.stream = nil
+	e.mu.Unlock()
 
-	if e.Running {
-		e.custom(eventStreamStop, -1, -1, "") // signal
-
-		if e.stream != nil {
-			_ = e.stream.Close()
-			e.stream = nil
+	if running {
+		if cancel != nil {
+			cancel()
 		}
 
-		close(e.eventChan)
+		if stream != nil {
+			_ = stream.Close()
+		}
+
+		e.wg.Wait()
 	}
 
 	if !closeChans {
 		return
 	}
 
+	e.chans.Lock()
+	defer e.chans.Unlock()
+
+	closed := make(map[chan Event]struct{})
+
 	for _, chans := range e.eventChans {
-		for i := range chans {
-			close(chans[i])
+		for idx := range chans {
+			if _, ok := closed[chans[idx]]; ok {
+				continue
+			}
+
+			close(chans[idx])
+			closed[chans[idx]] = struct{}{}
 		}
 	}
 }
@@ -127,11 +148,20 @@ func (e *Events) UnbindFunc(event EventType) {
 // to connect the stream. If you have no call back functions or channels then do not
 // call this. Call Stop() to close the connection when you're done with it.
 func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) {
-	e.Running = true
-	e.eventChan = make(chan Event, EventBuffer) // allow 1000 events to buffer
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
-	go e.eventStreamSelector(refreshOnConfigChange, retryInterval)
-	go e.eventStreamScanner()
+	if e.Running {
+		return
+	}
+
+	e.ctx, e.cancel = context.WithCancel(context.Background())
+	watchCtx := e.ctx
+	e.eventChan = make(chan *Event, EventBuffer)
+	e.Running = true
+
+	e.wg.Go(func() { e.eventStreamSelector(watchCtx, refreshOnConfigChange) })
+	e.wg.Go(func() { e.eventStreamScanner(watchCtx, retryInterval) })
 }
 
 // Custom fires an event into the running event Watcher. Any functions or
@@ -142,61 +172,100 @@ func (e *Events) Custom(cameraNum int, msg string) {
 
 // custom allows a quick way to make events.
 func (e *Events) custom(eventType EventType, eventID, cam int, msg string) {
-	if !e.Running {
-		return
+	now := time.Now().Round(time.Second)
+
+	var camera *Camera
+	if e.server.Cameras != nil {
+		camera = e.server.Cameras.ByNum(cam)
 	}
 
-	e.eventChan <- Event{
-		Time:   time.Now().Round(time.Second),
-		When:   time.Now().Round(time.Second),
+	e.enqueue(&Event{
+		Time:   now,
+		When:   now,
 		ID:     eventID,
 		Msg:    string(eventType) + " " + msg,
 		Type:   eventType,
-		Camera: e.server.Cameras.ByNum(cam),
-	}
+		Camera: camera,
+	})
 }
 
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // eventStreamScanner connects to the securityspy event stream and fires events into a channel.
-func (e *Events) eventStreamScanner() {
-	defer e.custom(EventStreamDisconnect, -10000, -1, "Connection Closed")
+//
+//nolint:cyclop // but it runs forever!
+func (e *Events) eventStreamScanner(ctx context.Context, retryInterval time.Duration) {
+	for {
+		if ctx.Err() != nil {
+			return
+		}
 
-	if err := e.eventStreamConnect(); err != nil {
-		return
-	}
+		stream, err := e.eventStreamConnect(ctx)
+		if err != nil {
+			e.custom(EventStreamDisconnect, -10000, -1, err.Error())
 
-	defer func() {
-		_ = e.stream.Close()
-		e.stream = nil
-	}()
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(retryInterval):
+				continue
+			}
+		}
 
-	scanner := bufio.NewScanner(e.stream)
-	scanner.Split(scanLinesCR)
+		scanner := bufio.NewScanner(stream)
+		scanner.Split(scanLinesCR)
 
-	for scanner.Scan() {
-		// Constantly scan for new events, then report them to the event channel.
-		if text := scanner.Text(); strings.Count(text, " ") > 2 { //nolint:mnd // we need at least 2.
-			e.eventChan <- e.UnmarshalEvent(text)
+		for scanner.Scan() {
+			// Constantly scan for new events, then report them to the event channel.
+			if text := scanner.Text(); strings.Count(text, " ") > 2 { //nolint:mnd // we need at least 2.
+				e.enqueue(e.UnmarshalEvent(text))
+			}
+
+			if ctx.Err() != nil {
+				break
+			}
+		}
+
+		err = scanner.Err()
+		_ = stream.Close()
+		e.clearStream(stream)
+
+		if ctx.Err() != nil {
+			return
+		}
+
+		msg := "Connection Closed"
+		if err != nil && !errors.Is(err, ErrDisconnect) {
+			msg = err.Error()
+		}
+
+		e.custom(EventStreamDisconnect, -10000, -1, msg)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(retryInterval):
 		}
 	}
 }
 
 // eventStreamConnect establishes a connection to the event stream and passes off the http Reader.
-func (e *Events) eventStreamConnect() error {
+func (e *Events) eventStreamConnect(ctx context.Context) (io.ReadCloser, error) {
 	client := e.server.HTTPClient()
 	client.Timeout = 0
 
-	resp, err := e.server.GetClient("++eventStream", url.Values{"version": []string{"3"}}, client)
+	resp, err := e.server.GetContextClient(ctx, "++eventStream", url.Values{"version": []string{"3"}}, client)
 	if err != nil {
-		return fmt.Errorf("connecting event stream: %w", err)
+		return nil, fmt.Errorf("connecting event stream: %w", err)
 	}
 
+	e.mu.Lock()
 	e.stream = resp.Body
+	e.mu.Unlock()
 
 	e.custom(EventStreamConnect, -9999, -1, EventName(EventStreamConnect))
 
-	return nil
+	return resp.Body, nil
 }
 
 // eventStreamSelector watches the event channel.
@@ -204,31 +273,43 @@ func (e *Events) eventStreamConnect() error {
 // Also reconnects to the event stream if the connection fails.
 // There is a "loop" that occurs among the eventStream* methods.
 // Stop() properly handles the shutdown of the loop, so if can be safely restarted w/ Watch().
-func (e *Events) eventStreamSelector(refreshOnConfigChange bool, retryInterval time.Duration) {
-Loop:
-	for event := range e.eventChan {
+func (e *Events) eventStreamSelector(ctx context.Context, refreshOnConfigChange bool) { //nolint:cyclop // oh well?
+	for {
+		var (
+			event *Event
+			ok    bool //nolint:varnamelen // ok is a valid variable name.
+		)
+
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok = <-e.eventChan:
+			if !ok {
+				return
+			}
+		}
+
 		switch event.Type {
 		case eventStreamStop:
-			break Loop // Stop() called.
+			return
 		case EventConfigChange:
 			if refreshOnConfigChange {
 				e.serverRefresh()
 			}
-		case EventStreamDisconnect:
-			// reconnect to event stream
-			go func() {
-				time.Sleep(retryInterval)
-				e.eventStreamScanner()
-			}()
 		}
 
-		// All events run binds.
-		e.binds.RLock()
-		event.callBacks(e.eventBinds)
-		e.binds.RUnlock()
-		e.chans.RLock()
-		event.eventChans(e.eventChans)
-		e.chans.RUnlock()
+		for _, callback := range e.callbacksFor(event.Type) {
+			if callback != nil {
+				go callback(*event)
+			}
+		}
+
+		for _, ch := range e.channelsFor(event.Type) {
+			select {
+			case ch <- *event:
+			default:
+			}
+		}
 	}
 }
 
@@ -260,14 +341,26 @@ func (e *Events) serverRefresh() {
  * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15.
  * [EVENT] describes the event: ARM_C, DISARM_C, ARM_M, DISARM_M, ARM_A, DISARM_A, ERROR,
            CONFIGCHANGE, MOTION, OFFLINE, ONLINE */
-func (e *Events) UnmarshalEvent(text string) Event { //nolint:cyclop // Events are hard.
+//
+//nolint:cyclop,funlen,mnd // Events are hard.
+func (e *Events) UnmarshalEvent(text string) *Event {
 	var (
 		err      error
 		parts    = strings.SplitN(text, " ", 4) //nolint:mnd // events have 4 parts...
-		newEvent = Event{Msg: parts[3], ID: -1, Time: time.Now()}
+		newEvent = &Event{Msg: text, ID: -1, Time: time.Now()}
 		// Parse the time stamp; append the Offset from ++systemInfo to get the right time-location.
-		eventTime = fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
+		eventTime string
 	)
+
+	if len(parts) < 4 {
+		newEvent.Errors = append(newEvent.Errors, ErrUnknownEvent)
+		newEvent.Type = EventUnknownEvent
+
+		return newEvent
+	}
+
+	newEvent.Msg = parts[3]
+	eventTime = fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
 
 	//nolint:gosmopolitan // The event stream uses the system's local time.
 	if newEvent.When, err = time.ParseInLocation(EventTimeFormat+"-07", eventTime, time.Local); err != nil {
@@ -302,7 +395,7 @@ func (e *Events) UnmarshalEvent(text string) Event { //nolint:cyclop // Events a
 	}
 
 	// If this is a trigger-type event, add the trigger reason(s)
-	if newEvent.Type == EventTriggerAction || newEvent.Type == EventTriggerMotion && len(parts) == 2 {
+	if (newEvent.Type == EventTriggerAction || newEvent.Type == EventTriggerMotion) && len(parts) == 2 {
 		b, _ := strconv.Atoi(parts[1])
 		msg := ""
 
@@ -327,36 +420,61 @@ func (e *Events) UnmarshalEvent(text string) Event { //nolint:cyclop // Events a
 	return newEvent
 }
 
-// callBacks is run for each event to execute callback functions.
-func (e *Event) callBacks(binds map[EventType][]func(Event)) {
-	callbacks := func(callbacks []func(Event)) {
-		for _, callBack := range callbacks {
-			if callBack != nil {
-				go callBack(*e) // Send it off!
-			}
-		}
+func (e *Events) enqueue(event *Event) {
+	if event == nil {
+		return
 	}
 
-	if _, ok := binds[e.Type]; ok {
-		callbacks(binds[e.Type])
-	} else if _, ok := binds[EventUnknownEvent]; ok && e.Type != EventUnknownEvent {
-		callbacks(binds[EventUnknownEvent])
+	e.mu.RLock()
+	chn := e.eventChan
+	ctx := e.ctx
+	running := e.Running
+	e.mu.RUnlock()
+
+	if !running || chn == nil || ctx == nil {
+		return
 	}
 
-	if _, ok := binds[EventAllEvents]; ok {
-		callbacks(binds[EventAllEvents])
+	select {
+	case chn <- event:
+	case <-ctx.Done():
 	}
 }
 
-// eventChans is run for each event to notify external channels.
-func (e *Event) eventChans(chans map[EventType][]chan Event) {
-	for _, t := range []EventType{e.Type, EventAllEvents} {
-		if chans, ok := chans[t]; ok {
-			for i := range chans {
-				chans[i] <- *e
-			}
-		}
+func (e *Events) clearStream(stream io.ReadCloser) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.stream == stream {
+		e.stream = nil
 	}
+}
+
+func (e *Events) callbacksFor(eventType EventType) []func(Event) {
+	e.binds.RLock()
+	defer e.binds.RUnlock()
+
+	callbacks := make([]func(Event), 0, len(e.eventBinds[eventType])+len(e.eventBinds[EventAllEvents])+1)
+	if vals, ok := e.eventBinds[eventType]; ok {
+		callbacks = append(callbacks, vals...)
+	} else if eventType != EventUnknownEvent {
+		callbacks = append(callbacks, e.eventBinds[EventUnknownEvent]...)
+	}
+
+	callbacks = append(callbacks, e.eventBinds[EventAllEvents]...)
+
+	return callbacks
+}
+
+func (e *Events) channelsFor(eventType EventType) []chan Event {
+	e.chans.RLock()
+	defer e.chans.RUnlock()
+
+	channels := make([]chan Event, 0, len(e.eventChans[eventType])+len(e.eventChans[EventAllEvents]))
+	channels = append(channels, e.eventChans[eventType]...)
+	channels = append(channels, e.eventChans[EventAllEvents]...)
+
+	return channels
 }
 
 // scanLinesCR is a custom bufio.Scanner to read SecuritySpy eventStream.

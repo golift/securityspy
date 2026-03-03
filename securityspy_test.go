@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"golift.io/securityspy"
 	"golift.io/securityspy/mocks"
 	"golift.io/securityspy/server"
@@ -181,6 +181,34 @@ func TestUnmarshalXMLDuration(t *testing.T) {
 	require.NoError(t, xml.Unmarshal([]byte("<tag></tag>"), &bit), "unmarshalling must not produce an error")
 	asert.Empty(bit.Val, "the value was not unmarshalled correctly")
 	asert.Equal(int64(-1), bit.Nanoseconds(), "an empty value must produce -1 nano second.")
+}
+
+func TestRefreshHandlesNilPTZAndMissingSchedules(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	secspyServer := securityspy.NewMust(
+		&server.Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
+	fake := mocks.NewMockAPI(mockCtrl)
+	secspyServer.API = fake
+
+	xmlData := strings.Replace(testSystemInfo, "<ptzcapabilities>0</ptzcapabilities>", "", 1)
+	xmlData = strings.Replace(xmlData,
+		"<schedule-id-a>3</schedule-id-a>", "<schedule-id-a>99999</schedule-id-a>", 1)
+	xmlData = strings.Replace(xmlData,
+		"<schedule-override-a>2</schedule-override-a>", "<schedule-override-a>99999</schedule-override-a>", 1)
+
+	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(
+		func(_, _, v any) {
+			_ = xml.Unmarshal([]byte(xmlData), &v)
+		},
+	)
+
+	require.NoError(t, secspyServer.Refresh())
+	require.Empty(t, secspyServer.Cameras.ByNum(1).ScheduleIDA.Name)
+	require.Empty(t, secspyServer.Cameras.ByNum(1).ScheduleOverrideA.Name)
 }
 
 /**/

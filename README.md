@@ -15,7 +15,7 @@ A command line interface app that uses this library exists. Most of the testing 
 Find it here: [https://github.com/davidnewhall/SecSpyCLI](https://github.com/davidnewhall/SecSpyCLI)
 It's full of great examples on how to use this library, and can be easily installed with homebrew.
 
--   Works with SecuritySpy 4 and 5.
+-   Works with SecuritySpy 4 and 5 and probably 6.
 -   There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy).
 
 ## FEATURES

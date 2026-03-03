@@ -1,13 +1,13 @@
 module golift.io/securityspy
 
-go 1.25.6
+go 1.25.7
 
 toolchain go1.26.0
 
 require (
-	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.11.1
-	golift.io/ffmpeg v1.1.0
+	go.uber.org/mock v0.6.0
+	golift.io/ffmpeg v1.1.2-0.20260303053331-25bfe8e1ce5f
 )
 
 require (

@@ -24,8 +24,11 @@ type API interface {
 	GetContextClient(context.Context, string, url.Values, *http.Client) (resp *http.Response, err error)
 	GetClient(string, url.Values, *http.Client) (resp *http.Response, err error)
 	Post(apiPath string, params url.Values, post io.ReadCloser) (body []byte, err error)
+	PostContext(ctx context.Context, apiPath string, params url.Values, post io.ReadCloser) (body []byte, err error)
 	GetXML(apiPath string, params url.Values, v any) (err error)
+	GetXMLContext(ctx context.Context, apiPath string, params url.Values, v any) (err error)
 	SimpleReq(apiURI string, params url.Values, cameraNum int) error
+	SimpleReqContext(ctx context.Context, apiURI string, params url.Values, cameraNum int) error
 	TimeoutDur() time.Duration
 	BaseURL() string
 	Auth() string

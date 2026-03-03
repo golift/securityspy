@@ -14,8 +14,8 @@ type CameraArmMode rune
 // Arming is either 0 or 1.
 // Use these constants as inputs to a camera's schedule methods.
 const (
-	CameraDisarm CameraArmMode = iota
-	CameraArm
+	CameraDisarm CameraArmMode = '0'
+	CameraArm    CameraArmMode = '1'
 )
 
 // VidOps are the frame options for a video that can be requested from SecuritySpy.
