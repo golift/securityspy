@@ -1,7 +1,7 @@
 package securityspy
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"sync"
 	"time"
@@ -11,20 +11,20 @@ import (
 var (
 	// ErrUnknownEvent never really returns, but will fire if SecuritySpy
 	// adds new events this library doesn't know about.
-	ErrUnknownEvent = fmt.Errorf("unknown event")
+	ErrUnknownEvent = errors.New("unknown event")
 	// ErrCAMParseFail will return if the camera number in an event stream does not exist.
 	// If you see this, run Refresh() more often, or fix your flaky camera connection.
-	ErrCAMParseFail = fmt.Errorf("CAM parse failed")
+	ErrCAMParseFail = errors.New("CAM parse failed")
 	// ErrIDParseFail will return if the camera number provided by the event stream is not a number.
 	// This should never happen, but future versions of SecuritySpy could trigger this if formats change.
-	ErrIDParseFail = fmt.Errorf("ID parse failed")
+	ErrIDParseFail = errors.New("ID parse failed")
 	// ErrCAMMissing like the errors above should never return.
 	// This is triggered by a corrupted event format.
-	ErrCAMMissing = fmt.Errorf("camera number missing")
+	ErrCAMMissing = errors.New("camera number missing")
 	// ErrDateParseFail will only trigger if the time stamp format for events changes.
-	ErrDateParseFail = fmt.Errorf("timestamp parse failed")
+	ErrDateParseFail = errors.New("timestamp parse failed")
 	// ErrDisconnect becomes the msg in a custom event when the SecSpy event stream is disconnected.
-	ErrDisconnect = fmt.Errorf("server connection closed")
+	ErrDisconnect = errors.New("server connection closed")
 )
 
 const (
@@ -94,7 +94,9 @@ const (
 	EventTriggerAction    EventType = "TRIGGER_A"
 	EventFileWritten      EventType = "FILE"
 	EventKeepAlive        EventType = "NULL"
+
 	// The following belong to the library, not securityspy.
+
 	EventStreamDisconnect   EventType = "DISCONNECTED"
 	EventStreamConnect      EventType = "CONNECTED"
 	EventUnknownEvent       EventType = "UNKNOWN"
@@ -151,19 +153,21 @@ const (
 	TriggerByVehicleDetection
 )
 
-// Reasons is the human-readable explanation for a motion detection reason.
-var Reasons = map[TriggerEvent]string{ //nolint:gochecknoglobals
-	TriggerByMotion:           "Motion Detected",
-	TriggerByAudio:            "Audio Detected",
-	TriggerByScript:           "AppleScript",
-	TriggerByCameraEvent:      "Camera Event",
-	TriggerByWebServer:        "Web Server",
-	TriggerByOtherCamera:      "Other Camera",
-	TriggerByManual:           "Manual",
-	TriggerByHumanDetection:   "Human Detected",
-	TriggerByVehicleDetection: "Vehicle Detected",
+// Reasons returns a map of trigger events to their human-readable explanations.
+func Reasons() map[TriggerEvent]string {
+	return map[TriggerEvent]string{
+		TriggerByMotion:           "Motion Detected",
+		TriggerByAudio:            "Audio Detected",
+		TriggerByScript:           "AppleScript",
+		TriggerByCameraEvent:      "Camera Event",
+		TriggerByWebServer:        "Web Server",
+		TriggerByOtherCamera:      "Other Camera",
+		TriggerByManual:           "Manual",
+		TriggerByHumanDetection:   "Human Detected",
+		TriggerByVehicleDetection: "Vehicle Detected",
+	}
 }
 
 func (reason TriggerEvent) String() string {
-	return Reasons[reason]
+	return Reasons()[reason]
 }

@@ -27,7 +27,7 @@ const (
 	CameraModeContinuous CameraMode = 'C'
 )
 
-// scheduleContainer allows unmarshalling of ScheduleOverrides and SchedulePresets into a map.
+// ScheduleContainer allows unmarshalling of ScheduleOverrides and SchedulePresets into a map.
 type ScheduleContainer map[int]string
 
 // UnmarshalXML turns the XML schedule lists returned by SecuritySpy's API into a map[int]string.

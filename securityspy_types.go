@@ -18,12 +18,13 @@ import (
 // Refresh() is running.
 type Server struct {
 	server.API
-	Encoder      string
-	Files        *Files      // Files interface.
-	Events       *Events     // Events interface.
-	Cameras      *Cameras    // Cameras & PTZ interfaces.
-	Info         *ServerInfo // ServerInfo struct (no methods).
-	sync.RWMutex             // Lock for Refresh().
+
+	Encoder string
+	Files   *Files       // Files interface.
+	Events  *Events      // Events interface.
+	Cameras *Cameras     // Cameras & PTZ interfaces.
+	Info    *ServerInfo  // ServerInfo struct (no methods).
+	mu      sync.RWMutex // Lock for Refresh().
 }
 
 // ServerInfo represents all the SecuritySpy server's information.
@@ -92,6 +93,7 @@ func (bit *YesNoBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
 // Duration is used to convert the "Seconds" given to us by the SecuritySpy API into a go time.Duration.
 type Duration struct {
 	time.Duration
+
 	Val string
 }
 

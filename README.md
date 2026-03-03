@@ -126,4 +126,5 @@ SecuritySpy 4.2.10b9 @ 2019-02-09 16:20:00 -0700 MST (http://192.168.1.1:8000/) 
  ```
 
 ## LICENSE
-[MIT License](LICENSE) - Copyright (c) 2019-2021 David Newhall II
+
+[MIT License](LICENSE)

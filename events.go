@@ -141,7 +141,7 @@ func (e *Events) Custom(cameraNum int, msg string) {
 }
 
 // custom allows a quick way to make events.
-func (e *Events) custom(eventType EventType, eventID int, cam int, msg string) {
+func (e *Events) custom(eventType EventType, eventID, cam int, msg string) {
 	if !e.Running {
 		return
 	}
@@ -167,7 +167,7 @@ func (e *Events) eventStreamScanner() {
 	}
 
 	defer func() {
-		e.stream.Close()
+		_ = e.stream.Close()
 		e.stream = nil
 	}()
 
@@ -176,7 +176,7 @@ func (e *Events) eventStreamScanner() {
 
 	for scanner.Scan() {
 		// Constantly scan for new events, then report them to the event channel.
-		if text := scanner.Text(); strings.Count(text, " ") > 2 { //nolint:gomnd,nolintlint
+		if text := scanner.Text(); strings.Count(text, " ") > 2 { //nolint:mnd // we need at least 2.
 			e.eventChan <- e.UnmarshalEvent(text)
 		}
 	}
@@ -207,7 +207,7 @@ func (e *Events) eventStreamConnect() error {
 func (e *Events) eventStreamSelector(refreshOnConfigChange bool, retryInterval time.Duration) {
 Loop:
 	for event := range e.eventChan {
-		switch event.Type { //nolint:exhaustive
+		switch event.Type {
 		case eventStreamStop:
 			break Loop // Stop() called.
 		case EventConfigChange:
@@ -242,7 +242,6 @@ func (e *Events) serverRefresh() {
 	e.custom(EventWatcherRefreshed, -9998, -1, EventName(EventWatcherRefreshed))
 }
 
-//nolint:dupword
 /* 	Example Event Stream Flow:
 (new, v5)
 20190927092026 3 3 CLASSIFY HUMAN 99
@@ -261,15 +260,16 @@ func (e *Events) serverRefresh() {
  * [CAMERA NUMBER] specifies the camera that this event relates to, for example CAM15 for camera number 15.
  * [EVENT] describes the event: ARM_C, DISARM_C, ARM_M, DISARM_M, ARM_A, DISARM_A, ERROR,
            CONFIGCHANGE, MOTION, OFFLINE, ONLINE */
-func (e *Events) UnmarshalEvent(text string) Event { //nolint:funlen,cyclop
+func (e *Events) UnmarshalEvent(text string) Event { //nolint:cyclop // Events are hard.
 	var (
 		err      error
-		parts    = strings.SplitN(text, " ", 4) //nolint:gomnd
+		parts    = strings.SplitN(text, " ", 4) //nolint:mnd // events have 4 parts...
 		newEvent = Event{Msg: parts[3], ID: -1, Time: time.Now()}
 		// Parse the time stamp; append the Offset from ++systemInfo to get the right time-location.
 		eventTime = fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
 	)
 
+	//nolint:gosmopolitan // The event stream uses the system's local time.
 	if newEvent.When, err = time.ParseInLocation(EventTimeFormat+"-07", eventTime, time.Local); err != nil {
 		newEvent.When = time.Now()
 		newEvent.Errors = append(newEvent.Errors, ErrDateParseFail)
@@ -307,7 +307,7 @@ func (e *Events) UnmarshalEvent(text string) Event { //nolint:funlen,cyclop
 		msg := ""
 
 		// Check if this bitmask contains any of our known reasons.
-		for flag, txt := range Reasons {
+		for flag, txt := range Reasons() {
 			if b&int(flag) != 0 {
 				if msg != "" {
 					msg += ", "

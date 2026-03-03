@@ -1,3 +1,4 @@
+// Package server provides the API interface for the SecuritySpy server.
 package server
 
 //go:generate mockgen -destination ../mocks/api.go -package mocks golift.io/securityspy/server API
@@ -15,13 +16,15 @@ import (
 // blockers when testing without a SecuritySpy server available. Overriding
 // them with fakes makes testing (for most methods in this library) possible.
 // One day this will be ripped out and you can test with a mock http server.
-type API interface { //nolint:interfacebloat
+//
+//nolint:interfacebloat,inamedparam // this is going away shortly.
+type API interface {
 	Get(apiPath string, params url.Values) (resp *http.Response, err error)
 	GetContext(ctx context.Context, apiPath string, params url.Values) (resp *http.Response, err error)
 	GetContextClient(context.Context, string, url.Values, *http.Client) (resp *http.Response, err error)
 	GetClient(string, url.Values, *http.Client) (resp *http.Response, err error)
 	Post(apiPath string, params url.Values, post io.ReadCloser) (body []byte, err error)
-	GetXML(apiPath string, params url.Values, v interface{}) (err error)
+	GetXML(apiPath string, params url.Values, v any) (err error)
 	SimpleReq(apiURI string, params url.Values, cameraNum int) error
 	TimeoutDur() time.Duration
 	BaseURL() string

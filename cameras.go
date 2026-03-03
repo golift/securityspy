@@ -69,10 +69,10 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
-	url := strings.Replace(c.server.BaseURL(), "http", "rtsp", 1) + "++stream"
+	rtspURL := strings.Replace(c.server.BaseURL(), "http", "rtsp", 1) + "++stream"
 
 	// RTSP doesn't rewally work with HTTPS, and FFMPEG doesn't care about the cert.
-	args, video, err := ffmpg.GetVideo(url+"?"+params.Encode(), c.Name)
+	args, video, err := ffmpg.GetVideo(rtspURL+"?"+params.Encode(), c.Name)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", err, strings.ReplaceAll(args, "\n", " "))
 	}
@@ -103,9 +103,9 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	params.Set("codec", "h264")
 	// This is kinda crude, but will handle 99%.
 
-	url := strings.Replace(c.server.BaseURL(), "http", "rtsp", 1) + "++stream"
+	rtspURL := strings.Replace(c.server.BaseURL(), "http", "rtsp", 1) + "++stream"
 
-	_, out, err := ffmpg.SaveVideo(url+"?"+params.Encode(), outputFile, c.Name)
+	_, out, err := ffmpg.SaveVideo(rtspURL+"?"+params.Encode(), outputFile, c.Name)
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, strings.ReplaceAll(out, "\n", " "))
 	}
@@ -197,7 +197,7 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 		return fmt.Errorf("getting jpeg: %w", err)
 	}
 
-	oFile, err := os.Create(path)
+	oFile, err := os.Create(path) //nolint:gosec // we are creating a file in a safe way.
 	if err != nil {
 		return fmt.Errorf("os.Create: %w", err)
 	}

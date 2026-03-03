@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 
 // ErrCmdNotOK is returned for any command that has a successful web request,
 // but the reply does not end with the word OK.
-var ErrCmdNotOK = fmt.Errorf("command unsuccessful")
+var ErrCmdNotOK = errors.New("command unsuccessful")
 
 // DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
 const DefaultTimeout = 10 * time.Second
@@ -31,6 +32,7 @@ type Config struct {
 	VerifySSL bool         // Also only used if you do not provide an HTTP client.
 }
 
+// HTTPClient returns an http.Client with the configured timeout and SSL verification.
 func (s *Config) HTTPClient() *http.Client {
 	if s.Timeout.Duration == 0 {
 		s.Timeout.Duration = DefaultTimeout
@@ -41,7 +43,7 @@ func (s *Config) HTTPClient() *http.Client {
 		Transport: &http.Transport{
 			DisableKeepAlives: true, // SecuritySpy has a Keep-Alive Bug.
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: !s.VerifySSL, //nolint:gosec
+				InsecureSkipVerify: !s.VerifySSL, //nolint:gosec // User selected.
 			},
 		},
 	}
@@ -57,8 +59,8 @@ type Duration struct {
 // env variables in the same struct. You won't generally call this directly.
 func (d *Duration) UnmarshalText(b []byte) error {
 	var err error
-	d.Duration, err = time.ParseDuration(string(b))
 
+	d.Duration, err = time.ParseDuration(string(b))
 	if err != nil {
 		return fmt.Errorf("parsing Go duration '%s': %w", b, err)
 	}
@@ -82,7 +84,7 @@ func (s *Config) TimeoutDur() time.Duration {
 }
 
 // GetContextClient is the same as Get except you can pass in your own context and http Client.
-func (s *Config) GetContextClient( //nolint:cyclop
+func (s *Config) GetContextClient( //nolint:cyclop // might make it less complicated later.
 	ctx context.Context,
 	api string,
 	params url.Values,
@@ -96,7 +98,7 @@ func (s *Config) GetContextClient( //nolint:cyclop
 		params.Set("auth", s.Password)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL+api, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL+api, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequest(): %w", err)
 	}
@@ -189,7 +191,7 @@ func (s *Config) Post(apiPath string, params url.Values, body io.ReadCloser) ([]
 }
 
 // GetXML returns raw http body, so it can be unmarshaled into an xml struct.
-func (s *Config) GetXML(apiPath string, params url.Values, val interface{}) error {
+func (s *Config) GetXML(apiPath string, params url.Values, val any) error {
 	resp, err := s.Get(apiPath, params)
 	if err != nil {
 		return err

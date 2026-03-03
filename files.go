@@ -4,6 +4,7 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -28,9 +29,9 @@ const (
 // Errors returned by the Files type methods.
 var (
 	// ErrPathExists returns when a requested write path already exists.
-	ErrPathExists = fmt.Errorf("cannot overwrite existing path")
+	ErrPathExists = errors.New("cannot overwrite existing path")
 	// ErrInvalidName returns when requesting a file download and the filename is invalid.
-	ErrInvalidName = fmt.Errorf("invalid file name")
+	ErrInvalidName = errors.New("invalid file name")
 )
 
 // Files powers the Files interface.
@@ -142,7 +143,7 @@ func (f *File) Save(path string) (int64, error) {
 	}
 	defer body.Close()
 
-	newFile, err := os.Create(path)
+	newFile, err := os.Create(path) //nolint:gosec // we are creating a file in a safe way.
 	if err != nil {
 		return 0, fmt.Errorf("os.Create(): %w", err)
 	}
@@ -211,13 +212,13 @@ func (f *Files) getFiles(cameraNums []int, start, end time.Time, fileTypes, cont
 }
 
 // makeFilesParams makes the url Values for a file retreival.
-func makeFilesParams(cameraNums []int, from time.Time, to time.Time, fileTypes string, continuation string) url.Values {
+func makeFilesParams(cameraNums []int, from, to time.Time, fileTypes, continuation string) url.Values {
 	params := make(url.Values)
 	params.Set("results", "1000")
 	params.Set("date1", from.Format(DownloadDateFormat))
 	params.Set("date2", to.Format(DownloadDateFormat))
 
-	for _, fileType := range strings.Split(fileTypes, "&") {
+	for fileType := range strings.SplitSeq(fileTypes, "&") {
 		params.Set(fileType, "1")
 	}
 
