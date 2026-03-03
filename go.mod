@@ -4,6 +4,10 @@ go 1.25.7
 
 toolchain go1.26.0
 
+retract [v2.0.0, v2.0.3]
+
+retract v1.0.0
+
 require (
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
