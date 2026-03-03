@@ -1,6 +1,7 @@
 package securityspy
 
 import (
+	"context"
 	"errors"
 	"io"
 	"sync"
@@ -48,7 +49,11 @@ const (
 type Events struct {
 	server     *Server
 	stream     io.ReadCloser
-	eventChan  chan Event
+	eventChan  chan *Event
+	ctx        context.Context //nolint:containedctx // this is the context for the event stream.
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
+	mu         sync.RWMutex
 	eventBinds map[EventType][]func(event Event)
 	eventChans map[EventType][]chan Event
 	binds      sync.RWMutex

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,6 +52,120 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err, "must not be an error reading the response body")
 		asert.Equal("request OK", string(body), "wrong data was returned from the server")
 	}
+}
+
+func TestPostAudioContentType(t *testing.T) {
+	t.Parallel()
+
+	asert := assert.New(t)
+	config := &server.Config{
+		Username:  "user",
+		Password:  "pass",
+		URL:       "http://some.host:5678/",
+		VerifySSL: false,
+		Timeout:   server.Duration{time.Second},
+	}
+
+	var (
+		audioHeader string
+		otherHeader string
+	)
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/++audio":
+			audioHeader = req.Header.Get("Content-Type")
+		case "/++other":
+			otherHeader = req.Header.Get("Content-Type")
+		}
+
+		_, err := resp.Write([]byte("OK"))
+		asert.NoError(err)
+	})
+
+	httpClient, fakeServer := testingHTTPClient(handler)
+	defer fakeServer.Close()
+
+	config.Client = httpClient
+
+	body, err := config.Post("++audio", nil, io.NopCloser(strings.NewReader("audio-data")))
+	require.NoError(t, err)
+	asert.Equal("OK", string(body))
+
+	body, err = config.Post("++other", nil, io.NopCloser(strings.NewReader("other-data")))
+	require.NoError(t, err)
+	asert.Equal("OK", string(body))
+
+	asert.Equal("audio/g711-ulaw", audioHeader)
+	asert.Empty(otherHeader)
+}
+
+func TestGetXMLStatusAndDecodeErrors(t *testing.T) {
+	t.Parallel()
+
+	config := &server.Config{
+		URL:       "http://some.host:5678/",
+		VerifySSL: false,
+		Timeout:   server.Duration{time.Second},
+	}
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/++bad-status":
+			http.Error(resp, "forbidden", http.StatusForbidden)
+		case "/++bad-xml":
+			_, _ = resp.Write([]byte("<not-closed"))
+		default:
+			_, _ = resp.Write([]byte("<root><value>ok</value></root>"))
+		}
+	})
+
+	httpClient, fakeServer := testingHTTPClient(handler)
+	defer fakeServer.Close()
+
+	config.Client = httpClient
+
+	var val struct {
+		Value string `xml:"value"`
+	}
+
+	require.NoError(t, config.GetXML("++ok", nil, &val))
+	require.Equal(t, "ok", val.Value)
+
+	err := config.GetXML("++bad-status", nil, &val)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "request failed")
+
+	err = config.GetXML("++bad-xml", nil, &val)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "reading body")
+}
+
+func TestSimpleReqOKAndFail(t *testing.T) {
+	t.Parallel()
+
+	config := &server.Config{
+		URL:       "http://some.host:5678/",
+		VerifySSL: false,
+		Timeout:   server.Duration{time.Second},
+	}
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/++ok":
+			_, _ = resp.Write([]byte("something OK"))
+		default:
+			_, _ = resp.Write([]byte("nope"))
+		}
+	})
+
+	httpClient, fakeServer := testingHTTPClient(handler)
+	defer fakeServer.Close()
+
+	config.Client = httpClient
+
+	require.NoError(t, config.SimpleReq("++ok", url.Values{}, 4))
+	require.ErrorIs(t, config.SimpleReq("++bad", url.Values{}, 4), server.ErrCmdNotOK)
 }
 
 // testingHTTPClient sets up a fake server for testing secReq().

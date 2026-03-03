@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/jpeg"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -116,7 +117,13 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 // StreamMJPG makes a web request to retrieve a motion JPEG stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.Get("++video", c.makeRequestParams(ops))
+	return c.StreamMJPGContext(context.Background(), ops)
+}
+
+// StreamMJPGContext makes a web request to retrieve a motion JPEG stream.
+// Returns an io.ReadCloser that will (hopefully) never end.
+func (c *Camera) StreamMJPGContext(ctx context.Context, ops *VidOps) (io.ReadCloser, error) {
+	resp, err := c.server.GetContextClient(ctx, "++video", c.makeRequestParams(ops), c.streamHTTPClient())
 	if err != nil {
 		return nil, fmt.Errorf("getting video: %w", err)
 	}
@@ -127,7 +134,13 @@ func (c *Camera) StreamMJPG(ops *VidOps) (io.ReadCloser, error) {
 // StreamH264 makes a web request to retrieve an H264 stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
-	resp, err := c.server.Get("++stream", c.makeRequestParams(ops))
+	return c.StreamH264Context(context.Background(), ops)
+}
+
+// StreamH264Context makes a web request to retrieve an H264 stream.
+// Returns an io.ReadCloser that will (hopefully) never end.
+func (c *Camera) StreamH264Context(ctx context.Context, ops *VidOps) (io.ReadCloser, error) {
+	resp, err := c.server.GetContextClient(ctx, "++stream", c.makeRequestParams(ops), c.streamHTTPClient())
 	if err != nil {
 		return nil, fmt.Errorf("getting stream: %w", err)
 	}
@@ -138,7 +151,13 @@ func (c *Camera) StreamH264(ops *VidOps) (io.ReadCloser, error) {
 // StreamG711 makes a web request to retrieve an G711 audio stream.
 // Returns an io.ReadCloser that will (hopefully) never end.
 func (c *Camera) StreamG711() (io.ReadCloser, error) {
-	resp, err := c.server.Get("++audio", c.makeRequestParams(nil))
+	return c.StreamG711Context(context.Background())
+}
+
+// StreamG711Context makes a web request to retrieve an G711 audio stream.
+// Returns an io.ReadCloser that will (hopefully) never end.
+func (c *Camera) StreamG711Context(ctx context.Context) (io.ReadCloser, error) {
+	resp, err := c.server.GetContextClient(ctx, "++audio", c.makeRequestParams(nil), c.streamHTTPClient())
 	if err != nil {
 		return nil, fmt.Errorf("getting audio: %w", err)
 	}
@@ -165,6 +184,10 @@ func (c *Camera) PostG711(audio io.ReadCloser) ([]byte, error) {
 // GetJPEG returns an images from a camera.
 // VidOps defines the image size. ops.FPS is ignored.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
+	if ops == nil {
+		ops = &VidOps{}
+	}
+
 	ops.FPS = -1 // not used for single image
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.server.TimeoutDur())
@@ -328,4 +351,11 @@ func (c *Camera) makeRequestParams(ops *VidOps) url.Values {
 	}
 
 	return params
+}
+
+func (c *Camera) streamHTTPClient() *http.Client {
+	client := c.server.HTTPClient()
+	client.Timeout = 0
+
+	return client
 }

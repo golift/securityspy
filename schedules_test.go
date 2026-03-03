@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"golift.io/securityspy"
 	"golift.io/securityspy/mocks"
 	"golift.io/securityspy/server"

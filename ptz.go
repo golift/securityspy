@@ -25,6 +25,7 @@ type PTZ struct {
 	HasHome    bool // true if the camera supports the home position PTZ command.
 	HasZoom    bool // true if the camera supports zooming in and out.
 	HasPresets bool // true when the camera allows user-defined preset positions.
+	HasSpeed   bool // true if the camera supports configurable movement speed.
 	Continuous bool // true if the camera supports continuous movement.
 }
 
@@ -46,11 +47,12 @@ const (
 
 // Bitmask values for PTZ Capabilities.
 const (
-	ptzPanTilt    int = 1 << iota // 1
-	ptzHome                       // 2
-	ptzZoom                       // 4
-	ptzPresets                    // 8
-	ptzContinuous                 // 16
+	ptzPanTilt      int = 1 << iota // 1
+	ptzHome                         // 2
+	ptzZoom                         // 4
+	ptzPresets                      // 8
+	ptzSpeedControl                 // 16
+	ptzContinuous                   // 32
 )
 
 // ptzCommand are the possible PTZ commands.
@@ -147,30 +149,6 @@ func (z *PTZ) Zoom(in bool) error {
 func (z *PTZ) Preset(preset PTZpreset) error {
 	switch preset {
 	case PTZpreset1:
-		return z.ptzReq(ptzCommandSavePreset1)
-	case PTZpreset2:
-		return z.ptzReq(ptzCommandSavePreset2)
-	case PTZpreset3:
-		return z.ptzReq(ptzCommandSavePreset3)
-	case PTZpreset4:
-		return z.ptzReq(ptzCommandSavePreset4)
-	case PTZpreset5:
-		return z.ptzReq(ptzCommandSavePreset5)
-	case PTZpreset6:
-		return z.ptzReq(ptzCommandSavePreset6)
-	case PTZpreset7:
-		return z.ptzReq(ptzCommandSavePreset7)
-	case PTZpreset8:
-		return z.ptzReq(ptzCommandSavePreset8)
-	default:
-		return ErrPTZRange
-	}
-}
-
-// PresetSave instructs a preset to be permanently saved. good luck!
-func (z *PTZ) PresetSave(preset PTZpreset) error {
-	switch preset {
-	case PTZpreset1:
 		return z.ptzReq(ptzCommandPreset1)
 	case PTZpreset2:
 		return z.ptzReq(ptzCommandPreset2)
@@ -186,6 +164,30 @@ func (z *PTZ) PresetSave(preset PTZpreset) error {
 		return z.ptzReq(ptzCommandPreset7)
 	case PTZpreset8:
 		return z.ptzReq(ptzCommandPreset8)
+	default:
+		return ErrPTZRange
+	}
+}
+
+// PresetSave instructs a preset to be permanently saved. good luck!
+func (z *PTZ) PresetSave(preset PTZpreset) error {
+	switch preset {
+	case PTZpreset1:
+		return z.ptzReq(ptzCommandSavePreset1)
+	case PTZpreset2:
+		return z.ptzReq(ptzCommandSavePreset2)
+	case PTZpreset3:
+		return z.ptzReq(ptzCommandSavePreset3)
+	case PTZpreset4:
+		return z.ptzReq(ptzCommandSavePreset4)
+	case PTZpreset5:
+		return z.ptzReq(ptzCommandSavePreset5)
+	case PTZpreset6:
+		return z.ptzReq(ptzCommandSavePreset6)
+	case PTZpreset7:
+		return z.ptzReq(ptzCommandSavePreset7)
+	case PTZpreset8:
+		return z.ptzReq(ptzCommandSavePreset8)
 	default:
 		return ErrPTZRange
 	}
@@ -221,6 +223,7 @@ func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	z.HasHome = z.rawCaps&ptzHome == ptzHome
 	z.HasZoom = z.rawCaps&ptzZoom == ptzZoom
 	z.HasPresets = z.rawCaps&ptzPresets == ptzPresets
+	z.HasSpeed = z.rawCaps&ptzSpeedControl == ptzSpeedControl
 	z.Continuous = z.rawCaps&ptzContinuous == ptzContinuous
 
 	return nil

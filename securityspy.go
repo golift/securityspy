@@ -66,14 +66,33 @@ func (s *Server) Refresh() error {
 
 	for idx, cam := range s.Cameras.cameras {
 		s.Cameras.cameras[idx].server = s
-		s.Cameras.cameras[idx].PTZ.camera = s.Cameras.cameras[idx]
+		if s.Cameras.cameras[idx].PTZ != nil {
+			s.Cameras.cameras[idx].PTZ.camera = s.Cameras.cameras[idx]
+		}
 		// Fill in the missing schedule names (all we have are IDs, so fetch the names from systemInfo)
-		s.Cameras.cameras[idx].ScheduleIDA.Name = s.Info.ServerSchedules[cam.ScheduleIDA.ID]
-		s.Cameras.cameras[idx].ScheduleIDCC.Name = s.Info.ServerSchedules[cam.ScheduleIDCC.ID]
-		s.Cameras.cameras[idx].ScheduleIDMC.Name = s.Info.ServerSchedules[cam.ScheduleIDMC.ID]
-		s.Cameras.cameras[idx].ScheduleOverrideA.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]
-		s.Cameras.cameras[idx].ScheduleOverrideCC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]
-		s.Cameras.cameras[idx].ScheduleOverrideMC.Name = s.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]
+		if name, ok := s.Info.ServerSchedules[cam.ScheduleIDA.ID]; ok {
+			s.Cameras.cameras[idx].ScheduleIDA.Name = name
+		}
+
+		if name, ok := s.Info.ServerSchedules[cam.ScheduleIDCC.ID]; ok {
+			s.Cameras.cameras[idx].ScheduleIDCC.Name = name
+		}
+
+		if name, ok := s.Info.ServerSchedules[cam.ScheduleIDMC.ID]; ok {
+			s.Cameras.cameras[idx].ScheduleIDMC.Name = name
+		}
+
+		if name, ok := s.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]; ok {
+			s.Cameras.cameras[idx].ScheduleOverrideA.Name = name
+		}
+
+		if name, ok := s.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]; ok {
+			s.Cameras.cameras[idx].ScheduleOverrideCC.Name = name
+		}
+
+		if name, ok := s.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]; ok {
+			s.Cameras.cameras[idx].ScheduleOverrideMC.Name = name
+		}
 	}
 
 	return nil

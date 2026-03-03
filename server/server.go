@@ -34,12 +34,8 @@ type Config struct {
 
 // HTTPClient returns an http.Client with the configured timeout and SSL verification.
 func (s *Config) HTTPClient() *http.Client {
-	if s.Timeout.Duration == 0 {
-		s.Timeout.Duration = DefaultTimeout
-	}
-
 	return &http.Client{
-		Timeout: s.Timeout.Duration,
+		Timeout: s.TimeoutDur(),
 		Transport: &http.Transport{
 			DisableKeepAlives: true, // SecuritySpy has a Keep-Alive Bug.
 			TLSClientConfig: &tls.Config{
@@ -80,6 +76,10 @@ func (s *Config) Auth() string {
 
 // TimeoutDur returns the configured timeout.
 func (s *Config) TimeoutDur() time.Duration {
+	if s.Timeout.Duration <= 0 {
+		return DefaultTimeout
+	}
+
 	return s.Timeout.Duration
 }
 
@@ -131,7 +131,10 @@ func (s *Config) GetContext(ctx context.Context, apiPath string, params url.Valu
 
 // GetClient is the same as Get except you can pass in your own http Client.
 func (s *Config) GetClient(apiPath string, params url.Values, client *http.Client) (*http.Response, error) {
-	return s.GetContextClient(context.TODO(), apiPath, params, client)
+	ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutDur())
+	defer cancel()
+
+	return s.GetContextClient(ctx, apiPath, params, client)
 }
 
 // Get is a helper function that formats the http request to SecuritySpy.
@@ -140,15 +143,24 @@ func (s *Config) Get(apiPath string, params url.Values) (*http.Response, error) 
 		s.Client = s.HTTPClient()
 	}
 
-	return s.GetContextClient(context.TODO(), apiPath, params, s.Client)
+	ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutDur())
+	defer cancel()
+
+	return s.GetContextClient(ctx, apiPath, params, s.Client)
 }
 
 // Post is a helper function that formats the http request to SecuritySpy.
 func (s *Config) Post(apiPath string, params url.Values, body io.ReadCloser) ([]byte, error) {
-	if s.Client == nil {
-		s.Client = s.HTTPClient()
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutDur())
+	defer cancel()
 
+	return s.PostContext(ctx, apiPath, params, body)
+}
+
+// PostContext is a helper function that formats the http request to SecuritySpy.
+func (s *Config) PostContext(
+	ctx context.Context, apiPath string, params url.Values, body io.ReadCloser,
+) ([]byte, error) {
 	if params == nil {
 		params = make(url.Values)
 	}
@@ -157,15 +169,12 @@ func (s *Config) Post(apiPath string, params url.Values, body io.ReadCloser) ([]
 		params.Set("auth", s.Password)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), s.Timeout.Duration)
-	defer cancel()
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL+apiPath, body)
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequest(): %w", err)
 	}
 
-	if a := apiPath; !strings.HasPrefix(a, "++audio") {
+	if strings.HasPrefix(apiPath, "++audio") {
 		req.Header.Add("Content-Type", "audio/g711-ulaw")
 	}
 
@@ -192,7 +201,15 @@ func (s *Config) Post(apiPath string, params url.Values, body io.ReadCloser) ([]
 
 // GetXML returns raw http body, so it can be unmarshaled into an xml struct.
 func (s *Config) GetXML(apiPath string, params url.Values, val any) error {
-	resp, err := s.Get(apiPath, params)
+	ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutDur())
+	defer cancel()
+
+	return s.GetXMLContext(ctx, apiPath, params, val)
+}
+
+// GetXMLContext returns raw http body, so it can be unmarshaled into an xml struct.
+func (s *Config) GetXMLContext(ctx context.Context, apiPath string, params url.Values, val any) error {
+	resp, err := s.GetContext(ctx, apiPath, params)
 	if err != nil {
 		return err
 	}
@@ -214,11 +231,19 @@ func (s *Config) GetXML(apiPath string, params url.Values, val any) error {
 
 // SimpleReq performes HTTP req, checks for OK at end of output.
 func (s *Config) SimpleReq(apiURI string, params url.Values, cameraNum int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutDur())
+	defer cancel()
+
+	return s.SimpleReqContext(ctx, apiURI, params, cameraNum)
+}
+
+// SimpleReqContext performes HTTP req, checks for OK at end of output.
+func (s *Config) SimpleReqContext(ctx context.Context, apiURI string, params url.Values, cameraNum int) error {
 	if cameraNum >= 0 {
 		params.Set("cameraNum", strconv.Itoa(cameraNum))
 	}
 
-	resp, err := s.Get(apiURI, params)
+	resp, err := s.GetContext(ctx, apiURI, params)
 	if err != nil {
 		return err
 	}
