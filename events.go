@@ -156,11 +156,12 @@ func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) 
 	}
 
 	e.ctx, e.cancel = context.WithCancel(context.Background())
+	watchCtx := e.ctx
 	e.eventChan = make(chan *Event, EventBuffer)
 	e.Running = true
 
-	e.wg.Go(func() { e.eventStreamSelector(e.ctx, refreshOnConfigChange) })
-	e.wg.Go(func() { e.eventStreamScanner(e.ctx, retryInterval) })
+	e.wg.Go(func() { e.eventStreamSelector(watchCtx, refreshOnConfigChange) })
+	e.wg.Go(func() { e.eventStreamScanner(watchCtx, retryInterval) })
 }
 
 // Custom fires an event into the running event Watcher. Any functions or
