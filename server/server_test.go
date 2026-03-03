@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golift.io/securityspy/server"
 )
 
 func TestGet(t *testing.T) {
 	t.Parallel()
 
-	assert := assert.New(t)
+	asert := assert.New(t)
 	config := &server.Config{
 		Username:  "user",
 		Password:  "pass",
@@ -26,12 +27,13 @@ func TestGet(t *testing.T) {
 		Timeout:   server.Duration{time.Second},
 	}
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		assert.Equal("xml", req.FormValue("format"), "format parameter was not added")
-		assert.Equal(config.Password, req.FormValue("auth"), "auth parameter was not added")
-		assert.Equal("application/xml", req.Header.Get("Accept"), "accept header is not correct")
+		asert.Equal("xml", req.FormValue("format"), "format parameter was not added")
+		asert.Equal(config.Password, req.FormValue("auth"), "auth parameter was not added")
+		asert.Equal("application/xml", req.Header.Get("Accept"), "accept header is not correct")
+
 		_, err := resp.Write([]byte("request OK"))
-		assert.Nil(err, "the fake server must return an error writing to the client")
-		assert.Equal(config.URL, "http://"+req.Host+"/", "the host was not set correctly in the request")
+		asert.NoError(err, "the fake server must return an error writing to the client")
+		asert.Equal(config.URL, "http://"+req.Host+"/", "the host was not set correctly in the request")
 	})
 
 	httpClient, fakeServer := testingHTTPClient(handler)
@@ -39,14 +41,15 @@ func TestGet(t *testing.T) {
 
 	config.Client = httpClient
 	resp, err := config.Get("++path", make(url.Values))
-	assert.Nil(err, "the method must not return an error when given a valid server to query")
+	require.NoError(t, err, "the method must not return an error when given a valid server to query")
 
 	if err == nil {
 		defer resp.Body.Close()
-		assert.Equal(http.StatusOK, resp.StatusCode, "the server must return a 200 response code")
+
+		asert.Equal(http.StatusOK, resp.StatusCode, "the server must return a 200 response code")
 		body, err := io.ReadAll(resp.Body)
-		assert.Nil(err, "must not be an error reading the response body")
-		assert.Equal("request OK", string(body), "wrong data was returned from the server")
+		require.NoError(t, err, "must not be an error reading the response body")
+		asert.Equal("request OK", string(body), "wrong data was returned from the server")
 	}
 }
 
@@ -55,8 +58,8 @@ func testingHTTPClient(handler http.Handler) (*http.Client, *httptest.Server) {
 	fakeServer := httptest.NewServer(handler)
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: func(_ context.Context, network, _ string) (net.Conn, error) {
-				return net.Dial(network, fakeServer.Listener.Addr().String()) //nolint:wrapcheck
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				return (&net.Dialer{Timeout: server.DefaultTimeout}).DialContext(ctx, network, fakeServer.Listener.Addr().String())
 			},
 		},
 	}

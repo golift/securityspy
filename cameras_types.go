@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Encoder is the path to ffmpeg.
+// DefaultEncoder is the path to ffmpeg.
 const DefaultEncoder = "/usr/local/bin/ffmpeg"
 
 // CameraArmMode locks arming to an integer of 0 or 1.
@@ -56,7 +56,7 @@ func (bit *CameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) 
 // unmarshalled from the XML returned by the ++systemInfo method. Use the attached
 // methods to control a camera in various ways.
 //
-//nolint:dupword
+//nolint:dupword // I don't control the values.
 type Camera struct {
 	server              *Server
 	Number              int            `xml:"number"`               // 0, 1, 2, 3, 4, 5, 6

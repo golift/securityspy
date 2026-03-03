@@ -11,11 +11,11 @@ import (
 	"golift.io/securityspy/server"
 )
 
-// New returns an iterface to interact with SecuritySpy.
+// New returns an interface to interact with SecuritySpy.
 func New(c *server.Config) (*Server, error) {
 	s := NewMust(c)
 
-	return s, s.Refresh()
+	return s, s.Refresh() //nolint:gocritic
 }
 
 // NewMust returns an iterface to interact with SecuritySpy.
@@ -31,15 +31,15 @@ func NewMust(config *server.Config) *Server {
 	}
 
 	// Assign all the sub-interface structs.
-	server := &Server{API: config, Encoder: DefaultEncoder}
-	server.Files = &Files{server: server}
-	server.Events = &Events{
-		server:     server,
+	secspyServer := &Server{API: config, Encoder: DefaultEncoder}
+	secspyServer.Files = &Files{server: secspyServer}
+	secspyServer.Events = &Events{
+		server:     secspyServer,
 		eventBinds: make(map[EventType][]func(Event)),
 		eventChans: make(map[EventType][]chan Event),
 	}
 
-	return server
+	return secspyServer
 }
 
 // Refresh gets fresh camera and serverInfo data from SecuritySpy,
@@ -47,8 +47,8 @@ func NewMust(config *server.Config) *Server {
 // This is not at all thread safe. Do not run this if other methods
 // may run in a different go routine.
 func (s *Server) Refresh() error {
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	var sysInfo systemInfo
 
@@ -86,7 +86,7 @@ func (s *Server) GetScripts() ([]string, error) {
 		Names []string `xml:"name"`
 	}
 
-	if err := s.API.GetXML("++scripts", nil, &val); err != nil {
+	if err := s.GetXML("++scripts", nil, &val); err != nil {
 		return nil, fmt.Errorf("getting scripts: %w", err)
 	}
 

@@ -2,6 +2,7 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -10,9 +11,9 @@ import (
 var (
 	// ErrPTZNotOK is returned for any command that has a successful web request,
 	// but the reply does not end with the word OK.
-	ErrPTZNotOK = fmt.Errorf("PTZ command not OK")
+	ErrPTZNotOK = errors.New("PTZ command not OK")
 	// ErrPTZRange returns when a PTZ preset outside of 1-8 is provided.
-	ErrPTZRange = fmt.Errorf("PTZ preset out of range 1-8")
+	ErrPTZRange = errors.New("PTZ preset out of range 1-8")
 )
 
 // PTZ are what "things" a camera can do. Use the bound methods to interact
