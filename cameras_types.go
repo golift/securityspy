@@ -22,10 +22,20 @@ const (
 // This same data struct is used for capturing JPEG files, in that case FPS is discarded.
 // Use this data type in the Camera methods that retrieve live videos/images.
 type VidOps struct {
-	Width   int
-	Height  int
-	FPS     int
+	// Optional width override for video stream (defaults to camera width).
+	Width int
+	// Optional height override for video stream (defaults to camera height).
+	Height int
+	// Optional frame rate override for video stream (defaults to camera frame rate).
+	FPS int
+	// Optional quality override for video stream (defaults to camera quality).
 	Quality int
+	// If true, use HTTP video endpoint instead of RTSP(S) stream endpoint.
+	UseHTTP bool
+	// Optional codec override for video stream (defaults to h264).
+	VCodec string
+	// Optional codec override for audio stream (defaults to aac).
+	ACodec string
 }
 
 // Cameras is an interface into the Camera system. Use the methods bound here

@@ -64,13 +64,12 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 	})
 
 	params := c.makeRequestParams(ops)
-	params.Set("codec", "h264")
 
 	if p := c.server.Auth(); p != "" {
 		params.Set("auth", p)
 	}
 
-	args, video, err := ffmpg.GetVideo(c.server.BaseURL()+"++video"+"?"+params.Encode(), c.Name)
+	args, video, err := ffmpg.GetVideo(c.makeVideoURL(ops, params), c.Name)
 	if err != nil {
 		return nil, fmt.Errorf("capturing stream for %s: %w; ffmpeg command: %s",
 			c.Name, err, redactAuth(strings.ReplaceAll(args, "\n", " ")))
@@ -94,13 +93,12 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	})
 
 	params := c.makeRequestParams(ops)
-	params.Set("codec", "h264")
 
 	if p := c.server.Auth(); p != "" {
 		params.Set("auth", p)
 	}
 
-	cmd, out, err := ffmpg.SaveVideo(c.server.BaseURL()+"++video"+"?"+params.Encode(), outputFile, c.Name)
+	cmd, out, err := ffmpg.SaveVideo(c.makeVideoURL(ops, params), outputFile, c.Name)
 	if err != nil {
 		return fmt.Errorf("capturing video for %s: %w; ffmpeg command: %s; ffmpeg output: %s",
 			c.Name,
@@ -358,6 +356,47 @@ func (c *Camera) streamHTTPClient() *http.Client {
 	client.Timeout = 0
 
 	return client
+}
+
+// makeVideoURL creates a video URL for the camera based on if it's rtsp or not, and other input options.
+func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) string { //nolint:cyclop // oh well?
+	if ops != nil && ops.UseHTTP {
+		if ops.FPS > 0 {
+			params.Set("fps", strconv.Itoa(ops.FPS))
+		}
+
+		vcodec := "h264"
+		if ops.VCodec != "" {
+			vcodec = ops.VCodec
+		}
+
+		params.Del("req_fps")
+		params.Set("vcodec", vcodec)
+
+		return c.server.BaseURL() + "video?" + params.Encode()
+	}
+
+	if ops != nil && ops.FPS > 0 {
+		params.Set("fps", strconv.Itoa(ops.FPS))
+	}
+
+	vcodec, acodec := "h264", "aac"
+	if ops != nil && ops.VCodec != "" {
+		vcodec = ops.VCodec
+	}
+
+	if ops != nil && ops.ACodec != "" {
+		acodec = ops.ACodec
+	}
+
+	params.Del("req_fps")
+	params.Set("vcodec", vcodec)
+	params.Set("acodec", acodec)
+
+	baseURL := strings.Replace(c.server.BaseURL(), "https://", "rtsps://", 1)
+	baseURL = strings.Replace(baseURL, "http://", "rtsp://", 1)
+
+	return baseURL + "stream?" + params.Encode()
 }
 
 var authRegex = regexp.MustCompile(`auth=[^&\s]+`)
