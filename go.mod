@@ -11,7 +11,7 @@ retract v1.0.0
 require (
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
-	golift.io/ffmpeg v1.1.2-0.20260303053331-25bfe8e1ce5f
+	golift.io/ffmpeg 5b35b525534e
 )
 
 require (
