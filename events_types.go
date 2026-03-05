@@ -124,6 +124,7 @@ func EventName(eventType EventType) string {
 		EventSecSpyError:      "SecuritySpy Error",
 		EventConfigChange:     "Configuration Change",
 		EventMotionDetected:   "Motion Detected", // Legacy (v4)
+		EventMotionEnd:        "Motion Ended",
 		EventOffline:          "Camera Offline",
 		EventOnline:           "Camera Online",
 		EventClassify:         "Classification",
@@ -156,6 +157,14 @@ const (
 	TriggerByManual
 	TriggerByHumanDetection
 	TriggerByVehicleDetection
+	TriggerByHomeKitEvent
+	TriggerByAnimalDetection
+	TriggerByHumanArrival
+	TriggerByHumanDeparture
+	TriggerByVehicleArrival
+	TriggerByVehicleDeparture
+	TriggerByAnimalArrival
+	TriggerByAnimalDeparture
 )
 
 // Reasons returns a map of trigger events to their human-readable explanations.
@@ -170,6 +179,14 @@ func Reasons() map[TriggerEvent]string {
 		TriggerByManual:           "Manual",
 		TriggerByHumanDetection:   "Human Detected",
 		TriggerByVehicleDetection: "Vehicle Detected",
+		TriggerByHomeKitEvent:     "HomeKit Event",
+		TriggerByAnimalDetection:  "Animal Detected",
+		TriggerByHumanArrival:     "Human Arrival",
+		TriggerByHumanDeparture:   "Human Departure",
+		TriggerByVehicleArrival:   "Vehicle Arrival",
+		TriggerByVehicleDeparture: "Vehicle Departure",
+		TriggerByAnimalArrival:    "Animal Arrival",
+		TriggerByAnimalDeparture:  "Animal Departure",
 	}
 }
 
