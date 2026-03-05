@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -63,19 +64,16 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 	})
 
 	params := c.makeRequestParams(ops)
+	params.Set("codec", "h264")
 
 	if p := c.server.Auth(); p != "" {
 		params.Set("auth", p)
 	}
 
-	params.Set("codec", "h264")
-	// This is kinda crude, but will handle 99%.
-	rtspURL := strings.Replace(c.server.BaseURL(), "http", "rtsp", 1) + "++stream"
-
-	// RTSP doesn't rewally work with HTTPS, and FFMPEG doesn't care about the cert.
-	args, video, err := ffmpg.GetVideo(rtspURL+"?"+params.Encode(), c.Name)
+	args, video, err := ffmpg.GetVideo(c.server.BaseURL()+"++video"+"?"+params.Encode(), c.Name)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", err, strings.ReplaceAll(args, "\n", " "))
+		return nil, fmt.Errorf("capturing stream for %s: %w; ffmpeg command: %s",
+			c.Name, err, redactAuth(strings.ReplaceAll(args, "\n", " ")))
 	}
 
 	return video, nil
@@ -96,19 +94,20 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	})
 
 	params := c.makeRequestParams(ops)
+	params.Set("codec", "h264")
 
 	if p := c.server.Auth(); p != "" {
 		params.Set("auth", p)
 	}
 
-	params.Set("codec", "h264")
-	// This is kinda crude, but will handle 99%.
-
-	rtspURL := strings.Replace(c.server.BaseURL(), "http", "rtsp", 1) + "++stream"
-
-	_, out, err := ffmpg.SaveVideo(rtspURL+"?"+params.Encode(), outputFile, c.Name)
+	cmd, out, err := ffmpg.SaveVideo(c.server.BaseURL()+"++video"+"?"+params.Encode(), outputFile, c.Name)
 	if err != nil {
-		return fmt.Errorf("%w: %s", err, strings.ReplaceAll(out, "\n", " "))
+		return fmt.Errorf("capturing video for %s: %w; ffmpeg command: %s; ffmpeg output: %s",
+			c.Name,
+			err,
+			redactAuth(strings.ReplaceAll(cmd, "\n", " ")),
+			redactAuth(trimTail(strings.ReplaceAll(out, "\n", " "), ffmpegOutputTail)),
+		)
 	}
 
 	return nil
@@ -313,8 +312,9 @@ func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 const (
-	maxQuality = 100
-	maxFPS     = 60
+	maxQuality       = 100
+	maxFPS           = 60
+	ffmpegOutputTail = 2048
 )
 
 // makeRequestParams converts passed in ops to url.Values.
@@ -358,4 +358,18 @@ func (c *Camera) streamHTTPClient() *http.Client {
 	client.Timeout = 0
 
 	return client
+}
+
+var authRegex = regexp.MustCompile(`auth=[^&\s]+`)
+
+func redactAuth(input string) string {
+	return authRegex.ReplaceAllString(input, "auth=REDACTED")
+}
+
+func trimTail(input string, maximum int) string {
+	if maximum <= 0 || len(input) <= maximum {
+		return input
+	}
+
+	return input[len(input)-maximum:]
 }
