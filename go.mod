@@ -4,9 +4,8 @@ go 1.25.7
 
 toolchain go1.26.0
 
-retract [v2.0.0, v2.0.3]
-
-retract v1.0.0
+// This was never supposed to be released passed v0. Not sure why this happened!
+retract [v1.0.0, v2.0.2+incompatible]
 
 require (
 	github.com/stretchr/testify v1.11.1

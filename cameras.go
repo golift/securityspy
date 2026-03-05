@@ -64,14 +64,13 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 	})
 
 	params := c.makeRequestParams(ops)
+	params.Set("codec", "h264")
 
 	if p := c.server.Auth(); p != "" {
 		params.Set("auth", p)
 	}
 
-	params.Set("codec", "h264")
-	videoURL := c.server.BaseURL() + "++video"
-	args, video, err := ffmpg.GetVideo(videoURL+"?"+params.Encode(), c.Name)
+	args, video, err := ffmpg.GetVideo(c.server.BaseURL()+"++video"+"?"+params.Encode(), c.Name)
 	if err != nil {
 		return nil, fmt.Errorf("capturing stream for %s: %w; ffmpeg command: %s",
 			c.Name, err, redactAuth(strings.ReplaceAll(args, "\n", " ")))
@@ -95,14 +94,13 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	})
 
 	params := c.makeRequestParams(ops)
+	params.Set("codec", "h264")
 
 	if p := c.server.Auth(); p != "" {
 		params.Set("auth", p)
 	}
 
-	params.Set("codec", "h264")
-	videoURL := c.server.BaseURL() + "++video"
-	cmd, out, err := ffmpg.SaveVideo(videoURL+"?"+params.Encode(), outputFile, c.Name)
+	cmd, out, err := ffmpg.SaveVideo(c.server.BaseURL()+"++video"+"?"+params.Encode(), outputFile, c.Name)
 	if err != nil {
 		return fmt.Errorf("capturing video for %s: %w; ffmpeg command: %s; ffmpeg output: %s",
 			c.Name,
@@ -368,10 +366,10 @@ func redactAuth(input string) string {
 	return authRegex.ReplaceAllString(input, "auth=REDACTED")
 }
 
-func trimTail(input string, max int) string {
-	if max <= 0 || len(input) <= max {
+func trimTail(input string, maximum int) string {
+	if maximum <= 0 || len(input) <= maximum {
 		return input
 	}
 
-	return input[len(input)-max:]
+	return input[len(input)-maximum:]
 }
