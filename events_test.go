@@ -41,3 +41,28 @@ func TestUnmarshalEventTriggerReasons(t *testing.T) {
 	require.Contains(t, event.Msg, "Audio Detected")
 	require.Len(t, event.Reasons, 2)
 }
+
+func TestUnmarshalEventMotionEnd(t *testing.T) {
+	t.Parallel()
+
+	secspyServer, _, _ := testServerWithCamera(t)
+	event := secspyServer.Events.UnmarshalEvent("20190927092040 9 1 MOTION_END")
+
+	require.Equal(t, 9, event.ID)
+	require.Equal(t, securityspy.EventMotionEnd, event.Type)
+	require.Equal(t, "MOTION_END", event.Msg)
+	require.Empty(t, event.Errors)
+	require.NotNil(t, event.Camera)
+}
+
+func TestUnmarshalEventTriggerReasonsNewFlags(t *testing.T) {
+	t.Parallel()
+
+	secspyServer, _, _ := testServerWithCamera(t)
+	event := secspyServer.Events.UnmarshalEvent("20190927092026 6 1 TRIGGER_A 12288")
+
+	require.Equal(t, securityspy.EventTriggerAction, event.Type)
+	require.Contains(t, event.Msg, "Human Departure")
+	require.Contains(t, event.Msg, "Vehicle Arrival")
+	require.Len(t, event.Reasons, 2)
+}
