@@ -25,7 +25,7 @@ const DefaultTimeout = 10 * time.Second
 // has a valid SSL certificate. The password is auto-repalced with a base64 encoded string.
 type Config struct {
 	URL       string
-	Password  string
+	Password  string //nolint:gosec // User provided.
 	Username  string
 	Client    *http.Client // Provide an HTTP client, or:
 	Timeout   Duration     // Only used if you do not provide an HTTP client.
@@ -112,7 +112,7 @@ func (s *Config) GetContextClient( //nolint:cyclop // might make it less complic
 
 	req.URL.RawQuery = params.Encode()
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // the taint comes from the operator.
 	if err != nil {
 		return resp, fmt.Errorf("http request: %w", err)
 	}
@@ -180,7 +180,7 @@ func (s *Config) PostContext(
 
 	req.URL.RawQuery = params.Encode()
 
-	resp, err := s.Client.Do(req)
+	resp, err := s.Client.Do(req) //nolint:gosec // the taint comes from the operator.
 	if err != nil {
 		return nil, fmt.Errorf("getting body: %w", err)
 	}
