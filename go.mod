@@ -2,7 +2,7 @@ module golift.io/securityspy
 
 go 1.25.7
 
-toolchain go1.26.0
+toolchain go1.26.1
 
 // This was never supposed to be released passed v0. Not sure why this happened!
 retract [v1.0.0, v2.0.2+incompatible]
