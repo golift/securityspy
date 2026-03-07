@@ -18,18 +18,25 @@ import (
 // but the reply does not end with the word OK.
 var ErrCmdNotOK = errors.New("command unsuccessful")
 
-// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
-const DefaultTimeout = 10 * time.Second
+const (
+	// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
+	DefaultTimeout = 10 * time.Second
+	// DefaultJPEGRetries is the default number of JPEG fetch attempts.
+	DefaultJPEGRetries = 3
+)
 
 // Config is the input data for this library. Only set VerifySSL to true if your server
 // has a valid SSL certificate. The password is auto-repalced with a base64 encoded string.
 type Config struct {
-	URL       string
-	Password  string //nolint:gosec // User provided.
-	Username  string
-	Client    *http.Client // Provide an HTTP client, or:
-	Timeout   Duration     // Only used if you do not provide an HTTP client.
-	VerifySSL bool         // Also only used if you do not provide an HTTP client.
+	URL      string
+	Password string
+	Username string
+	Client   *http.Client // Provide an HTTP client, or:
+	Timeout  Duration     // Only used if you do not provide an HTTP client.
+	// JPEGRetries controls how many times GetJPEG will try before failing.
+	// 0 or negative values fall back to DefaultJPEGRetries.
+	JPEGRetries int
+	VerifySSL   bool // Also only used if you do not provide an HTTP client.
 }
 
 // HTTPClient returns an http.Client with the configured timeout and SSL verification.
@@ -83,6 +90,15 @@ func (s *Config) TimeoutDur() time.Duration {
 	return s.Timeout.Duration
 }
 
+// JPEGTries returns the configured JPEG retry attempts.
+func (s *Config) JPEGTries() int {
+	if s.JPEGRetries <= 0 {
+		return DefaultJPEGRetries
+	}
+
+	return s.JPEGRetries
+}
+
 // GetContextClient is the same as Get except you can pass in your own context and http Client.
 func (s *Config) GetContextClient( //nolint:cyclop // might make it less complicated later.
 	ctx context.Context,
@@ -112,7 +128,7 @@ func (s *Config) GetContextClient( //nolint:cyclop // might make it less complic
 
 	req.URL.RawQuery = params.Encode()
 
-	resp, err := client.Do(req) //nolint:gosec // the taint comes from the operator.
+	resp, err := client.Do(req)
 	if err != nil {
 		return resp, fmt.Errorf("http request: %w", err)
 	}
@@ -180,7 +196,7 @@ func (s *Config) PostContext(
 
 	req.URL.RawQuery = params.Encode()
 
-	resp, err := s.Client.Do(req) //nolint:gosec // the taint comes from the operator.
+	resp, err := s.Client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("getting body: %w", err)
 	}

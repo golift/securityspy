@@ -180,6 +180,7 @@ func (c *Camera) PostG711(audio io.ReadCloser) ([]byte, error) {
 
 // GetJPEG returns an images from a camera.
 // VidOps defines the image size. ops.FPS is ignored.
+// Makes several attempts in case of an error or time out.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 	if ops == nil {
 		ops = &VidOps{}
@@ -187,21 +188,33 @@ func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 
 	ops.FPS = -1 // not used for single image
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.server.TimeoutDur())
-	defer cancel()
+	var lastErr error
 
-	resp, err := c.server.GetContext(ctx, "++image", c.makeRequestParams(ops))
-	if err != nil {
-		return nil, fmt.Errorf("getting image: %w", err)
+	for range c.server.JPEGTries() {
+		ctx, cancel := context.WithTimeout(context.Background(), c.server.TimeoutDur())
+		resp, err := c.server.GetContext(ctx, "++image", c.makeRequestParams(ops))
+
+		cancel()
+
+		if err != nil {
+			lastErr = fmt.Errorf("getting image: %w", err)
+
+			continue
+		}
+
+		jpgImage, err := jpeg.Decode(resp.Body)
+		_ = resp.Body.Close()
+
+		if err != nil {
+			lastErr = fmt.Errorf("decoding jpeg: %w", err)
+
+			continue
+		}
+
+		return jpgImage, nil
 	}
-	defer resp.Body.Close()
 
-	jpgImage, err := jpeg.Decode(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("decoding jpeg: %w", err)
-	}
-
-	return jpgImage, nil
+	return nil, lastErr
 }
 
 // SaveJPEG gets a picture from a camera and puts it in a file (path).

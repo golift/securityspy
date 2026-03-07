@@ -174,6 +174,20 @@ func (mr *MockAPIMockRecorder) HTTPClient() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockAPI)(nil).HTTPClient))
 }
 
+// JPEGTries mocks base method.
+func (m *MockAPI) JPEGTries() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "JPEGTries")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// JPEGTries indicates an expected call of JPEGTries.
+func (mr *MockAPIMockRecorder) JPEGTries() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JPEGTries", reflect.TypeOf((*MockAPI)(nil).JPEGTries))
+}
+
 // Post mocks base method.
 func (m *MockAPI) Post(apiPath string, params url.Values, post io.ReadCloser) ([]byte, error) {
 	m.ctrl.T.Helper()

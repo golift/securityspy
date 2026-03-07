@@ -28,8 +28,8 @@ func TestGet(t *testing.T) {
 		Timeout:   server.Duration{time.Second},
 	}
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		asert.Equal("xml", req.FormValue("format"), "format parameter was not added")
-		asert.Equal(config.Password, req.FormValue("auth"), "auth parameter was not added")
+		asert.Equal("xml", req.URL.Query().Get("format"), "format parameter was not added")
+		asert.Equal(config.Password, req.URL.Query().Get("auth"), "auth parameter was not added")
 		asert.Equal("application/xml", req.Header.Get("Accept"), "accept header is not correct")
 
 		_, err := resp.Write([]byte("request OK"))

@@ -30,6 +30,7 @@ type API interface {
 	SimpleReq(apiURI string, params url.Values, cameraNum int) error
 	SimpleReqContext(ctx context.Context, apiURI string, params url.Values, cameraNum int) error
 	TimeoutDur() time.Duration
+	JPEGTries() int
 	BaseURL() string
 	Auth() string
 	HTTPClient() *http.Client
