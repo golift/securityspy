@@ -3,6 +3,7 @@
 package securityspy
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"strings"
@@ -15,7 +16,7 @@ import (
 func New(c *server.Config) (*Server, error) {
 	s := NewMust(c)
 
-	return s, s.Refresh() //nolint:gocritic
+	return s, s.RefreshContext(context.Background()) //nolint:gocritic
 }
 
 // NewMust returns an iterface to interact with SecuritySpy.
@@ -31,7 +32,7 @@ func NewMust(config *server.Config) *Server {
 	}
 
 	// Assign all the sub-interface structs.
-	secspyServer := &Server{API: config, Encoder: DefaultEncoder}
+	secspyServer := &Server{Config: config, Encoder: DefaultEncoder}
 	secspyServer.Files = &Files{server: secspyServer}
 	secspyServer.Events = &Events{
 		server:     secspyServer,
@@ -47,12 +48,17 @@ func NewMust(config *server.Config) *Server {
 // This is not at all thread safe. Do not run this if other methods
 // may run in a different go routine.
 func (s *Server) Refresh() error {
+	return s.RefreshContext(context.Background())
+}
+
+// RefreshContext gets fresh camera and serverInfo data from SecuritySpy with context support.
+func (s *Server) RefreshContext(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	var sysInfo systemInfo
 
-	if err := s.GetXML("++systemInfo", nil, &sysInfo); err != nil {
+	if err := s.GetXMLContext(ctx, "++systemInfo", nil, &sysInfo); err != nil {
 		return fmt.Errorf("getting systemInfo: %w", err)
 	}
 

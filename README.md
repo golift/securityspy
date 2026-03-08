@@ -4,7 +4,7 @@
 
 ## OVERVIEW
 
-Full Featured Go Library for [SecuritySpy](https://www.bensoftware.com/securityspy/)'s
+(Nearly) Full Featured Go Library for [SecuritySpy](https://www.bensoftware.com/securityspy/)'s
 web API. Read about the [API here](https://www.bensoftware.com/securityspy/web-server-spec.html).
 
 Everything is reasonably tested and working. Feedback is welcomed!
@@ -15,53 +15,60 @@ A command line interface app that uses this library exists. Most of the testing 
 Find it here: [https://github.com/davidnewhall/SecSpyCLI](https://github.com/davidnewhall/SecSpyCLI)
 It's full of great examples on how to use this library, and can be easily installed with homebrew.
 
--   Works with SecuritySpy 4 and 5 and probably 6.
--   There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy).
+- Works with SecuritySpy 4 and 5 and probably 6.
+- There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy).
+
+## BREAKING CHANGES 3/7/2026
+
+- The internal `Server.API` override/testing hook was removed.
+- Tests now use `httptest.Server` instead of swapping internal interfaces or generated mocks.
+- If you previously replaced `Server.API` in downstream tests, migrate to an HTTP test server and point
+  `server.Config.URL` at that server.
 
 ## FEATURES
 
-#### Server
+### Server
 
--   All server and system Info is exposed with one API web request.
--   Schedule Presets can be retrieved and invoked.
+- All server and system Info is exposed with one API web request.
+- Schedule Presets can be retrieved and invoked.
 
-#### Settings
+### Settings
 
--   No support for settings yet.
+- No support for settings yet.
 
-#### Cameras
+### Cameras
 
--   Stream live H264 or MJPEG video from an `io.ReadCloser`.
--   Stream live G711 audio from an `io.ReadCloser`.
--   Submit G711 audio (files or microphone) to a camera from an `io.ReadCloser`.
--   Save live video snippets locally (requires `FFMPEG`).
--   Get live JPEG images in `image` format, or save files locally.
--   Arm and Disarm actions, motion capture and continuous capture.
--   Trigger Motion.
--   Set schedules and schedule overrides.
--   Inspect PTZ capabilities.
--   Control all PTZ actions including invoking and saving presets.
+- Stream live H264 or MJPEG video from an `io.ReadCloser`.
+- Stream live G711 audio from an `io.ReadCloser`.
+- Submit G711 audio (files or microphone) to a camera from an `io.ReadCloser`.
+- Save live video snippets locally (requires `FFMPEG`).
+- Get live JPEG images in `image` format, or save files locally.
+- Arm and Disarm actions, motion capture and continuous capture.
+- Trigger Motion.
+- Set schedules and schedule overrides.
+- Inspect PTZ capabilities.
+- Control all PTZ actions including invoking and saving presets.
 
-#### Events
+### Events
 
 SecuritySpy has a handy event stream; you can bind functions and/or channels to
 all or specific events. When a bound event fires the callback method it's bound
 to is run. In the case of a channel binding, the event is sent to the channel
 for consumption by a worker (pool).
 
--   Exposes all SecuritySpy events.
--   Exposes 6 custom events.
--   Method to inject custom events into the event stream.
+- Exposes all SecuritySpy events.
+- Exposes 6 custom events.
+- Method to inject custom events into the event stream.
 
-#### Files
+### Files
 
 SecuritySpy saves video and image files based on motion and continuous capture
 settings. These files can be listed and downloaded with this library.
 
--   List and retrieve captured images.
--   List and retrieve continuous captured videos.
--   List and retrieve motion captured videos.
--   Save files locally or stream from `io.ReadCloser`.
+- List and retrieve captured images.
+- List and retrieve continuous captured videos.
+- List and retrieve motion captured videos.
+- Save files locally or stream from `io.ReadCloser`.
 
 ## EXAMPLE
 
@@ -113,8 +120,10 @@ func main() {
 	}
 }
 ```
+
 The output looks like this:
-```
+
+```none
 SecuritySpy 4.2.10b9 @ 2019-02-09 16:20:00 -0700 MST (http://192.168.1.1:8000/) 7 cameras, 18 scripts, 20 sounds, 6 schedules, 1 schedule presets
  0: Porch          (2304x1296 ONVIF/Network 192.168.1.12) connected: true, down 0s, modes: C:armed    M:armed    A:armed,   20FPS, Audio:yes, MD: yes/pre:3s/post:10s idle 3h5m5s     Script: SS_SendiMessages.scpt (reset 1m0s)
  1: Door           (2592x1520 ONVIF/Network 192.168.1.13) connected: true, down 0s, modes: C:armed    M:armed    A:armed,   15FPS, Audio:yes, MD: yes/pre:4s/post: 5s idle 9m24s      Script: SS_SendiMessages.scpt (reset 1m0s)

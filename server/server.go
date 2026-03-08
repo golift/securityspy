@@ -1,3 +1,4 @@
+// Package server provides SecuritySpy transport helpers.
 package server
 
 import (
