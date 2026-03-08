@@ -2,7 +2,8 @@ package securityspy_test
 
 import (
 	"encoding/xml"
-	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -10,13 +11,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 	"golift.io/securityspy"
-	"golift.io/securityspy/mocks"
 	"golift.io/securityspy/server"
 )
-
-var errTest = errors.New("error goes here")
 
 func TestGetServer(t *testing.T) {
 	t.Parallel()
@@ -29,7 +26,6 @@ func TestGetServer(t *testing.T) {
 
 	require.Error(t, err, "there is no server at the address provided so an error must exist")
 	asert.NotNil(secspyServer, "server must not be nil. even wiuth an error it must be returned")
-	asert.NotNil(secspyServer.API, "api interface pointer must be created by GetServer")
 
 	if !strings.Contains(err.Error(), "target machine actively refused it") &&
 		!strings.Contains(err.Error(), "connection refused") {
@@ -40,22 +36,32 @@ func TestGetServer(t *testing.T) {
 func TestRefresh(t *testing.T) {
 	t.Parallel()
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	var requestCount int
+
+	fakeServer := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/++systemInfo" {
+			http.NotFound(resp, req)
+
+			return
+		}
+
+		requestCount++
+		if requestCount == 1 {
+			resp.Header().Set("Content-Type", "application/xml")
+			_, _ = resp.Write([]byte(testSystemInfo))
+
+			return
+		}
+
+		http.Error(resp, "bad xml", http.StatusInternalServerError)
+	}))
+	defer fakeServer.Close()
 
 	asert := assert.New(t)
 	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
-	fake := mocks.NewMockAPI(mockCtrl)
-	secspyServer.API = fake
-
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(
-		func(_, _, v any) {
-			_ = xml.Unmarshal([]byte(testSystemInfo), &v)
-		},
-	)
+		&server.Config{Username: "user", Password: "pass", URL: fakeServer.URL + "/", VerifySSL: false})
 	require.NoError(t, secspyServer.Refresh(),
-		"an error must not be returned while testing with an overridden api interface")
+		"an error must not be returned while testing with valid XML")
 
 	// Make sure Refresh() did all the things it is supposed to do.
 	asert.WithinDuration(time.Now(), secspyServer.Info.Refreshed, time.Second,
@@ -73,69 +79,80 @@ func TestRefresh(t *testing.T) {
 	asert.Equal("MyFirstPreset", secspyServer.Info.SchedulePresets[1930238093],
 		"schedule preset info was not properly unmarshalled")
 
-	// make sure bad xml returns an expected error
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(errTest)
-	require.ErrorIs(t, secspyServer.Refresh(), errTest)
+	// second call returns an HTTP error response.
+	require.Error(t, secspyServer.Refresh())
 }
 
 func TestGetSounds(t *testing.T) { //nolint:dupl // it just looks like a duplicate, but it's not.
 	t.Parallel()
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	var requestCount int
+
+	fakeServer := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/++sounds" {
+			http.NotFound(resp, req)
+			return
+		}
+
+		requestCount++
+		if requestCount == 1 {
+			resp.Header().Set("Content-Type", "application/xml")
+			_, _ = resp.Write([]byte(testSoundsList))
+
+			return
+		}
+
+		http.Error(resp, "fail", http.StatusInternalServerError)
+	}))
+	defer fakeServer.Close()
 
 	asert := assert.New(t)
 	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
-	fake := mocks.NewMockAPI(mockCtrl) // create a fake api interface that provides introspection methods.
-	secspyServer.API = fake
-
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(
-		func(_, _, v any) {
-			_ = xml.Unmarshal([]byte(testSoundsList), &v)
-		},
-	)
+		&server.Config{Username: "user", Password: "pass", URL: fakeServer.URL + "/", VerifySSL: false})
 
 	sounds, err := secspyServer.GetSounds()
 	require.NoError(t, err, "the method must not return an error when given valid XML to unmarshal")
 	asert.Len(sounds, 20, "all 20 sounds must exist in the slice")
 	asert.Equal("Beeps.aif", sounds[0], "the sound files were not properly unmarhsalled")
 
-	// Test error conditions.
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(errTest)
-
 	_, err = secspyServer.GetSounds()
-	require.ErrorIs(t, err, errTest)
+	require.Error(t, err)
 }
 
 func TestGetScripts(t *testing.T) { //nolint:dupl // it just looks like a duplicate, but it's not.
 	t.Parallel()
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	var requestCount int
+
+	fakeServer := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/++scripts" {
+			http.NotFound(resp, req)
+			return
+		}
+
+		requestCount++
+		if requestCount == 1 {
+			resp.Header().Set("Content-Type", "application/xml")
+			_, _ = resp.Write([]byte(testScriptsList))
+
+			return
+		}
+
+		http.Error(resp, "fail", http.StatusInternalServerError)
+	}))
+	defer fakeServer.Close()
 
 	asert := assert.New(t)
 	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
-	fake := mocks.NewMockAPI(mockCtrl) // create a fake api interface that provides introspection methods.
-	secspyServer.API = fake
-
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(
-		func(_, _, v any) {
-			_ = xml.Unmarshal([]byte(testScriptsList), &v)
-		},
-	)
+		&server.Config{Username: "user", Password: "pass", URL: fakeServer.URL + "/", VerifySSL: false})
 
 	scripts, err := secspyServer.GetScripts()
 	require.NoError(t, err, "the method must not return an error when given valid XML to unmarshal")
 	asert.Len(scripts, 16, "all 16 scripts must exist in the slice")
 	asert.Equal("Web-i Activate Relay 1.scpt", scripts[0], "the script files were not properly unmarhsalled")
 
-	// Test error conditions.
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(errTest)
-
 	_, err = secspyServer.GetScripts()
-	require.ErrorIs(t, err, errTest)
+	require.Error(t, err)
 }
 
 func TestUnmarshalXMLYesNoBool(t *testing.T) {
@@ -186,25 +203,25 @@ func TestUnmarshalXMLDuration(t *testing.T) {
 func TestRefreshHandlesNilPTZAndMissingSchedules(t *testing.T) {
 	t.Parallel()
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: false})
-	fake := mocks.NewMockAPI(mockCtrl)
-	secspyServer.API = fake
-
 	xmlData := strings.Replace(testSystemInfo, "<ptzcapabilities>0</ptzcapabilities>", "", 1)
 	xmlData = strings.Replace(xmlData,
 		"<schedule-id-a>3</schedule-id-a>", "<schedule-id-a>99999</schedule-id-a>", 1)
 	xmlData = strings.Replace(xmlData,
 		"<schedule-override-a>2</schedule-override-a>", "<schedule-override-a>99999</schedule-override-a>", 1)
 
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(
-		func(_, _, v any) {
-			_ = xml.Unmarshal([]byte(xmlData), &v)
-		},
-	)
+	fakeServer := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/++systemInfo" {
+			http.NotFound(resp, req)
+			return
+		}
+
+		resp.Header().Set("Content-Type", "application/xml")
+		_, _ = resp.Write([]byte(xmlData))
+	}))
+	defer fakeServer.Close()
+
+	secspyServer := securityspy.NewMust(
+		&server.Config{Username: "user", Password: "pass", URL: fakeServer.URL + "/", VerifySSL: false})
 
 	require.NoError(t, secspyServer.Refresh())
 	require.Empty(t, secspyServer.Cameras.ByNum(1).ScheduleIDA.Name)

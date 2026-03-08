@@ -17,7 +17,7 @@ import (
 // this struct if there's a chance you may call methods while
 // Refresh() is running.
 type Server struct {
-	server.API
+	*server.Config
 
 	Encoder string
 	Files   *Files       // Files interface.

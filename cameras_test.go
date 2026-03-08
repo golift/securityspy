@@ -6,10 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 	"golift.io/securityspy"
-	"golift.io/securityspy/mocks"
-	"golift.io/securityspy/server"
 )
 
 func TestUnmarshalXMLCameraSchedule(t *testing.T) {
@@ -27,21 +24,7 @@ func TestAll(t *testing.T) {
 	t.Parallel()
 	asert := assert.New(t)
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: true})
-	fake := mocks.NewMockAPI(mockCtrl)
-	secspyServer.API = fake
-
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(
-		func(_, _, v any) {
-			_ = xml.Unmarshal([]byte(testSystemInfo), &v)
-		},
-	)
-	require.NoError(t, secspyServer.Refresh(),
-		"there must no error when loading fake data") // load the fake testSystemInfo data.
+	secspyServer, _, _ := testServerWithCamera(t)
 
 	cams := secspyServer.Cameras.All()
 	asert.Len(cams, 2, "the data contains two cameras, two cameras must be returned")
@@ -51,21 +34,7 @@ func TestByNum(t *testing.T) {
 	t.Parallel()
 	asert := assert.New(t)
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: true})
-	fake := mocks.NewMockAPI(mockCtrl)
-	secspyServer.API = fake
-
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(
-		func(_, _, v any) {
-			_ = xml.Unmarshal([]byte(testSystemInfo), &v)
-		},
-	)
-	require.NoError(t, secspyServer.Refresh(),
-		"there must no error when loading fake data") // load the fake testSystemInfo data.
+	secspyServer, _, _ := testServerWithCamera(t)
 
 	cam := secspyServer.Cameras.ByNum(1)
 	asert.Equal("Porch", cam.Name, "camera 1 is Porch in the test data")
@@ -76,21 +45,7 @@ func TestByName(t *testing.T) {
 	t.Parallel()
 	asert := assert.New(t)
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: "http://127.0.0.1:5678", VerifySSL: true})
-	fake := mocks.NewMockAPI(mockCtrl)
-	secspyServer.API = fake
-
-	fake.EXPECT().GetXML(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Do(
-		func(_, _, v any) {
-			_ = xml.Unmarshal([]byte(testSystemInfo), &v)
-		},
-	)
-	require.NoError(t, secspyServer.Refresh(),
-		"there must no error when loading fake data") // load the fake testSystemInfo data.
+	secspyServer, _, _ := testServerWithCamera(t)
 
 	cam := secspyServer.Cameras.ByName("Porch")
 	asert.Equal(1, cam.Number, "camera 1 is Porch in the test data")

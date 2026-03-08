@@ -8,6 +8,7 @@ linters:
     - funcorder
     - noinlineerr
     - exhaustive
+    - nlreturn
   settings:
     gocritic:
       enable-all: true

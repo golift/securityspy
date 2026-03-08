@@ -2,7 +2,6 @@ package securityspy_test
 
 import (
 	"encoding/xml"
-	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,14 +11,22 @@ import (
 func TestPTZPresetCommandMapping(t *testing.T) {
 	t.Parallel()
 
-	_, fake, camera := testServerWithCamera(t)
+	_, recorder, camera := testServerWithCamera(t)
 	require.NotNil(t, camera.PTZ)
 
-	fake.EXPECT().SimpleReq("++ptz/command", url.Values{"command": []string{"12"}}, camera.Number)
 	require.NoError(t, camera.PTZ.Preset(securityspy.PTZpreset1))
 
-	fake.EXPECT().SimpleReq("++ptz/command", url.Values{"command": []string{"112"}}, camera.Number)
+	req, found := recorder.findLast("/++ptz/command")
+	require.True(t, found)
+	require.Equal(t, "12", req.Query.Get("command"))
+	require.Equal(t, "1", req.Query.Get("cameraNum"))
+
 	require.NoError(t, camera.PTZ.PresetSave(securityspy.PTZpreset1))
+
+	req, found = recorder.findLast("/++ptz/command")
+	require.True(t, found)
+	require.Equal(t, "112", req.Query.Get("command"))
+	require.Equal(t, "1", req.Query.Get("cameraNum"))
 }
 
 func TestPTZCapabilitiesSpeedAndContinuous(t *testing.T) {

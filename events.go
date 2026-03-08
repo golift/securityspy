@@ -294,7 +294,7 @@ func (e *Events) eventStreamSelector(ctx context.Context, refreshOnConfigChange 
 			return
 		case EventConfigChange:
 			if refreshOnConfigChange {
-				e.serverRefresh()
+				e.serverRefresh(ctx)
 			}
 		}
 
@@ -313,8 +313,8 @@ func (e *Events) eventStreamSelector(ctx context.Context, refreshOnConfigChange 
 	}
 }
 
-func (e *Events) serverRefresh() {
-	if err := e.server.Refresh(); err != nil {
+func (e *Events) serverRefresh(ctx context.Context) {
+	if err := e.server.RefreshContext(ctx); err != nil {
 		e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
 
 		return
