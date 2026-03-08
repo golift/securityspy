@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golift.io/securityspy"
+	"golift.io/securityspy/v2"
 )
 
 func TestPTZPresetCommandMapping(t *testing.T) {

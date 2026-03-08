@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"golift.io/securityspy/server"
+	"golift.io/securityspy/v2/server"
 )
 
 // New returns an interface to interact with SecuritySpy.

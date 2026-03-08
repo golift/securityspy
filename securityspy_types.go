@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"golift.io/securityspy/server"
+	"golift.io/securityspy/v2/server"
 )
 
 // Server is the main interface for this library.
