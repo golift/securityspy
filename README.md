@@ -1,6 +1,6 @@
 # go-securityspy
 
-![reportcard](https://goreportcard.com/badge/golift.io/securityspy)
+![reportcard](https://goreportcard.com/badge/golift.io/securityspy/v2)
 
 ## OVERVIEW
 
@@ -16,7 +16,7 @@ Find it here: [https://github.com/davidnewhall/SecSpyCLI](https://github.com/dav
 It's full of great examples on how to use this library, and can be easily installed with homebrew.
 
 - Works with SecuritySpy 4 and 5 and probably 6.
-- There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy).
+- There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy/v2).
 
 ## BREAKING CHANGES 3/7/2026
 
@@ -83,8 +83,8 @@ import (
 	"fmt"
 	"time"
 
-	"golift.io/securityspy"
-	"golift.io/securityspy/server"
+	"golift.io/securityspy/v2"
+	"golift.io/securityspy/v2/server"
 )
 
 func main() {

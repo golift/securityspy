@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golift.io/securityspy/server"
+	"golift.io/securityspy/v2/server"
 )
 
 func TestEventSelectorNonBlockingChannels(t *testing.T) {

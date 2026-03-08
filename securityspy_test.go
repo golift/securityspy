@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golift.io/securityspy"
-	"golift.io/securityspy/server"
+	"golift.io/securityspy/v2"
+	"golift.io/securityspy/v2/server"
 )
 
 func TestGetServer(t *testing.T) {

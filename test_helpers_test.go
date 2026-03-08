@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golift.io/securityspy"
-	"golift.io/securityspy/server"
+	"golift.io/securityspy/v2"
+	"golift.io/securityspy/v2/server"
 )
 
 type recordedRequest struct {
