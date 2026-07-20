@@ -34,7 +34,7 @@ sspy, err := securityspy.New(&server.Config{
 
 **Snapshot:** `cam.SaveJPEG(&VidOps{Width: 1280, Quality: 80}, path)` — fails if path exists.
 
-**Clip:** `cam.SaveVideo(ops, length, maxBytes, path)` — needs ffmpeg.
+**Clip:** `cam.SaveVideo(ops, length, maxBytes, path)` — pure-Go RTSP remux (H.264 + AAC); no ffmpeg. Prefer `ACodec: "aac"` (default). `UseHTTP` is unsupported.
 
 **Recorded files:** `sspy.Files.GetMCVideos` / `GetImages` / `GetAll` then `file.Save(path)`.
 

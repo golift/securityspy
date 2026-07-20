@@ -51,12 +51,14 @@ Cached after Refresh: `ModeC`, `ModeM`, `ModeA`, schedule ID fields on `Camera`.
 |--------|-------|
 | `GetJPEG(*VidOps)` | `image.Image`; retries |
 | `SaveJPEG(*VidOps, path)` | No overwrite |
+| `StreamVideo` / `SaveVideo` | Pure-Go RTSP remux; length + maxsize; `UseHTTP` unsupported |
 | `StreamMJPG` / `StreamH264` / `StreamG711` | `io.ReadCloser`; Close when done |
 | `PostG711(r)` | Talk-back audio |
-| `StreamVideo` / `SaveVideo` | Needs ffmpeg; length + maxsize |
 | `HLSURL` / `HLSMediaPlaylistURL(q)` / `LiveURL` | URL strings |
 
-`VidOps`: `Width`, `Height`, `FPS`, `Quality` (≤100), `UseHTTP`, `VCodec`, `ACodec`.
+`VidOps`: `Width`, `Height`, `FPS`, `Quality` (≤100), `UseHTTP` (not for Save/StreamVideo), `VCodec`, `ACodec` (prefer `aac` for remux).
+
+`Server.Encoder` / `DefaultEncoder` are deprecated no-ops (kept for API compatibility).
 
 ## Files
 

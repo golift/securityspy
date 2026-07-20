@@ -19,6 +19,9 @@ import (
 type Server struct {
 	*server.Config
 
+	// Encoder was previously the path to an ffmpeg binary.
+	//
+	// Deprecated: unused; video capture is pure Go and does not shell out to ffmpeg.
 	Encoder string
 	Files   *Files       // Files interface.
 	Events  *Events      // Events interface.

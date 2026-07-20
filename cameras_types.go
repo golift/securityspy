@@ -17,8 +17,14 @@ var ErrCameraModesStatus = errors.New("camera modes request failed")
 // ErrCameraModesParse is returned when ++cameramodes body cannot be parsed.
 var ErrCameraModesParse = errors.New("camera modes response invalid")
 
-// DefaultEncoder is the path to ffmpeg.
+// DefaultEncoder is the historical default path to ffmpeg.
+//
+// Deprecated: unused; video capture is pure Go and does not shell out to ffmpeg.
 const DefaultEncoder = "/usr/local/bin/ffmpeg"
+
+// ErrHTTPVideoUnsupported is returned when VidOps.UseHTTP is set for SaveVideo/StreamVideo.
+// Those methods remux RTSP only; use StreamMJPG / StreamH264 for HTTP media.
+var ErrHTTPVideoUnsupported = errors.New("HTTP video remux unsupported; use RTSP (UseHTTP=false)")
 
 // CameraArmMode locks arming to an integer of 0 or 1.
 type CameraArmMode rune
@@ -42,12 +48,13 @@ type VidOps struct {
 	FPS int
 	// Optional quality override for video stream (defaults to camera quality).
 	Quality int
-	// If true, use HTTP video endpoint instead of RTSP(S) stream endpoint.
+	// If true, request HTTP ++video instead of RTSP. Unsupported for SaveVideo/StreamVideo
+	// (returns ErrHTTPVideoUnsupported). Still used by StreamMJPG / related HTTP helpers.
 	UseHTTP bool
 	// Optional codec override for video stream (defaults to h264).
-	// For ++video HTTP streams: jpeg, h264, h265, or h26x.
 	VCodec string
-	// Optional codec override for audio stream (defaults to aac).
+	// Optional codec override for audio on RTSP remux (defaults to aac).
+	// Prefer aac for SaveVideo/StreamVideo; non-AAC audio is omitted from the MP4.
 	ACodec string
 }
 

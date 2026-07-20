@@ -16,7 +16,7 @@ web API. Offline v5/v6 specs and live fixtures are in [`.archive/`](.archive/REA
 
 Everything is reasonably tested and working. Feedback is welcomed!
 
-`ffmpeg` is used if you want video snippets, but not required for most functions.
+Video snippets (`SaveVideo` / `StreamVideo`) remux RTSP H.264 (+ AAC when present) in pure Go — no ffmpeg binary required. `Server.Encoder` / `DefaultEncoder` remain for API compatibility but are unused. `VidOps.UseHTTP` is not supported for those methods (use `StreamMJPG` for HTTP MJPEG).
 
 A command line interface app that uses this library exists. Most of the testing is done with this app.
 Find it here: [https://github.com/davidnewhall/SecSpyCLI](https://github.com/davidnewhall/SecSpyCLI)
@@ -48,7 +48,7 @@ It's full of great examples on how to use this library, and can be easily instal
 - Stream live H264 or MJPEG video from an `io.ReadCloser`.
 - Stream live G711 audio from an `io.ReadCloser`.
 - Submit G711 audio (files or microphone) to a camera from an `io.ReadCloser`.
-- Save live video snippets locally (requires `FFMPEG`).
+- Save live video snippets locally (pure-Go RTSP remux; no ffmpeg).
 - Get live JPEG images in `image` format, or save files locally.
 - Read armed/disarmed status via `Camera.Modes()` and build HLS / HLS playlist / live / multiplex URLs.
 - Arm and Disarm actions, motion capture and continuous capture.
