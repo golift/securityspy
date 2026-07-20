@@ -16,7 +16,7 @@ Talk to SecuritySpy’s **web API** directly (not the Go SDK). Run the CLI under
 Pass credentials every time (or via env). Never commit passwords.
 
 | Flag / env | Meaning |
-|------------|---------|
+| ------------ | --------- |
 | `--url` / `SECURITYSPY_URL` | Base URL, default `http://127.0.0.1:8000` |
 | `--user` / `SECURITYSPY_USER` | Username (required) |
 | `--password` / `SECURITYSPY_PASS` | Password (required) |

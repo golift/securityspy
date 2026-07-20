@@ -26,7 +26,7 @@ class SSClient:
         user: str,
         password: str,
         *,
-        insecure: bool = True,
+        insecure: bool = False,
         timeout: float = 30.0,
     ):
         self.base = base.rstrip("/") + "/"
