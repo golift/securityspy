@@ -1,6 +1,7 @@
 package securityspy
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -175,66 +176,92 @@ func (c *Camera) PostG711(audio io.ReadCloser) ([]byte, error) {
 // VidOps defines the image size. ops.FPS is ignored.
 // Makes several attempts in case of an error or time out.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
+	data, err := c.fetchJPEGBytes(ops)
+	if err != nil {
+		return nil, err
+	}
+
+	jpgImage, err := jpeg.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("decoding jpeg: %w", err)
+	}
+
+	return jpgImage, nil
+}
+
+// SaveJPEG gets a picture from a camera and puts it in a file (path).
+// Fails if the path already exists. VidOps defines the image size; ops.FPS is ignored.
+// Writes the server JPEG bytes directly (no decode/re-encode).
+func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		return ErrPathExists
+	}
+
+	data, err := c.fetchJPEGBytes(ops)
+	if err != nil {
+		return fmt.Errorf("getting jpeg: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, jpegFilePerm); err != nil {
+		return fmt.Errorf("writing jpeg: %w", err)
+	}
+
+	return nil
+}
+
+// fetchJPEGBytes downloads a still from ++image. The request context stays alive
+// until the body is fully read — canceling earlier truncates the JPEG.
+func (c *Camera) fetchJPEGBytes(ops *VidOps) ([]byte, error) {
 	if ops == nil {
 		ops = &VidOps{}
 	}
 
 	ops.FPS = -1 // not used for single image
 
-	var lastErr error
+	client := c.streamHTTPClient() // Timeout=0; context bounds the whole fetch
 
-	for range c.server.JPEGTries() {
-		ctx, cancel := context.WithTimeout(context.Background(), c.server.TimeoutDur())
-		resp, err := c.server.GetContext(ctx, "++image", c.makeRequestParams(ops))
+	// Single short attempt — dead cameras must fail in ~2s, not stall /pics.
+	ctx, cancel := context.WithTimeout(context.Background(), c.jpegFetchTimeout())
 
+	resp, err := c.server.GetContextClient(ctx, "++image", c.makeRequestParams(ops), client)
+	if err != nil {
 		cancel()
 
-		if err != nil {
-			lastErr = fmt.Errorf("getting image: %w", err)
-
-			continue
-		}
-
-		jpgImage, err := jpeg.Decode(resp.Body)
-		_ = resp.Body.Close()
-
-		if err != nil {
-			lastErr = fmt.Errorf("decoding jpeg: %w", err)
-
-			continue
-		}
-
-		return jpgImage, nil
+		return nil, fmt.Errorf("getting image: %w", err)
 	}
 
-	return nil, lastErr
+	data, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+
+	cancel()
+
+	if err != nil {
+		return nil, fmt.Errorf("reading image: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("%w: %s", ErrCameraUnavailable, c.Name)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: status %d (%d bytes)", server.ErrCmdNotOK, resp.StatusCode, len(data))
+	}
+
+	if len(data) < 2 || data[0] != 0xFF || data[1] != 0xD8 {
+		preview := data
+		if len(preview) > jpegSOIPreviewMax {
+			preview = preview[:jpegSOIPreviewMax]
+		}
+
+		return nil, fmt.Errorf("%w: got %q", ErrInvalidJPEG, preview)
+	}
+
+	return data, nil
 }
 
-// SaveJPEG gets a picture from a camera and puts it in a file (path).
-// The file will be overwritten if it exists.
-// VidOps defines the image size. ops.FPS is ignored.
-func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return ErrPathExists
-	}
-
-	jpgImage, err := c.GetJPEG(ops)
-	if err != nil {
-		return fmt.Errorf("getting jpeg: %w", err)
-	}
-
-	oFile, err := os.Create(path) //nolint:gosec // we are creating a file in a safe way.
-	if err != nil {
-		return fmt.Errorf("os.Create: %w", err)
-	}
-	defer oFile.Close()
-
-	err = jpeg.Encode(oFile, jpgImage, nil)
-	if err != nil {
-		return fmt.Errorf("encoding jpeg: %w", err)
-	}
-
-	return nil
+// jpegFetchTimeout is intentionally short so offline/hung cameras fail fast in /pics.
+func (c *Camera) jpegFetchTimeout() time.Duration {
+	return jpegFetchTimeoutSec * time.Second
 }
 
 // ToggleContinuous arms or disarms continuous capture via ++ssControlContinuous.
