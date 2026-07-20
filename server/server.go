@@ -125,7 +125,9 @@ func (s *Config) GetContextClient( //nolint:cyclop // might make it less complic
 
 	if !strings.HasPrefix(api, "++getfile") && !strings.HasPrefix(api, "++event") &&
 		!strings.HasPrefix(api, "++image") && !strings.HasPrefix(api, "++audio") &&
-		!strings.HasPrefix(api, "++stream") && !strings.HasPrefix(api, "++video") {
+		!strings.HasPrefix(api, "++stream") && !strings.HasPrefix(api, "++video") &&
+		!strings.HasPrefix(api, "++hls") && !strings.HasPrefix(api, "++multiplex") &&
+		!strings.HasPrefix(api, "++live") && !strings.HasPrefix(api, "++cameramodes") {
 		params.Set("format", "xml")
 		req.Header.Add("Accept", "application/xml")
 	}
@@ -274,9 +276,73 @@ func (s *Config) SimpleReqContext(ctx context.Context, apiURI string, params url
 	}
 
 	body, err := io.ReadAll(resp.Body)
-	if err != nil || !strings.HasSuffix(string(body), "OK") {
+	if err != nil || !replyOK(body) {
 		return ErrCmdNotOK
 	}
 
 	return nil
+}
+
+// replyOK reports whether a SecuritySpy response body indicates success.
+func replyOK(body []byte) bool {
+	text := strings.TrimSpace(string(body))
+	if strings.HasSuffix(text, "OK") {
+		return true
+	}
+
+	// v6 settings POST returns JSON: {"result":"OK"}
+	return strings.Contains(text, `"result"`) && strings.Contains(text, `"OK"`)
+}
+
+// PostFormContext POSTs application/x-www-form-urlencoded data and requires an OK reply.
+func (s *Config) PostFormContext(ctx context.Context, apiPath string, form url.Values) error {
+	if form == nil {
+		form = make(url.Values)
+	}
+
+	params := make(url.Values)
+	if s.Password != "" {
+		params.Set("auth", s.Password)
+	}
+
+	if s.Client == nil {
+		s.Client = s.HTTPClient()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL+apiPath, strings.NewReader(form.Encode()))
+	if err != nil {
+		return fmt.Errorf("http.NewRequest(): %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.URL.RawQuery = params.Encode()
+
+	resp, err := s.Client.Do(req)
+	if err != nil {
+		return fmt.Errorf("http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading body: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		return ErrNotFound
+	}
+
+	if resp.StatusCode != http.StatusOK || !replyOK(body) {
+		return ErrCmdNotOK
+	}
+
+	return nil
+}
+
+// PostForm POSTs form values with the default timeout.
+func (s *Config) PostForm(apiPath string, form url.Values) error {
+	ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutDur())
+	defer cancel()
+
+	return s.PostFormContext(ctx, apiPath, form)
 }

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+  <autoClose>0</autoClose>
+  <autoCloseMins>10</autoCloseMins>
+  <cropMode>0</cropMode>
+  <defaultWindow>0</defaultWindow>
+  <displayQuality>3</displayQuality>
+  <divThickness>1</divThickness>
+  <excludedScreens></excludedScreens>
+  <floatVideo>false</floatVideo>
+  <groups><item><cameras><item>2</item><item>5</item><item>6</item><item>9</item><item>11</item><item>12</item></cameras><columnCount>0</columnCount><cycleSeconds>10</cycleSeconds><displayType>2</displayType><groupId>1</groupId><name>Base</name><visible>false</visible></item><item><cameras><item>2</item><item>4</item><item>5</item><item>7</item><item>9</item></cameras><columnCount>0</columnCount><cycleSeconds>10</cycleSeconds><displayType>0</displayType><groupId>2</groupId><name>Garage</name><visible>false</visible></item></groups>
+  <infoAudio>true</infoAudio>
+  <infoBar>1</infoBar>
+  <infoFps1>true</infoFps1>
+  <infoFps2>true</infoFps2>
+  <infoName>true</infoName>
+  <infoStatus>true</infoStatus>
+  <kioskMode>false</kioskMode>
+  <lowRate>true</lowRate>
+  <motionBox>true</motionBox>
+  <rememberCamControlPos>false</rememberCamControlPos>
+  <replaySeconds>4</replaySeconds>
+</settings>

@@ -71,7 +71,7 @@ func testServerWithCamera(t *testing.T) (*securityspy.Server, *requestRecorder, 
 		switch req.URL.Path {
 		case systemInfoPath:
 			resp.Header().Set("Content-Type", "application/xml")
-			_, _ = resp.Write([]byte(testSystemInfo))
+			_, _ = resp.Write([]byte(testSystemInfoV6))
 		case "/++ssControlContinuous", "/++ssControlMotionCapture", "/++ssControlActions",
 			"/++triggermd", "/++ssSetSchedule", "/++ssSetOverride",
 			"/++ptz/command", "/++ssSetPreset":
@@ -83,7 +83,11 @@ func testServerWithCamera(t *testing.T) (*securityspy.Server, *requestRecorder, 
 
 	require.NoError(t, serverObj.Refresh())
 
-	camera := serverObj.Cameras.ByNum(1)
+	camera := serverObj.Cameras.ByNum(3)
+	if camera == nil {
+		camera = serverObj.Cameras.ByNum(1)
+	}
+
 	require.NotNil(t, camera)
 
 	return serverObj, recorder, camera

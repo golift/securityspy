@@ -11,7 +11,7 @@ func TestUnmarshalEventWithoutInfo(t *testing.T) {
 	t.Parallel()
 
 	secspyServer, _, _ := testServerWithCamera(t)
-	event := secspyServer.Events.UnmarshalEvent("20190927091955 1 1 ARM_C")
+	event := secspyServer.Events.UnmarshalEvent("20190927091955 1 3 ARM_C")
 
 	require.Equal(t, 1, event.ID)
 	require.Equal(t, securityspy.EventArmContinuous, event.Type)
@@ -34,7 +34,7 @@ func TestUnmarshalEventTriggerReasons(t *testing.T) {
 	t.Parallel()
 
 	secspyServer, _, _ := testServerWithCamera(t)
-	event := secspyServer.Events.UnmarshalEvent("20190927092026 5 1 TRIGGER_M 3")
+	event := secspyServer.Events.UnmarshalEvent("20190927092026 5 3 TRIGGER_M 3")
 
 	require.Equal(t, securityspy.EventTriggerMotion, event.Type)
 	require.Contains(t, event.Msg, "Motion Detected")
@@ -46,7 +46,7 @@ func TestUnmarshalEventMotionEnd(t *testing.T) {
 	t.Parallel()
 
 	secspyServer, _, _ := testServerWithCamera(t)
-	event := secspyServer.Events.UnmarshalEvent("20190927092040 9 1 MOTION_END")
+	event := secspyServer.Events.UnmarshalEvent("20190927092040 9 3 MOTION_END")
 
 	require.Equal(t, 9, event.ID)
 	require.Equal(t, securityspy.EventMotionEnd, event.Type)
@@ -59,7 +59,7 @@ func TestUnmarshalEventTriggerReasonsNewFlags(t *testing.T) {
 	t.Parallel()
 
 	secspyServer, _, _ := testServerWithCamera(t)
-	event := secspyServer.Events.UnmarshalEvent("20190927092026 6 1 TRIGGER_A 12288")
+	event := secspyServer.Events.UnmarshalEvent("20190927092026 6 3 TRIGGER_A 12288")
 
 	require.Equal(t, securityspy.EventTriggerAction, event.Type)
 	require.Contains(t, event.Msg, "Human Departure")

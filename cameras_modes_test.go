@@ -41,6 +41,6 @@ func TestCameraHLSURL(t *testing.T) {
 
 	url := camera.HLSURL()
 	require.Contains(t, url, "++hls?")
-	require.Contains(t, url, "cameraNum=1")
+	require.Contains(t, url, "cameraNum=3")
 	require.Contains(t, url, "auth=")
 }

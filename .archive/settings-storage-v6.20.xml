@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+  <archiveMode>0</archiveMode>
+  <archiveStorage></archiveStorage>
+  <diskWaitTime>30</diskWaitTime>
+  <globalStorage>/Cameras</globalStorage>
+  <removeAgeNonSys>30</removeAgeNonSys>
+  <removeAgeSys>30</removeAgeSys>
+  <removeAutoNonSys>0</removeAutoNonSys>
+  <removeAutoSys>0</removeAutoSys>
+  <removeByAge>true</removeByAge>
+  <removeBySpace>true</removeBySpace>
+  <removeGbNonSys>1000</removeGbNonSys>
+  <removeGbSys>400</removeGbSys>
+  <tag-1>false</tag-1>
+  <tag-2>false</tag-2>
+  <tag-3>false</tag-3>
+  <tag-4>false</tag-4>
+  <tag-5>false</tag-5>
+  <tag-6>false</tag-6>
+  <tag-7>false</tag-7>
+  <usageWarningGb>4</usageWarningGb>
+</settings>

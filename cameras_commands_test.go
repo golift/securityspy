@@ -18,14 +18,14 @@ func TestToggleContinuousUsesNumericArmValues(t *testing.T) {
 	req, found := recorder.findLast("/++ssControlContinuous")
 	require.True(t, found)
 	require.Equal(t, "0", req.Query.Get("arm"))
-	require.Equal(t, "1", req.Query.Get("cameraNum"))
+	require.Equal(t, "3", req.Query.Get("cameraNum"))
 
 	require.NoError(t, camera.ToggleContinuous(securityspy.CameraArm))
 
 	req, found = recorder.findLast("/++ssControlContinuous")
 	require.True(t, found)
 	require.Equal(t, "1", req.Query.Get("arm"))
-	require.Equal(t, "1", req.Query.Get("cameraNum"))
+	require.Equal(t, "3", req.Query.Get("cameraNum"))
 }
 
 func TestToggleContinuousUnsupported(t *testing.T) {
@@ -38,7 +38,7 @@ func TestToggleContinuousUnsupported(t *testing.T) {
 		switch req.URL.Path {
 		case systemInfoPath:
 			resp.Header().Set("Content-Type", "application/xml")
-			_, _ = resp.Write([]byte(testSystemInfo))
+			_, _ = resp.Write([]byte(testSystemInfoV6))
 		case "/++ssControlContinuous":
 			http.NotFound(resp, req)
 		default:
@@ -48,7 +48,7 @@ func TestToggleContinuousUnsupported(t *testing.T) {
 
 	require.NoError(t, serverObj.Refresh())
 
-	camera := serverObj.Cameras.ByNum(1)
+	camera := serverObj.Cameras.ByNum(3)
 	require.NotNil(t, camera)
 
 	err := camera.ToggleContinuous(securityspy.CameraArm)
@@ -65,7 +65,7 @@ func TestToggleMotionUsesNumericArmValues(t *testing.T) {
 	req, found := recorder.findLast("/++ssControlMotionCapture")
 	require.True(t, found)
 	require.Equal(t, "1", req.Query.Get("arm"))
-	require.Equal(t, "1", req.Query.Get("cameraNum"))
+	require.Equal(t, "3", req.Query.Get("cameraNum"))
 }
 
 func TestToggleActionsUsesNumericArmValues(t *testing.T) {
@@ -78,5 +78,5 @@ func TestToggleActionsUsesNumericArmValues(t *testing.T) {
 	req, found := recorder.findLast("/++ssControlActions")
 	require.True(t, found)
 	require.Equal(t, "0", req.Query.Get("arm"))
-	require.Equal(t, "1", req.Query.Get("cameraNum"))
+	require.Equal(t, "3", req.Query.Get("cameraNum"))
 }

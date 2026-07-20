@@ -5,11 +5,12 @@
 ## OVERVIEW
 
 (Nearly) Full Featured Go Library for [SecuritySpy](https://www.bensoftware.com/securityspy/)'s
-web API. Offline v5/v6 specs are archived in [`.archive/`](.archive/README.md).
+web API. Offline v5/v6 specs and live fixtures are in [`.archive/`](.archive/README.md).
 
-- Targets **SecuritySpy v5 and v6** (validated against 5.5.11).
+- Targets **SecuritySpy v5 and v6** (validated against **6.20**; v5 dual-read for `++systemInfo`).
 - Authentication uses the `auth=` query parameter (base64 `username:password`), set automatically from `server.Config` credentials.
-- `ToggleContinuous` may return `ErrUnsupported` on v5 builds without `++ssControlContinuous`; use `SetSchedule` with continuous mode instead.
+- Full **Settings** API: `Get/Set*Settings` for general, display, storage, compression, email, web, and cameras.
+- `ToggleContinuous` may return `ErrUnsupported` when `++ssControlContinuous` is missing (still true on 6.20); use `SetSchedule` with continuous mode instead.
 - Trigger reason bit **512** means **Animal** on v5 and **HomeKit** on v6; this library uses the v6 layout.
 - There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy/v2).
 
@@ -39,7 +40,8 @@ It's full of great examples on how to use this library, and can be easily instal
 
 ### Settings
 
-- No support for settings yet.
+- Read and update general, display, storage, compression, email, web, and per-camera settings (`++settings-*`).
+- Set methods accept `url.Values` for partial updates (v6 POST returns `{"result":"OK"}`).
 
 ### Cameras
 
@@ -48,7 +50,7 @@ It's full of great examples on how to use this library, and can be easily instal
 - Submit G711 audio (files or microphone) to a camera from an `io.ReadCloser`.
 - Save live video snippets locally (requires `FFMPEG`).
 - Get live JPEG images in `image` format, or save files locally.
-- Read armed/disarmed status via `Camera.Modes()` and build HLS URLs via `Camera.HLSURL()`.
+- Read armed/disarmed status via `Camera.Modes()` and build HLS / HLS playlist / live / multiplex URLs.
 - Arm and Disarm actions, motion capture and continuous capture.
 - Trigger Motion.
 - Set schedules and schedule overrides.

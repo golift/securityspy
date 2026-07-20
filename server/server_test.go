@@ -195,6 +195,31 @@ func TestSimpleReqNotFound(t *testing.T) {
 	require.ErrorIs(t, config.SimpleReq("++missing", url.Values{}, 1), server.ErrNotFound)
 }
 
+func TestPostFormOK(t *testing.T) {
+	t.Parallel()
+
+	config := &server.Config{
+		URL:       urlStr,
+		VerifySSL: false,
+		Timeout:   server.Duration{time.Second},
+	}
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", req.Method)
+		}
+
+		_, _ = resp.Write([]byte(`{"result":"OK"}`))
+	})
+
+	httpClient, fakeServer := testingHTTPClient(handler)
+	defer fakeServer.Close()
+
+	config.Client = httpClient
+
+	require.NoError(t, config.PostForm("++settings-general", url.Values{"sysName": {"test"}}))
+}
+
 // testingHTTPClient sets up a fake server for testing secReq().
 func testingHTTPClient(handler http.Handler) (*http.Client, *httptest.Server) {
 	fakeServer := httptest.NewServer(handler)

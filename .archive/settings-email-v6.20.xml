@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+  <address></address>
+  <downtimeEmail>false</downtimeEmail>
+  <encryption>1</encryption>
+  <errEmailLevel>1</errEmailLevel>
+  <fps>1</fps>
+  <fromEmail>user@example.test</fromEmail>
+  <fromName>Example SecuritySpy</fromName>
+  <imageCount>2</imageCount>
+  <maxRes>10</maxRes>
+  <mediaType>1</mediaType>
+  <sendingMethod>1</sendingMethod>
+  <statsEmail>true</statsEmail>
+  <subject></subject>
+  <sysEmail>admin@example.test</sysEmail>
+  <username>user@example.test</username>
+</settings>
