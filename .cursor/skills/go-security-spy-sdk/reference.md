@@ -57,7 +57,7 @@ Cached after Refresh: `ModeC`, `ModeM`, `ModeA`, schedule ID fields on `Camera`.
 | `PostG711(r)` | Talk-back audio |
 | `HLSURL` / `HLSMediaPlaylistURL(q)` / `LiveURL` | URL strings |
 
-`VidOps`: `Width`, `Height`, `FPS`, `Quality` (≤100), `UseHTTP` (not for Save/StreamVideo), `VCodec`, `ACodec` (prefer `aac` for remux).
+`VidOps`: `Width`, `Height`, `FPS`, `Quality` (≤100), `UseHTTP` (not for Save/StreamVideo), `VCodec` (`h264` default; `h265` for HEVC — see `PreferredVCodec()`), `ACodec` (prefer `aac` for remux).
 
 `Server.Encoder` / `DefaultEncoder` are deprecated no-ops (kept for API compatibility).
 

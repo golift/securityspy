@@ -111,6 +111,15 @@ func TestMakeVideoURLOmitsUserinfoWithoutAuth(t *testing.T) {
 	require.NotContains(t, raw, "@")
 }
 
+func TestPreferredVCodec(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "h264", (&Camera{VideoFormat: "H.264"}).PreferredVCodec())
+	require.Equal(t, "h265", (&Camera{VideoFormat: "H.265"}).PreferredVCodec())
+	require.Equal(t, "h265", (&Camera{VideoFormat: "HEVC"}).PreferredVCodec())
+	require.Equal(t, "h264", (&Camera{}).PreferredVCodec())
+}
+
 func TestMakeVideoURLRejectsUseHTTP(t *testing.T) {
 	t.Parallel()
 

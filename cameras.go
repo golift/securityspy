@@ -54,7 +54,7 @@ func (c *Cameras) ByName(name string) *Camera {
 }
 
 // StreamVideo returns a ReadCloser that yields a progressive fragmented MP4
-// (H.264 + AAC when present at init time). Init is written after the first IDR;
+// (H.264 or H.265 + AAC when present at init time). Init is written after the first IDR;
 // media fragments flush while capture continues. Close() cancels an in-progress capture.
 // UseHTTP is not supported (returns ErrHTTPVideoUnsupported).
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
@@ -71,8 +71,9 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 	return video, nil
 }
 
-// SaveVideo saves a short RTSP remux (H.264 + AAC when present) to an MP4/MOV path.
+// SaveVideo saves a short RTSP remux (H.264 or H.265 + AAC when present) to an MP4/MOV path.
 // UseHTTP is not supported (returns ErrHTTPVideoUnsupported).
+// Set VidOps.VCodec to "h265" for HEVC cameras (see PreferredVCodec).
 func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, outputFile string) error {
 	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
 		return ErrPathExists
@@ -467,6 +468,17 @@ func (c *Camera) streamHTTPClient() *http.Client {
 }
 
 // makeVideoURL builds an RTSP(S) ++stream URL with userinfo credentials.
+// PreferredVCodec returns the RTSP vcodec query value that matches this camera's
+// native VideoFormat from ++systemInfo ("h265" for H.265/HEVC, otherwise "h264").
+func (c *Camera) PreferredVCodec() string {
+	format := strings.ToUpper(c.VideoFormat)
+	if strings.Contains(format, "265") || strings.Contains(format, "HEVC") {
+		return "h265"
+	}
+
+	return "h264"
+}
+
 // SecuritySpy rejects query auth= on RTSP; HTTP auth= is unchanged elsewhere.
 // UseHTTP is unsupported for SaveVideo/StreamVideo.
 func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) (string, error) { //nolint:cyclop // ops/codec branches

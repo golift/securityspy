@@ -16,7 +16,7 @@ web API. Offline v5/v6 specs and live fixtures are in [`.archive/`](.archive/REA
 
 Everything is reasonably tested and working. Feedback is welcomed!
 
-Video snippets remux RTSP H.264 (+ AAC when present) in pure Go — no ffmpeg binary required. `SaveVideo` writes a complete fMP4 after capture; `StreamVideo` emits progressive fMP4 fragments while capture runs. `Server.Encoder` / `DefaultEncoder` remain for API compatibility but are unused. `VidOps.UseHTTP` is not supported for those methods (use `StreamMJPG` for HTTP MJPEG).
+Video snippets remux RTSP H.264 or H.265 (+ AAC when present) in pure Go — no ffmpeg binary required. `SaveVideo` writes a complete fMP4 after capture; `StreamVideo` emits progressive fMP4 fragments while capture runs. Default `VidOps.VCodec` is `h264`; use `Camera.PreferredVCodec()` (from `VideoFormat`) or set `h265` for HEVC cams. `Server.Encoder` / `DefaultEncoder` remain for API compatibility but are unused. `VidOps.UseHTTP` is not supported for those methods (use `StreamMJPG` for HTTP MJPEG).
 
 A command line interface app that uses this library exists. Most of the testing is done with this app.
 Find it here: [https://github.com/davidnewhall/SecSpyCLI](https://github.com/davidnewhall/SecSpyCLI)

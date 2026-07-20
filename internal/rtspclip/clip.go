@@ -1,4 +1,4 @@
-// Package rtspclip captures short H.264 (+ optional AAC) clips from RTSP/RTSPS.
+// Package rtspclip captures short H.264/H.265 (+ optional AAC) clips from RTSP/RTSPS.
 package rtspclip
 
 import (
@@ -18,8 +18,10 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
+	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph265"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpmpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/pion/rtp"
 )
@@ -28,15 +30,25 @@ import (
 var (
 	ErrBadDuration = errors.New("rtspclip: Duration must be > 0")
 	ErrBadPath     = errors.New("rtspclip: path required")
-	ErrNoH264      = errors.New("rtspclip: no H264 media in DESCRIBE")
+	ErrNoVideo     = errors.New("rtspclip: no H.264/H.265 media in DESCRIBE")
+	// ErrNoH264 is an alias of ErrNoVideo for older callers.
+	ErrNoH264      = ErrNoVideo
 	ErrNoFrames    = errors.New("rtspclip: no video frames captured")
-	ErrNoParameter = errors.New("rtspclip: missing SPS/PPS at IDR")
+	ErrNoParameter = errors.New("rtspclip: missing parameter sets at IDR")
+)
+
+type videoCodec int
+
+const (
+	codecH264 videoCodec = iota
+	codecH265
 )
 
 const (
-	clockRateH264         = 90000
+	clockRateVideo        = 90000
 	defaultFrameTicks     = 3000 // ~30fps in 90kHz
-	nalTypeMask           = 0x1F
+	nalTypeMaskH264       = 0x1F
+	nalTypeMaskH265       = 0x3F
 	avccLengthSize        = 4
 	videoTrackID          = 1
 	audioTrackID          = 2
@@ -44,6 +56,11 @@ const (
 	aacBitsPerSample      = 16
 	fragmentFrames        = 15 // ~0.5s at 30fps between progressive flushes
 )
+
+// dtsExtractor is shared by H.264 and H.265 DTS extractors.
+type dtsExtractor interface {
+	Extract(au [][]byte, pts int64) (int64, error)
+}
 
 // Options control a timed RTSP clip capture.
 type Options struct {
@@ -60,7 +77,7 @@ type Result struct {
 	HasAudio bool
 }
 
-// SaveMP4 pulls H.264 (and AAC when present) from rtspURL into a fragmented MP4 file.
+// SaveMP4 pulls H.264 or H.265 (and AAC when present) from rtspURL into a fragmented MP4 file.
 //
 // SecuritySpy RTSP rejects query auth=; use userinfo: rtsps://user:pass@host/stream?...
 func SaveMP4(ctx context.Context, rtspURL, path string, opts Options) (*Result, error) {
@@ -161,7 +178,7 @@ func capture(ctx context.Context, rtspURL string, opts Options, writer io.Writer
 		return nil, err
 	}
 
-	mux := newFMP4Muxer(writer, tracks.h264.SPS, tracks.h264.PPS, tracks.aac, progressive)
+	mux := newFMP4MuxerFromTracks(writer, tracks, progressive)
 
 	captureCtx, cancel := context.WithTimeout(ctx, opts.Duration+captureTimeoutPadding)
 	defer cancel()
@@ -210,6 +227,9 @@ type mediaTracks struct {
 	h264Media *description.Media
 	h264      *format.H264
 	h264Dec   *rtph264.Decoder
+	h265Media *description.Media
+	h265      *format.H265
+	h265Dec   *rtph265.Decoder
 	aacMedia  *description.Media
 	aac       *format.MPEG4Audio
 	aacDec    *rtpmpeg4audio.Decoder
@@ -219,16 +239,26 @@ func openTracks(session *description.Session) (*mediaTracks, error) {
 	tracks := &mediaTracks{}
 
 	tracks.h264Media = session.FindFormat(&tracks.h264)
-	if tracks.h264Media == nil {
-		return nil, ErrNoH264
-	}
+	if tracks.h264Media != nil {
+		dec, err := tracks.h264.CreateDecoder()
+		if err != nil {
+			return nil, fmt.Errorf("h264 rtp decoder: %w", err)
+		}
 
-	dec, err := tracks.h264.CreateDecoder()
-	if err != nil {
-		return nil, fmt.Errorf("h264 rtp decoder: %w", err)
-	}
+		tracks.h264Dec = dec
+	} else {
+		tracks.h265Media = session.FindFormat(&tracks.h265)
+		if tracks.h265Media == nil {
+			return nil, ErrNoVideo
+		}
 
-	tracks.h264Dec = dec
+		dec, err := tracks.h265.CreateDecoder()
+		if err != nil {
+			return nil, fmt.Errorf("h265 rtp decoder: %w", err)
+		}
+
+		tracks.h265Dec = dec
+	}
 
 	tracks.aacMedia = session.FindFormat(&tracks.aac)
 	if tracks.aacMedia == nil {
@@ -273,41 +303,76 @@ func attachVideo(
 	opts Options,
 	stop func(error),
 ) {
+	if tracks.h265 != nil {
+		attachH265(client, tracks, mux, state, opts, stop)
+
+		return
+	}
+
 	client.OnPacketRTP(tracks.h264Media, tracks.h264, func(pkt *rtp.Packet) {
-		if state.isDone() {
-			return
-		}
-
-		pts, ok := client.PacketPTS(tracks.h264Media, pkt)
-		if !ok {
-			return
-		}
-
-		accessUnit, err := tracks.h264Dec.Decode(pkt)
-		if err != nil {
-			if !errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) &&
-				!errors.Is(err, rtph264.ErrMorePacketsNeeded) {
-				stop(fmt.Errorf("rtp h264 decode: %w", err))
-			}
-
-			return
-		}
-
-		nbytes, err := mux.writeVideo(accessUnit, pts)
-		if err != nil {
-			stop(err)
-
-			return
-		}
-
-		if nbytes == 0 {
-			return
-		}
-
-		if state.noteVideo(nbytes, opts) {
-			stop(nil)
-		}
+		handleVideoAU(client, tracks.h264Media, tracks.h264Dec.Decode, mux, state, opts, stop, pkt,
+			rtph264.ErrNonStartingPacketAndNoPrevious, rtph264.ErrMorePacketsNeeded, "h264")
 	})
+}
+
+func attachH265(
+	client *gortsplib.Client,
+	tracks *mediaTracks,
+	mux *fmp4Muxer,
+	state *captureState,
+	opts Options,
+	stop func(error),
+) {
+	client.OnPacketRTP(tracks.h265Media, tracks.h265, func(pkt *rtp.Packet) {
+		handleVideoAU(client, tracks.h265Media, tracks.h265Dec.Decode, mux, state, opts, stop, pkt,
+			rtph265.ErrNonStartingPacketAndNoPrevious, rtph265.ErrMorePacketsNeeded, "h265")
+	})
+}
+
+func handleVideoAU(
+	client *gortsplib.Client,
+	media *description.Media,
+	decode func(*rtp.Packet) ([][]byte, error),
+	mux *fmp4Muxer,
+	state *captureState,
+	opts Options,
+	stop func(error),
+	pkt *rtp.Packet,
+	errNonStart, errMore error,
+	label string,
+) {
+	if state.isDone() {
+		return
+	}
+
+	pts, ok := client.PacketPTS(media, pkt)
+	if !ok {
+		return
+	}
+
+	accessUnit, err := decode(pkt)
+	if err != nil {
+		if !errors.Is(err, errNonStart) && !errors.Is(err, errMore) {
+			stop(fmt.Errorf("rtp %s decode: %w", label, err))
+		}
+
+		return
+	}
+
+	nbytes, err := mux.writeVideo(accessUnit, pts)
+	if err != nil {
+		stop(err)
+
+		return
+	}
+
+	if nbytes == 0 {
+		return
+	}
+
+	if state.noteVideo(nbytes, opts) {
+		stop(nil)
+	}
 }
 
 func attachAudio(
@@ -462,13 +527,14 @@ func (s *captureState) result(hasAudio bool) (*Result, error) {
 }
 
 type fmp4Muxer struct {
-	w           io.Writer
-	sps, pps    []byte
-	aacFormat   *format.MPEG4Audio
-	progressive bool
+	w             io.Writer
+	codec         videoCodec
+	vps, sps, pps []byte
+	aacFormat     *format.MPEG4Audio
+	progressive   bool
 
 	mu            sync.Mutex
-	dtsExtractor  *h264.DTSExtractor
+	dtsExtractor  dtsExtractor
 	started       bool
 	initWritten   bool
 	includeAudio  bool
@@ -485,9 +551,21 @@ type fmp4Muxer struct {
 	audioRate     uint32
 }
 
-func newFMP4Muxer(writer io.Writer, sps, pps []byte, aacFmt *format.MPEG4Audio, progressive bool) *fmp4Muxer {
+func newFMP4MuxerFromTracks(writer io.Writer, tracks *mediaTracks, progressive bool) *fmp4Muxer {
+	if tracks.h265 != nil {
+		return newFMP4Muxer(writer, codecH265, tracks.h265.VPS, tracks.h265.SPS, tracks.h265.PPS, tracks.aac, progressive)
+	}
+
+	return newFMP4Muxer(writer, codecH264, nil, tracks.h264.SPS, tracks.h264.PPS, tracks.aac, progressive)
+}
+
+func newFMP4Muxer(
+	writer io.Writer, codec videoCodec, vps, sps, pps []byte, aacFmt *format.MPEG4Audio, progressive bool,
+) *fmp4Muxer {
 	mux := &fmp4Muxer{
 		w:           writer,
+		codec:       codec,
+		vps:         vps,
 		sps:         sps,
 		pps:         pps,
 		aacFormat:   aacFmt,
@@ -512,7 +590,24 @@ func (m *fmp4Muxer) writeVideo(accessUnit [][]byte, pts int64) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	filtered, idr, sps, pps := filterAU(accessUnit)
+	var (
+		filtered [][]byte
+		idr      bool
+		vps      []byte
+		sps      []byte
+		pps      []byte
+	)
+
+	if m.codec == codecH265 {
+		filtered, idr, vps, sps, pps = filterAUH265(accessUnit)
+	} else {
+		filtered, idr, sps, pps = filterAUH264(accessUnit)
+	}
+
+	if vps != nil {
+		m.vps = vps
+	}
+
 	if sps != nil {
 		m.sps = sps
 	}
@@ -554,8 +649,20 @@ func (m *fmp4Muxer) ensureVideoStarted(idr bool, pts int64) error {
 		return ErrNoParameter
 	}
 
-	m.dtsExtractor = &h264.DTSExtractor{}
-	m.dtsExtractor.Initialize()
+	if m.codec == codecH265 {
+		if len(m.vps) == 0 {
+			return ErrNoParameter
+		}
+
+		ex := &h265.DTSExtractor{}
+		ex.Initialize()
+		m.dtsExtractor = ex
+	} else {
+		ex := &h264.DTSExtractor{}
+		ex.Initialize()
+		m.dtsExtractor = ex
+	}
+
 	m.started = true
 	m.prevVideoPTS = pts
 
@@ -576,7 +683,11 @@ func (m *fmp4Muxer) afterVideoSample() error {
 
 func (m *fmp4Muxer) appendVideo(filtered [][]byte, pts int64, idr bool) (int, error) {
 	if idr {
-		filtered = append([][]byte{m.sps, m.pps}, filtered...)
+		if m.codec == codecH265 {
+			filtered = append([][]byte{m.vps, m.sps, m.pps}, filtered...)
+		} else {
+			filtered = append([][]byte{m.sps, m.pps}, filtered...)
+		}
 	}
 
 	dts, err := m.dtsExtractor.Extract(filtered, pts)
@@ -668,9 +779,15 @@ func compositionOffset(pts, dts int64) int32 {
 
 func (m *fmp4Muxer) writeInit(includeAudio bool) error {
 	init := mp4.CreateEmptyInit()
-	init.AddEmptyTrack(clockRateH264, "video", "und")
+	init.AddEmptyTrack(clockRateVideo, "video", "und")
 
-	if err := init.Moov.Trak.SetAVCDescriptor("avc1", [][]byte{m.sps}, [][]byte{m.pps}, true); err != nil {
+	if m.codec == codecH265 {
+		err := init.Moov.Trak.SetHEVCDescriptor(
+			"hvc1", [][]byte{m.vps}, [][]byte{m.sps}, [][]byte{m.pps}, nil, true)
+		if err != nil {
+			return fmt.Errorf("hevc descriptor: %w", err)
+		}
+	} else if err := init.Moov.Trak.SetAVCDescriptor("avc1", [][]byte{m.sps}, [][]byte{m.pps}, true); err != nil {
 		return fmt.Errorf("avc descriptor: %w", err)
 	}
 
@@ -841,7 +958,7 @@ func (m *fmp4Muxer) newFragment(includeAudio bool) (*mp4.Fragment, error) {
 	return frag, nil
 }
 
-func filterAU(accessUnit [][]byte) ([][]byte, bool, []byte, []byte) {
+func filterAUH264(accessUnit [][]byte) ([][]byte, bool, []byte, []byte) {
 	var (
 		nalus [][]byte
 		idr   bool
@@ -854,7 +971,7 @@ func filterAU(accessUnit [][]byte) ([][]byte, bool, []byte, []byte) {
 			continue
 		}
 
-		switch h264.NALUType(nalu[0] & nalTypeMask) {
+		switch h264.NALUType(nalu[0] & nalTypeMaskH264) {
 		case h264.NALUTypeSPS:
 			sps = nalu
 		case h264.NALUTypePPS:
@@ -871,6 +988,33 @@ func filterAU(accessUnit [][]byte) ([][]byte, bool, []byte, []byte) {
 	}
 
 	return nalus, idr, sps, pps
+}
+
+func filterAUH265(accessUnit [][]byte) (nalus [][]byte, idr bool, vps, sps, pps []byte) {
+	for _, nalu := range accessUnit {
+		if len(nalu) < 2 {
+			continue
+		}
+
+		switch h265.NALUType((nalu[0] >> 1) & nalTypeMaskH265) {
+		case h265.NALUType_VPS_NUT:
+			vps = nalu
+		case h265.NALUType_SPS_NUT:
+			sps = nalu
+		case h265.NALUType_PPS_NUT:
+			pps = nalu
+		case h265.NALUType_AUD_NUT:
+			continue
+		case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
+			idr = true
+
+			nalus = append(nalus, nalu)
+		default:
+			nalus = append(nalus, nalu)
+		}
+	}
+
+	return nalus, idr, vps, sps, pps
 }
 
 func avccFromNALUs(nalus [][]byte) []byte {

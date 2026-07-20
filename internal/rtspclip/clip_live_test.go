@@ -98,7 +98,11 @@ func buildRTSPURL(httpBase, user, pass, camera string) (string, error) {
 	}
 	q := url.Values{}
 	q.Set("cameraNum", camera)
-	q.Set("vcodec", "h264")
+	vcodec := os.Getenv("SECURITYSPY_VCODEC")
+	if vcodec == "" {
+		vcodec = "h264"
+	}
+	q.Set("vcodec", vcodec)
 	q.Set("acodec", "aac")
 	if h := os.Getenv("SECURITYSPY_HEIGHT"); h != "" {
 		q.Set("height", h)

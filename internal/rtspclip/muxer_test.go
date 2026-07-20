@@ -20,7 +20,7 @@ func TestProgressiveMuxMultipleFragments(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	mux := newFMP4Muxer(&buf, sps, pps, nil, true)
+	mux := newFMP4Muxer(&buf, codecH264, nil, sps, pps, nil, true)
 
 	mux.mu.Lock()
 	mux.started = true
@@ -66,7 +66,7 @@ func TestSaveMuxSingleFragmentAtClose(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	mux := newFMP4Muxer(&buf, sps, pps, nil, false)
+	mux := newFMP4Muxer(&buf, codecH264, nil, sps, pps, nil, false)
 
 	mux.mu.Lock()
 	mux.started = true

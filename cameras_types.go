@@ -51,7 +51,8 @@ type VidOps struct {
 	// If true, request HTTP ++video instead of RTSP. Unsupported for SaveVideo/StreamVideo
 	// (returns ErrHTTPVideoUnsupported). Still used by StreamMJPG / related HTTP helpers.
 	UseHTTP bool
-	// Optional codec override for video stream (defaults to h264).
+	// Optional RTSP video codec (defaults to h264). Use "h265" for HEVC cameras.
+	// Camera.PreferredVCodec() returns the native codec from ++systemInfo.
 	VCodec string
 	// Optional codec override for audio on RTSP remux (defaults to aac).
 	// Prefer aac for SaveVideo/StreamVideo; non-AAC audio is omitted from the MP4.
