@@ -990,9 +990,11 @@ func filterAUH264(accessUnit [][]byte) ([][]byte, bool, []byte, []byte) {
 	return nalus, idr, sps, pps
 }
 
+//nolint:nonamedreturns // there's a lot, so names are helpful.
 func filterAUH265(accessUnit [][]byte) (nalus [][]byte, idr bool, vps, sps, pps []byte) {
+	const naluLength = 2
 	for _, nalu := range accessUnit {
-		if len(nalu) < 2 {
+		if len(nalu) < naluLength {
 			continue
 		}
 

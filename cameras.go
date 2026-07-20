@@ -422,6 +422,7 @@ const (
 	maxFPS         = 60
 	modeKeyParts   = 2
 	authColonParts = 2
+	aacStr         = "aac"
 )
 
 // makeRequestParams converts passed in ops to url.Values.
@@ -467,7 +468,6 @@ func (c *Camera) streamHTTPClient() *http.Client {
 	return client
 }
 
-// makeVideoURL builds an RTSP(S) ++stream URL with userinfo credentials.
 // PreferredVCodec returns the RTSP vcodec query value that matches this camera's
 // native VideoFormat from ++systemInfo ("h265" for H.265/HEVC, otherwise "h264").
 func (c *Camera) PreferredVCodec() string {
@@ -479,6 +479,7 @@ func (c *Camera) PreferredVCodec() string {
 	return "h264"
 }
 
+// makeVideoURL builds an RTSP(S) ++stream URL with userinfo credentials.
 // SecuritySpy rejects query auth= on RTSP; HTTP auth= is unchanged elsewhere.
 // UseHTTP is unsupported for SaveVideo/StreamVideo.
 func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) (string, error) { //nolint:cyclop // ops/codec branches
@@ -500,7 +501,7 @@ func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) (string, error) { 
 		params.Set("fps", strconv.Itoa(ops.FPS))
 	}
 
-	vcodec, acodec := "h264", "aac"
+	vcodec, acodec := "h264", aacStr
 	if ops != nil && ops.VCodec != "" {
 		vcodec = ops.VCodec
 	}
