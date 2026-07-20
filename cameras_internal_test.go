@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -43,6 +44,49 @@ func TestGetJPEGSucceeds(t *testing.T) {
 	assert.NotNil(t, got)
 }
 
+func TestGetJPEGRetriesAndSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const retryAttempts = 4
+
+	const badAttempts = retryAttempts - 1
+
+	var (
+		requests atomic.Int32
+		jpegData bytes.Buffer
+	)
+
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{R: 255, A: 255})
+	require.NoError(t, jpeg.Encode(&jpegData, img, nil))
+
+	fakeServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		n := requests.Add(1)
+		if n <= badAttempts {
+			_, _ = writer.Write([]byte("not-a-jpeg"))
+
+			return
+		}
+
+		writer.Header().Set("Content-Type", "image/jpeg")
+		_, _ = writer.Write(jpegData.Bytes())
+	}))
+	defer fakeServer.Close()
+
+	srv := NewMust(&server.Config{
+		URL:         fakeServer.URL + "/",
+		Timeout:     server.Duration{Duration: time.Second},
+		JPEGRetries: retryAttempts,
+	})
+
+	camera := &Camera{Number: 2, server: srv}
+
+	got, err := camera.GetJPEG(nil)
+	require.NoError(t, err)
+	assert.NotNil(t, got)
+	assert.Equal(t, int32(retryAttempts), requests.Load())
+}
+
 func TestGetJPEGRejectsNonJPEG(t *testing.T) {
 	t.Parallel()
 
@@ -52,14 +96,70 @@ func TestGetJPEGRejectsNonJPEG(t *testing.T) {
 	defer fakeServer.Close()
 
 	srv := NewMust(&server.Config{
-		URL:     fakeServer.URL + "/",
-		Timeout: server.Duration{Duration: time.Second},
+		URL:         fakeServer.URL + "/",
+		Timeout:     server.Duration{Duration: time.Second},
+		JPEGRetries: 1,
 	})
 	camera := &Camera{Number: 2, Name: "X", server: srv}
 
 	_, err := camera.GetJPEG(nil)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrInvalidJPEG)
+}
+
+func TestGetJPEGNoRetryOn404(t *testing.T) {
+	t.Parallel()
+
+	var requests atomic.Int32
+
+	fakeServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		writer.WriteHeader(http.StatusNotFound)
+		_, _ = writer.Write(bytes.Repeat([]byte("x"), 1024))
+	}))
+	defer fakeServer.Close()
+
+	srv := NewMust(&server.Config{
+		URL:         fakeServer.URL + "/",
+		Timeout:     server.Duration{Duration: time.Second},
+		JPEGRetries: 5,
+	})
+	camera := &Camera{Number: 2, Name: "DeadCam", server: srv}
+
+	_, err := camera.GetJPEG(nil)
+	require.ErrorIs(t, err, ErrCameraUnavailable)
+	assert.Equal(t, int32(1), requests.Load())
+}
+
+func TestSaveJPEGNoOverwrite(t *testing.T) {
+	t.Parallel()
+
+	var jpegData bytes.Buffer
+
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{R: 255, A: 255})
+	require.NoError(t, jpeg.Encode(&jpegData, img, nil))
+
+	fakeServer := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "image/jpeg")
+		_, _ = writer.Write(jpegData.Bytes())
+	}))
+	defer fakeServer.Close()
+
+	srv := NewMust(&server.Config{
+		URL:         fakeServer.URL + "/",
+		Timeout:     server.Duration{Duration: time.Second},
+		JPEGRetries: 1,
+	})
+	camera := &Camera{Number: 1, server: srv}
+
+	path := t.TempDir() + "/snap.jpg"
+	require.NoError(t, os.WriteFile(path, []byte("keep"), 0o600))
+	require.ErrorIs(t, camera.SaveJPEG(nil, path), ErrPathExists)
+
+	raw, err := os.ReadFile(path) //nolint:gosec // test temp path
+	require.NoError(t, err)
+	require.Equal(t, []byte("keep"), raw)
 }
 
 // Slow bodies used to fail with "missing SOI marker" / "context canceled" because

@@ -193,17 +193,33 @@ func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
 // Fails if the path already exists. VidOps defines the image size; ops.FPS is ignored.
 // Writes the server JPEG bytes directly (no decode/re-encode).
 func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return ErrPathExists
-	}
-
 	data, err := c.fetchJPEGBytes(ops)
 	if err != nil {
 		return fmt.Errorf("getting jpeg: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, jpegFilePerm); err != nil {
-		return fmt.Errorf("writing jpeg: %w", err)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, jpegFilePerm) //nolint:gosec // caller-chosen path
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return ErrPathExists
+		}
+
+		return fmt.Errorf("creating jpeg: %w", err)
+	}
+
+	_, writeErr := file.Write(data)
+	closeErr := file.Close()
+
+	if writeErr != nil {
+		_ = os.Remove(path)
+
+		return fmt.Errorf("writing jpeg: %w", writeErr)
+	}
+
+	if closeErr != nil {
+		_ = os.Remove(path)
+
+		return fmt.Errorf("closing jpeg: %w", closeErr)
 	}
 
 	return nil
@@ -211,6 +227,7 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 
 // fetchJPEGBytes downloads a still from ++image. The request context stays alive
 // until the body is fully read — canceling earlier truncates the JPEG.
+// Retries use server.Config.JPEGRetries; each attempt is bounded by Timeout.
 func (c *Camera) fetchJPEGBytes(ops *VidOps) ([]byte, error) {
 	if ops == nil {
 		ops = &VidOps{}
@@ -220,14 +237,49 @@ func (c *Camera) fetchJPEGBytes(ops *VidOps) ([]byte, error) {
 
 	client := c.streamHTTPClient() // Timeout=0; context bounds the whole fetch
 
-	// Single short attempt — dead cameras must fail in ~2s, not stall /pics.
-	ctx, cancel := context.WithTimeout(context.Background(), c.jpegFetchTimeout())
+	var lastErr error
+
+	for range c.server.JPEGTries() {
+		data, err := c.fetchJPEGBytesOnce(ops, client)
+		if err == nil {
+			return data, nil
+		}
+
+		lastErr = err
+		// Offline / missing cameras won't recover within this call.
+		if errors.Is(err, ErrCameraUnavailable) {
+			return nil, err
+		}
+	}
+
+	return nil, lastErr
+}
+
+func (c *Camera) fetchJPEGBytesOnce(ops *VidOps, client *http.Client) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.server.TimeoutDur())
 
 	resp, err := c.server.GetContextClient(ctx, "++image", c.makeRequestParams(ops), client)
 	if err != nil {
 		cancel()
 
 		return nil, fmt.Errorf("getting image: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		_ = resp.Body.Close()
+
+		cancel()
+
+		return nil, fmt.Errorf("%w: %s", ErrCameraUnavailable, c.Name)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		preview, _ := io.ReadAll(io.LimitReader(resp.Body, jpegSOIPreviewMax))
+		_ = resp.Body.Close()
+
+		cancel()
+
+		return nil, fmt.Errorf("%w: status %d (%q)", server.ErrCmdNotOK, resp.StatusCode, preview)
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -237,14 +289,6 @@ func (c *Camera) fetchJPEGBytes(ops *VidOps) ([]byte, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("reading image: %w", err)
-	}
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("%w: %s", ErrCameraUnavailable, c.Name)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%w: status %d (%d bytes)", server.ErrCmdNotOK, resp.StatusCode, len(data))
 	}
 
 	if len(data) < 2 || data[0] != 0xFF || data[1] != 0xD8 {
@@ -257,11 +301,6 @@ func (c *Camera) fetchJPEGBytes(ops *VidOps) ([]byte, error) {
 	}
 
 	return data, nil
-}
-
-// jpegFetchTimeout is intentionally short so offline/hung cameras fail fast in /pics.
-func (c *Camera) jpegFetchTimeout() time.Duration {
-	return jpegFetchTimeoutSec * time.Second
 }
 
 // ToggleContinuous arms or disarms continuous capture via ++ssControlContinuous.

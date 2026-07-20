@@ -33,9 +33,8 @@ var ErrCameraUnavailable = errors.New("camera unavailable (HTTP 404)")
 var ErrInvalidJPEG = errors.New("invalid JPEG format: missing SOI marker")
 
 const (
-	jpegFilePerm        = 0o600
-	jpegSOIPreviewMax   = 64
-	jpegFetchTimeoutSec = 2
+	jpegFilePerm      = 0o600
+	jpegSOIPreviewMax = 64
 )
 
 // CameraArmMode locks arming to an integer of 0 or 1.
