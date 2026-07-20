@@ -19,6 +19,9 @@ import (
 // but the reply does not end with the word OK.
 var ErrCmdNotOK = errors.New("command unsuccessful")
 
+// ErrNotFound is returned when SecuritySpy responds with HTTP 404.
+var ErrNotFound = errors.New("endpoint not found")
+
 const (
 	// DefaultTimeout it used for almost every request to SecuritySpy. Adjust as needed.
 	DefaultTimeout = 10 * time.Second
@@ -265,6 +268,10 @@ func (s *Config) SimpleReqContext(ctx context.Context, apiURI string, params url
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return ErrNotFound
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil || !strings.HasSuffix(string(body), "OK") {

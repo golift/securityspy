@@ -2,8 +2,20 @@ package securityspy
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 )
+
+// ErrUnsupported is returned when the SecuritySpy server does not implement an API endpoint.
+// ToggleContinuous returns this on many v5 builds where ++ssControlContinuous is missing;
+// use SetSchedule with CameraModeContinuous instead.
+var ErrUnsupported = errors.New("securityspy endpoint unsupported")
+
+// ErrCameraModesStatus is returned when ++cameramodes returns a non-200 status.
+var ErrCameraModesStatus = errors.New("camera modes request failed")
+
+// ErrCameraModesParse is returned when ++cameramodes body cannot be parsed.
+var ErrCameraModesParse = errors.New("camera modes response invalid")
 
 // DefaultEncoder is the path to ffmpeg.
 const DefaultEncoder = "/usr/local/bin/ffmpeg"
@@ -43,6 +55,13 @@ type VidOps struct {
 type Cameras struct {
 	cameras []*Camera
 	server  *Server
+}
+
+// CameraModes reports armed/disarmed status for each capture mode from ++cameramodes.
+type CameraModes struct {
+	Continuous string // "ARMED" or "DISARMED"
+	Motion     string
+	Actions    string
 }
 
 // CameraSchedule contains schedule info for a camera's properties.

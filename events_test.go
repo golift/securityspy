@@ -66,3 +66,27 @@ func TestUnmarshalEventTriggerReasonsNewFlags(t *testing.T) {
 	require.Contains(t, event.Msg, "Vehicle Arrival")
 	require.Len(t, event.Reasons, 2)
 }
+
+func TestUnmarshalEventClassify(t *testing.T) {
+	t.Parallel()
+
+	secspyServer, _, _ := testServerWithCamera(t)
+	event := secspyServer.Events.UnmarshalEvent("20260719184304 1 13 CLASSIFY HUMAN -99 VEHICLE -99 ANIMAL -99")
+
+	require.Equal(t, securityspy.EventClassify, event.Type)
+	require.Equal(t, -99, event.ClassifyHuman)
+	require.Equal(t, -99, event.ClassifyVehicle)
+	require.Equal(t, -99, event.ClassifyAnimal)
+	require.Equal(t, "CLASSIFY HUMAN -99 VEHICLE -99 ANIMAL -99", event.Msg)
+}
+
+func TestUnmarshalEventClassifyPartial(t *testing.T) {
+	t.Parallel()
+
+	secspyServer, _, _ := testServerWithCamera(t)
+	event := secspyServer.Events.UnmarshalEvent("20190927092036 7 3 CLASSIFY HUMAN 5 VEHICLE 95 ANIMAL 0")
+
+	require.Equal(t, 5, event.ClassifyHuman)
+	require.Equal(t, 95, event.ClassifyVehicle)
+	require.Equal(t, 0, event.ClassifyAnimal)
+}

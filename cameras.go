@@ -2,6 +2,7 @@ package securityspy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"golift.io/ffmpeg"
+	"golift.io/securityspy/v2/server"
 )
 
 // All returns interfaces for every camera.
@@ -244,12 +246,21 @@ func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
 	return nil
 }
 
-// ToggleContinuous arms (true) or disarms (false) a camera's continuous capture mode.
+// ToggleContinuous arms or disarms continuous capture via ++ssControlContinuous.
+//
+// ToggleMotion and ToggleActions use similar ++ssControl* endpoints and work on
+// tested SecuritySpy v5 servers. Continuous control is often unavailable (HTTP 404);
+// in that case this method returns ErrUnsupported. Use SetSchedule with
+// CameraModeContinuous to arm or disarm continuous capture via the schedule API instead.
 func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 
 	if err := c.server.SimpleReq("++ssControlContinuous", params, c.Number); err != nil {
+		if errors.Is(err, server.ErrNotFound) {
+			return ErrUnsupported
+		}
+
 		return fmt.Errorf("request failed: %w", err)
 	}
 
@@ -290,6 +301,36 @@ func (c *Camera) TriggerMotion() error {
 	return nil
 }
 
+// Modes returns the armed/disarmed status of continuous, motion, and actions modes.
+func (c *Camera) Modes() (*CameraModes, error) {
+	resp, err := c.server.Get("++cameramodes", c.makeRequestParams(nil))
+	if err != nil {
+		return nil, fmt.Errorf("getting camera modes: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: %s", ErrCameraModesStatus, resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading camera modes: %w", err)
+	}
+
+	return parseCameraModes(string(body))
+}
+
+// HLSURL returns the authenticated HTTP Live Streaming URL for this camera.
+func (c *Camera) HLSURL() string {
+	params := c.makeRequestParams(nil)
+	if auth := c.server.Auth(); auth != "" {
+		params.Set("auth", auth)
+	}
+
+	return c.server.BaseURL() + "++hls?" + params.Encode()
+}
+
 // SetSchedule configures a camera mode's primary schedule.
 // Get a list of schedules IDs you can use here from server.Info.Schedules.
 // CameraModes are constants with names that start with CameraMode*.
@@ -326,6 +367,7 @@ const (
 	maxQuality       = 100
 	maxFPS           = 60
 	ffmpegOutputTail = 2048
+	modeKeyParts     = 2
 )
 
 // makeRequestParams converts passed in ops to url.Values.
@@ -424,4 +466,33 @@ func trimTail(input string, maximum int) string {
 	}
 
 	return input[len(input)-maximum:]
+}
+
+func parseCameraModes(text string) (*CameraModes, error) {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+
+	modes := &CameraModes{}
+
+	for line := range strings.SplitSeq(strings.TrimSpace(text), "\n") {
+		parts := strings.SplitN(strings.TrimSpace(line), ":", modeKeyParts)
+		if len(parts) != modeKeyParts {
+			continue
+		}
+
+		switch parts[0] {
+		case "C":
+			modes.Continuous = parts[1]
+		case "M":
+			modes.Motion = parts[1]
+		case "A":
+			modes.Actions = parts[1]
+		}
+	}
+
+	if modes.Continuous == "" && modes.Motion == "" && modes.Actions == "" {
+		return nil, fmt.Errorf("%w: %q", ErrCameraModesParse, text)
+	}
+
+	return modes, nil
 }

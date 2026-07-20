@@ -174,6 +174,27 @@ func TestSimpleReqOKAndFail(t *testing.T) {
 	require.ErrorIs(t, config.SimpleReq("++bad", url.Values{}, 4), server.ErrCmdNotOK)
 }
 
+func TestSimpleReqNotFound(t *testing.T) {
+	t.Parallel()
+
+	config := &server.Config{
+		URL:       urlStr,
+		VerifySSL: false,
+		Timeout:   server.Duration{time.Second},
+	}
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		http.NotFound(resp, req)
+	})
+
+	httpClient, fakeServer := testingHTTPClient(handler)
+	defer fakeServer.Close()
+
+	config.Client = httpClient
+
+	require.ErrorIs(t, config.SimpleReq("++missing", url.Values{}, 1), server.ErrNotFound)
+}
+
 // testingHTTPClient sets up a fake server for testing secReq().
 func testingHTTPClient(handler http.Handler) (*http.Client, *httptest.Server) {
 	fakeServer := httptest.NewServer(handler)

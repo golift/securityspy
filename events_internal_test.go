@@ -16,10 +16,11 @@ func TestEventSelectorNonBlockingChannels(t *testing.T) {
 	defer cancel()
 
 	events := &Events{
-		eventChan:  make(chan *Event, 2),
-		eventBinds: make(map[EventType][]func(event Event)),
-		eventChans: make(map[EventType][]chan Event),
-		Running:    true,
+		eventChan:   make(chan *Event, 2),
+		eventBinds:  make(map[EventType][]func(event Event)),
+		eventChans:  make(map[EventType][]chan Event),
+		callbackSem: make(chan struct{}, maxCallbackWorkers),
+		Running:     true,
 	}
 
 	events.BindChan(EventAllEvents, make(chan Event)) // unbuffered, no receiver

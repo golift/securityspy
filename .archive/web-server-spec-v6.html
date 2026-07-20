@@ -1,0 +1,652 @@
+SecuritySpy Web Server Specification - Ben Software
+
+Our software> SecuritySpy> Help> Web Server Specification
+
+# SecuritySpy
+
+## Multi-camera CCTV software for the Mac
+
+- Overview
+- Features
+- Download
+- Resellers
+- Case Study
+- Add-ons & Apps
+- Help
+
+## Web Server Specification
+
+This document describes the web server interface of the latest version of SecuritySpy 6. Both HTTP and RTSP services run from the same port (which by default is 8000 for HTTP/RTSP and 8001 for HTTPS/RTSPS). All below requests use the HTTP protocol unless otherwise specified. This is an advanced document and knowledge of HTTP and HTML is assumed. Parameters in [square brackets] are optional.
+
+## ▸ Live video
+
+Note: you can use the URL Generator function, available from the Window menu in SecuritySpy, to easily create media URLs.
+
+## HTTP multipart "server push" video stream
+
+Request format video?cameraNum=X[&width=X][&height=X][&quality=X][&fps=X][&vcodec=X]
+
+Parameters cameraNum - the number of the camera, as displayed in the Camera Info window width - the width of the image in pixels height - the height of the image in pixels quality - the compression quality in the range 1 to 100 fps - the FPS of video that SecuritySpy will attempt to send vcodec - the video codec: • jpeg (default; the only codec that works in HTML img tags) • h264 • h265 • h26x (the server chooses between H.264 and H.265)
+
+Examplevideo?cameraNum=0&width=640&height=480&quality=50&fps=10
+
+Returned data A multipart-mixed-replace video-only stream, as follows:
+
+HTTP/1.1 200 OK\r\n Server: BBVS\r\n Content-Type: multipart/x-mixed-replace;boundary=ssBoundary8345\r\n \r\n --ssBoundary8345\r\n Content-Type: image/jpeg\r\n Content-Length: 21325\r\n \r\n \r\n --ssBoundary8345\r\n Content-Type: image/jpeg\r\n Content-Length: 22128\r\n \r\n \r\n ........
+
+Note This method, with JPEG codec, works in all major browsers, using an HTML tag. The H.264/H.265 variants are custom formats without standard browser support. The full specification that describes this stream can be found in the document SecuritySpy Video Stream Specification.
+
+---
+
+## RTSP video/audio stream
+
+Request formatstream?cameraNum=X[&width=X][&height=X][&fps=X][&vcodec=X][&acodec=X]
+
+Parameters cameraNum - the number of the camera, as displayed in the Camera Info window width - the width of the image in pixels height - the height of the image in pixels fps - the frame rate of the video that SecuritySpy will attempt to send vcodec - the video codec: • h264 (default) • h265 • h26x (the server chooses between H.264 and H.265) acodec - the audio codec • aac (default) • ulaw • pcm • none (to disable audio)
+
+Examplestream?cameraNum=0
+
+Returned data An RTSP video/audio stream, which can be received by any RTSP player, such as VLC.
+
+NoteSecuritySpy supports TCP Interleaved transport only (not UDP). When using a client like VLC, make sure to use a URL that starts with the protocol specifier rtsp://
+
+---
+
+## HTTP Live Streaming video/audio stream
+
+Request formathls?cameraNum=Xhls_mediaplaylist?&cameraNum=X&quality=XThe hls stream is an adaptive stream, where the client can switch between different quality settings depending on current bandwidth conditions, whereas the hls_mediaplaylist stream is of a fixed quality.
+
+Parameters cameraNum - the number of the camera, as displayed in the Camera Info window quality - stream resolution/bandwidth (0 - low, 1 - medium, 2 - high)
+
+Exampleshls?cameraNum=0hls_mediaplaylist?cameraNum=0&quality=2
+
+Returned data An H.264 HTTP Live Streaming video/audio stream, which can be used in Safari within an HTML tag.
+
+---
+
+## Still JPEG image
+
+Request formatimage?cameraNum=X[&width=X][&height=X][&quality=X]
+
+Parameters cameraNum - the number of the camera, as displayed in the Camera Info window width - the width of the image in pixels height - the height of the image in pixels quality - the compression quality in the range 1 to 100
+
+Exampleimage?cameraNum=0&width=640&height=480&quality=50
+
+Returned data A single JPEG image from the specified camera.
+
+---
+
+## HTML page containing a grid of live cameras
+
+Request formatmultiplex?cameras=X[&cropMode=X][&format=X][&fps=X][&border=X][&camInfo=X][&hiRes=X]
+
+Parameters cameras: a comma-separated list of cameras to include cropMode: 0 - black bars, 1 - crop, 2 - stretch format: 0 - JPEG, 1 - H.264/H.265 fps: maximum frame rate to be used of each video stream border: width in pixels of black border around the whole page camInfo: 1 to include a camera information bar at the top of each feed hiRes: 1 for double-resolution feeds (useful for retina screens)
+
+Examplemultiplex?cameras=4,5,6,9&cropMode=1&format=0&border=10
+
+Returned data A HTML page containing a grid of live video feeds from the cameras you specify.
+
+---
+
+## ▸ Live audio
+
+## Audio GET
+
+Request formataudio?cameraNum=X
+
+Parameters cameraNum - the number of the camera, as displayed in the Camera Info window
+
+Exampleaudio?cameraNum=0
+
+Returned data A G.711 μ-law 8000kHz mono audio stream, as follows:
+
+HTTP/1.1 200 OK\r\n Server: BBVS\r\n Content-Type: audio/basic\r\n\r\n 
+
+---
+
+## Audio POST for two-way audio
+
+Request formataudio?cameraNum=X
+
+Parameters cameraNum - the number of the camera, as displayed in the Camera Info window
+
+Exampleaudio?cameraNum=0
+
+POST data A G.711 μ-law 8000kHz mono audio stream, which SecuritySpy will forward to the specified camera.
+
+---
+
+## ▸ Captured footage
+
+## HTML/XML page containing links to captured footage
+
+Request formatdownload?cameraNum=X[&cameraNum=X][&ccFilesCheck=X][&mcFilesCheck=X][&imageFilesCheck=X][&ageText=X][&date1Text=X][&date2Text=X][&format=X][&results=X][&continuation=X]
+
+Parameters cameraNum - the camera number(s) (more than one can be specified) ccFilesCheck - specify 1 to include continuous-capture files mcFilesCheck - specify 1 to include motion-capture files imageFilesCheck - specify 1 to include still (JPEG) image files ageText - the maximum age of files to list, in days date1Text, date2Text - A date range (format corresponds to the setting in SecuritySpy's General Settings) format - the format of the returned data: "list", "grid" or "xml" results - the maximum number of files to return (if not specified, up to 200 files will be returned) continuation - the continuation value specified in the data returned by the last call to download (see below)
+
+Using the continuation parameter (XML only) There is a limit of the number of files that will be returned with each call to download (this limit can specified via the results parameter described above). If there are more files available that meet the specified search criteria, a value will be included in the head of the returned XML page. Subsequently, to obtain the next batch of files matching the search criteria, make the same request again, but this time include this continuation value as a parameter to the download call. You can repeat this process until there are no further files to obtain, which will be indicated when the returned XML page does not contain a continuation value.
+
+Exampledownload?cameraNum=0&cameraNum=2&ccFilesCheck=1&ageText=5
+
+Returned data An HTML or XML page containing a list of files that match the search criteria, with download links to the the files themselves.
+
+---
+
+## Download a file
+
+Request format getfile?cameraNum/date/filename (default download) getfilehb?cameraNum/date/filename (high-bandwidth download) getfilelb?cameraNum/date/filename (low-bandwidth download)
+
+Parameters cameraNum - the number of the camera date - the date in the format YYYY-MM-DD fileName - the URL-encoded name of the file
+
+In reality, you would not construct these parameters from scratch: the data returned by the download request contains full requests for each file.
+
+Examplegetfile/1/2019-01-22/22-01-2019+13-13-36+M+Street.m4v
+
+Returned data The requested file.
+
+---
+
+## ▸ PTZ
+
+## PTZ controls HTML page
+
+Request formatptz/controls?cameraNum=X
+
+Parameters cameraNum - the number of the camera, as displayed in the Camera Info window
+
+Exampleptz/controls?cameraNum=0
+
+Returned data An HTML page with buttons to control the PTZ of the specified camera.
+
+---
+
+## PTZ command
+
+Request format ptz/command?cameraNum=X&command=X[&speed=X]
+
+Parameters cameraNum - the number of the camera, as displayed in the Camera Info window speed - the speed of movement, from 1-100 command - command to execute, which is a number as follows:
+
+| 1 | Left | 12 | Preset 1 | 112 | Save preset 1 |
+| --- | --- | --- | --- | --- | --- |
+| 2 | Right | 13 | Preset 2 | 113 | Save preset 2 |
+| 3 | Up | 14 | Preset 3 | 114 | Save preset 3 |
+| 4 | Down | 15 | Preset 4 | 115 | Save preset 4 |
+| 5 | Zoom in | 16 | Preset 5 | 116 | Save preset 5 |
+| 6 | Zoom out | 17 | Preset 6 | 117 | Save preset 6 |
+| 7 | Home | 18 | Preset 7 | 118 | Save preset 7 |
+| 8 | Up-left | 19 | Preset 8 | 119 | Save preset 8 |
+| 9 | Up-right | | | | |
+| 10 | Down-left | | | | |
+| 11 | Down-right | 99 | Stop movement | | |
+
+Exampleptz/command?cameraNum=0&command=7
+
+Returned data"OK" as text if the command was accepted.
+
+Note Command 99 is only applicable to cameras that support continuous movement. For cameras that support movement in individual steps, this command does nothing.
+
+---
+
+## PTZ capabilities
+
+Request formatgetptzcapabilities?cameraNum=X
+
+Parameters cameraNum - the number of the camera
+
+Examplegetptzcapabilities?cameraNum=0
+
+Returned data A text page containing a single number that indicates which PTZ capabilities the camera supports. To interpret this number, convert it to binary (most calculators have this feature). Each binary digit represents a capability, where 1 means supported and 0 means not supported:
+
+| Binary digit | Value | Capability |
+| --- | --- | --- |
+| 1st (rightmost) | 1 | Pan/Tilt |
+| 2nd | 2 | Home |
+| 3rd | 4 | Zoom |
+| 4th | 8 | Presets |
+| 5th | 16 | Speed control |
+| 6th | 32 | Continuous movement |
+
+For example, if the returned number is 37, converting to binary gives 100101. Reading from right to left: the 1st, 3rd, and 6th digits are 1, meaning the camera supports Pan/Tilt, Zoom, and Continuous movement.
+
+Note on continuous movement: If the 6th digit is 1, you must issue a "Stop movement" command (99) after any move or zoom command (1-11 in the PTZ command table above).
+
+---
+
+## ▸ Scheduling
+
+## Set a schedule and/or schedule override for a camera
+
+Request formatsetSchedule?cameraNum=X&schedule=X&override=X&mode=X
+
+Parameters cameraNum - the number of the camera, or -1 for all cameras schedule - which schedule to set, as follows:
+
+| 0 | Unarmed 24/7 |
+| --- | --- |
+| 1 | Armed 24/7 |
+| 2 | Armed Sunrise To Sunset |
+| 3 | Armed Sunset To Sunrise |
+| Custom schedule IDs can be obtained from the System Information data (see below) | |
+
+override - which schedule override to set, as follows:
+
+| 0 | No override |
+| --- | --- |
+| 1 | Unarmed Until Next Scheduled Event |
+| 2 | Armed Until Next Scheduled Event |
+| 3 | Unarmed For 1 Hour |
+| 4 | Armed For 1 Hour |
+| 5 | Unarmed For 2 Hours |
+| 6 | Armed For 2 Hours |
+| 7 | Unarmed For 3 Hours |
+| 8 | Armed For 3 Hours |
+| 9 | Unarmed For 4 Hours |
+| 10 | Armed For 4 Hours |
+| 11 | Unarmed For 5 Hours |
+| 12 | Armed For 5 Hours |
+| 13 | Unarmed For 6 Hours |
+| 14 | Armed For 6 Hours |
+
+mode - the mode(s) to set the schedule for, as follows:
+
+| C | Continuous-capture mode |
+| --- | --- |
+| M | Motion-capture mode |
+| A | Actions mode |
+
+ExamplesetSchedule?cameraNum=0&schedule=1&override=0&mode=CA
+
+Returned data"OK" as text if the command was accepted.
+
+---
+
+## Invoke a schedule preset
+
+Request formatsetPreset?id=X
+
+Parameters id - the schedule preset to invoke, as obtained from the System Information data (see below)
+
+ExamplesetPreset?id=100
+
+Returned data"OK" as text if the command was accepted.
+
+---
+
+## Get Camera Modes
+
+Request format cameramodes?cameraNum=X
+
+Parameters cameraNum - the number of the camera
+
+Examplecameramodes?cameraNum=0
+
+Returned data Three lines of plain text that specifies the armed status of Continuous Capture, Motion Capture and Actions respectively. For example:
+
+C:ARMEDM:DISARMEDA:ARMED
+
+NOTE: Depending on the version, SecuritySpy may use either a Line Feed (10) or Carriage Return (13) between lines.
+
+---
+
+## ▸ Settings
+
+Settings are split into the following sections, each with its own separate request. All strings are UTF-8 unless otherwise specified.
+
+## General
+
+Request formatHTTP POST to settings-general with any of the following parameters:
+
+| autoReopen | Reopen automatically after a crash (0/1) |
+| --- | --- |
+| allowSleep | Allow automatic computer sleep (0/1) |
+| errWindow | Display window for major error messages (0/1) |
+| dismissAlerts | Dismiss alert messages after one minute (0/1) |
+| sendDiagnostics | Send diagnostic information back to developer (0/1) |
+| updateNotify | Show software update notifications (0/1) |
+| suspendMd | Suspend motion detection when not needed (0/1) |
+| suspendDecoding | Suspend video decoding when not needed (0/1) |
+| fullVol | Set computer to full volume before playing sounds (0/1) |
+| hissReduction | Hiss reduction (mute low-level audio) (0/1) |
+| muteIncoming | Mute incoming audio when sending audio to a camera (0/1) |
+| sysName | CCTV system name |
+| settingsPassword | Password for settings access |
+| quittingPassword | Password for quitting |
+| dateFormat | Display format for dates (0-7) |
+| timeFormat | Display format for times (0 - 24hr, 1 - 12hr) |
+| thumbCrop | Motion thumbnail crop (0-100, where 100 is widest crop) |
+| audioDevice | Two-way audio source name |
+| audioDeviceVol | Two-way audio source volume (1-250, where 100 is full) |
+
+Example autoReopen=1&suspendMd=1&sysName=My+CCTV+System&thumbCrop=50
+
+## Display
+
+Request formatHTTP POST to settings-display with any of the following parameters:
+
+| camInfo | Show camera information in video windows (0/1) |
+| --- | --- |
+| floatWindows | Float video windows over other applications |
+| motionBox | Draw red box around moving objects in video windows (0/1) |
+| kioskMode | Go full screen at launch and after inactivity (0/1) |
+| lowRate | Reduced live video display frame rate (0/1) |
+| autoClose | Auto-close video windows after inactivity (0/1) |
+| autoCloseMins | Minutes of inactivity to auto-close (0/1) |
+| cropMode | Live video crop mode (0 - black bars, 1 - crop, 2 - stretch) |
+| displayQuality | Live video display quality (0 - auto; 1-4) |
+| divThickness | Divider line thickness in pixels |
+| replaySeconds | Instant video replay duration in seconds |
+
+Example camInfo=1&lowRate=0&autoClose=1&autoCloseMins=5
+
+## Storage
+
+Request formatHTTP POST to settings-storage with any of the following parameters:
+
+| path | Path to default capture destination |
+| --- | --- |
+| removeByAge | Delete files older than specified age (0/1) |
+| removeAgeSys | Removal age on system volume in days |
+| removeAgeNonSys | Removal age on non-system volumes in days |
+| removeBySpace | Delete old files below free space threshold (0/1) |
+| removeGbSys | Removal threshold on system drive in GB (0 - auto) |
+| removeGbNonSys | Removal threshold on non-system drives in GB (0 - auto) |
+| diskWaitTime | Volume mount timeout in seconds |
+| usageWarningGb | Usage warning threshold in GB |
+
+Example path=/Volumes/MyDisk&removeByAge=1&removeAgeSys=30&removeAgeNonSys=40
+
+## Compression
+
+Request formatHTTP POST to settings-compression with any of the following parameters:
+
+| videoCodec | Video compression codec for recordings (4 - JPEG, 5 - H.264, 6 - H.265) |
+| --- | --- |
+| videoQuality | Video compression quality for recordings (1-100) |
+| audioCodec | Audio compression codec for recordings (0 - none, 2 - μ-Law, 3 - AAC) |
+| audioQuality | Audio compression quality for recordings (1-100) |
+| jpegQuality | JPEG compression quality for still images (1-100) |
+| webQuality | Compression quality for web streaming (1-100) |
+
+Example videoCodec=5&videoQuality=50&jpegQuality=60
+
+## Email
+
+Request formatHTTP POST to settings-email with any of the following parameters:
+
+| imageCount | Number of images per email |
+| --- | --- |
+| imageFps | Image capture rate |
+| imageSize | Image size (0 - full, 1 - half, 2 - quarter) |
+| subject | Subject text |
+| reportsEmail | Destination address for errors/warnings |
+| statsEmail | Destination address for daily statistics |
+| downtimeEmail | Destination address for downtime warnings |
+| sendingMethod | Sending method (0 - relay, 1 - SMTP) |
+| address | SMTP server address |
+| fromName | SMTP 'From' name |
+| fromEmail | SMTP 'From' email |
+| username | SMTP username |
+| password | SMTP password |
+| encryption | SMTP encryption (0 - none, 2 - SSL) |
+
+Example imageCount=3&imageFps=2&reportsEmail=me@example.com
+
+## Web
+
+Request formatHTTP POST to settings-web with any of the following parameters:
+
+| http | Enable the HTTP server (0/1) |
+| --- | --- |
+| https | Enable the HTTPS server (0/1) |
+| portHttp | HTTP port |
+| portHttps | HTTPS port |
+| autoNatHttp | Automatic port forwarding for HTTP (0/1) |
+| autoNatHttps | Automatic port forwarding for HTTPS (0/1) |
+| ddnsName | Dynamic DNS name |
+| insecure | Reduce HTTPS security to support older clients (0/1) |
+| bonjour | Advertise this web server via Bonjour (0/1) |
+| log | Write log file of all connections (0/1) |
+
+Example http=1&portHttp=8000&insecure=0&ddnsName=ben
+
+## Cameras
+
+Request formatHTTP POST to settings-cameras with any of the following parameters:
+
+| cameraNum | The camera number (REQUIRED) |
+| --- | --- |
+| Device | |
+| address | Address (IP or hostname) |
+| portHttp | HTTP port |
+| portRtsp | RTSP port |
+| username | Username |
+| password | Password |
+| format | Video streaming format (0-15) |
+| inputNum | Input/stream number |
+| request | Manual profile path |
+| recompressVideo | Recompress video data (0/1) |
+| recompressAudio | Recompress audio data (0/1) |
+| Setup | |
+| enabled | Enable this camera (0/1) |
+| name | Camera name |
+| transformation | Transformation (0-5) |
+| brightness | Brightness (0-100) |
+| contrast | Contrast (0-100) |
+| overlay | Text overlay enabled (0/1) |
+| overlayText | Text overlay text |
+| overlaySize | Text overlay font size |
+| overlayPos | Text overlay position (0-3) |
+| audioDevice | Device name ("n" = "this network device", "x" = "none") |
+| path | Camera-specific capture destination path |
+| Detection | |
+| motionSensitivity | Motion detection sensitivity value (1-100) |
+| Triggers | |
+| mcTriggerMotion | Motion detection (0/1) |
+| mcTriggerMotionA | Animal motion detection (0/1) |
+| mcTriggerMotionH | Human motion detection (0/1) |
+| mcTriggerMotionV | Vehicle motion detection (0/1) |
+| mcTriggerArrivesA | Animal arrival detection (0/1) |
+| mcTriggerArrivesH | Human arrival detection (0/1) |
+| mcTriggerArrivesV | Vehicle arrival detection (0/1) |
+| mcTriggerDepartsA | Animal departure detection (0/1) |
+| mcTriggerDepartsH | Human departure detection (0/1) |
+| mcTriggerDepartsV | Vehicle departure detection (0/1) |
+| mcTriggerAudio | Audio detection (0/1) |
+| This same set of triggers are available for both Motion Capture mode and Actions mode. Change the leading "mc" to "a" to refer to Actions triggers. | |
+| Continuous Capture | |
+| ccMovie | Movie enabled (0/1) |
+| ccMovieFps | Movie frame rate |
+| ccMoviePlaybackFps | Movie playback rate |
+| ccFreq | Movie new file frequency (0-2) |
+| ccImage | Images enabled (0/1) |
+| ccImageInterval | Images interval seconds |
+| webcamName | Webcam image filename |
+| webcamFreq | Webcam image frequency seconds |
+| ccRemoveAge | Camera-specific auto-delete days |
+| Motion Capture | |
+| mcMovie | Movie enabled (0/1) |
+| mcMovieFps | Movie frame rate |
+| mcMoviePre | Movie pre-capture seconds |
+| mcMoviePost | Movie post-capture seconds |
+| mcImage | Images enabled (0/1) |
+| mcImageInterval | Image interval seconds |
+| mcImagePost | Image post-capture seconds |
+| mcRemoveAge | Camera-specific auto-delete days |
+| Actions | |
+| aSoundName | Sound filename |
+| aSoundDuration | Sound duration seconds |
+| aSoundVolume | Sound volume (1-100) |
+| aScriptName | Script name |
+| aEmail | Email address or comma-separated addresses |
+| aShellCommand | Shell command |
+| aComeFront | Come to front (0/1) |
+| aRedBox | Red box highlight (0/1) |
+| aNotification | macOS notification (0/1) |
+| aDelay | Delay before seconds |
+| aReset | Reset time seconds |
+
+Example cameraNum=3&name=Front+Door&enabled=1&mcMovie=1
+
+## Obtaining Current Settings
+
+Issue a GET to the endpoint specific to the settings you want to obtain, and specify a format parameter of either xml or json.
+
+Example settings-cameras?cameraNum=4&format=xml settings-storage?format=json
+
+---
+
+## ▸ Miscellaneous
+
+## HTML/XML page containing list of sounds
+
+Request formatsounds[?format=X]
+
+Parameters format - the format of the returned data: "html" or "xml"
+
+Returned data An HTML or XML page with a list of sounds installed in the SecuritySpy server with links. Clicking on a link will play the sound on the server computer.
+
+---
+
+## HTML/XML page containing list of scripts
+
+Request formatscripts[?format=X]
+
+Parameters format - the format of the returned data: "html" or "xml"
+
+Returned data An HTML or XML page with a list of scripts installed in the SecuritySpy server with links. Clicking on a link will run the script on the server computer.
+
+---
+
+## Event Stream
+
+Request format eventStream?version=3[&format=multipart]
+
+Returned dataA stream of events, in either plain text or as a multipart/mixed stream (if the "format" parameter is specified as above), that provides live events for all cameras. Each line is as follows:
+
+[TIME] [EVENT NUMBER] [CAMERA NUMBER] [EVENT] [INFO]
+
+[TIME] is specified in the order year, month, day, hour, minute, second and is always 14 characters long [EVENT NUMBER] increments for each subsequent event [CAMERA NUMBER] specifies the camera number, or X if the event does not refer to a specific camera [INFO] is event-specific information [EVENT] describes the event, as follows:
+
+ARM_CThe camera's Continuous Capture mode has been armed
+
+DISARM_CThe camera's Continuous Capture mode has been disarmed
+
+ARM_MThe camera's Motion Capture mode has been armed
+
+DISARM_MThe camera's Motion Capture mode has been disarmed
+
+ARM_AThe camera's Actions mode has been armed
+
+DISARM_AThe camera's Actions mode has been disarmed
+
+ERRORAn error has been generated for the specified cameraINFO: error codes and error description
+
+CONFIGCHANGEThere has been a configuration change for the specified camera
+
+OFFLINEThe specified camera has just gone offline
+
+ONLINEThe specified camera has just come online
+
+MOTIONMotion has been detected in the specified cameraINFO: the position and size of the bounding box of the motion, in the format X Y W H, with the origin being the top left of the camera's image
+
+MOTION_ENDMotion has stopped in the specified camera - only issued after a MOTION event
+
+CLASSIFYAI classification results for the specified cameraINFO: the prediction percentages for humans, vehicles and animals
+
+TRIGGER_MMotion Capture has been triggered for the specified cameraINFO: trigger reason code (see below)
+
+TRIGGER_AActions have been triggered for the specified cameraINFO: trigger reason code (see below)
+
+FILEFor images, this happens immediately when an image file is created; for movie files, this happens when a recording has finished and the file has been completed (which may be some time after it was actually created).INFO: the full path to the file
+
+NULLThis "heartbeat" event is sent every 10 seconds to confirm that the stream is still active
+
+Trigger reason codeThis is a number provided with the TRIGGER_M and TRIGGER_A events. When interpreted in binary, each digit indicates a specific trigger reason - from LSB (bit 0) upwards, this list is as follows:
+
+1. Video motion detection
+2. Audio detection
+3. AppleScript
+4. Camera event
+5. Web server event
+6. Triggered by another camera
+7. Manual trigger
+8. Human movement
+9. Vehicle movement
+10. HomeKit event
+11. Animal movement
+12. Human arrival
+13. Human departure
+14. Vehicle arrival
+15. Vehicle departure
+16. Animal arrival
+17. Animal departure
+
+Example (plain text)
+
+```
+20140927091955 1 3 ARM_C
+20190927091955 2 3 ARM_M
+20190927092026 3 3 MOTION 760 423 320 296
+20190927092026 4 3 CLASSIFY HUMAN 99
+20190927092026 5 3 TRIGGER_M 9
+20190927092036 6 3 MOTION 0 432 260 198
+20190927092036 7 3 CLASSIFY HUMAN 5 VEHICLE 95 ANIMAL 0
+20190927092040 8 X NULL
+20190927092050 9 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
+20190927092055 10 3 DISARM_M
+20190927092056 11 3 OFFLINE
+```
+
+Notes
+
+- INFO may or may not be supplied; your parser must not require its presence or absence.
+- New EVENT types may be added in the future; your parser should ignore unknown event types.
+
+---
+
+## Trigger motion-detection for a camera
+
+Request formattriggermd?cameraNum=X
+
+Parameters cameraNum - the number of the camera, or -1 for all cameras
+
+Exampletriggermd?cameraNum=0
+
+---
+
+## ▸ System Information
+
+Request formatsystemInfo[?format=X]
+
+Parameters format - the format of the returned data: "xml" or "json" (if omitted altogether, a legacy XML version of this document is returned for backwards-compatibility)
+
+Returned data An document listing details of the system, including general information, scheduling, and available cameras.
+
+Example SecuritySpy 6.13 0 ComputerCam yes 1920 1080 armed armed disarmed no 0 FaceTime Local 1 Front Door yes 1200 800 armed armed armed yes 11 Axis Network Camera Network 192.168.1.10 80 
+
+---
+
+## ▸ Authentication in URL
+
+NOTE: the below methods are insecure because the username/password can be extracted from the URL. For improved security, you should use the URL Generator function, available from the Window menu in SecuritySpy, to generate URLs that contain secure authentication tokens.
+
+It is possible to encode a username and password into the URL itself, so that when it's used, the web browser won't ask for login details. This can be useful, for example, if you want to password-protect your SecuritySpy server, but then make a particular camera publicly available. With SecuritySpy there are two way to do this:
+
+The standard way to encode the username and password into the URL is like this:
+
+http://username:password@address/resource
+
+SecuritySpy also supports the use of an auth parameter on any resource, like this:
+
+http://address/resource?auth=xyz
+
+Parameters to HTML requests go after a question mark character after the resource name, and if there are multiple parameter=value pairs, they are separated by ampersand characters, for example:
+
+http://address/resource?param1=value1&param2=value2&auth=xyz
+
+The value of the auth parameter is the Base64-encoded version of the string username:password. So for example, to request a video stream for camera 1, where the username is user and the password is pass, the URL would be as follows:
+
+http://address/video?cameraNum=1&auth=dXNlcjpwYXNz
+
+---
+
+Privacy & Data Retention Policy© Ben Software Ltd

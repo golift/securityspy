@@ -158,6 +158,11 @@ func (e *Events) Watch(retryInterval time.Duration, refreshOnConfigChange bool) 
 	e.ctx, e.cancel = context.WithCancel(context.Background())
 	watchCtx := e.ctx
 	e.eventChan = make(chan *Event, EventBuffer)
+
+	if e.callbackSem == nil {
+		e.callbackSem = make(chan struct{}, maxCallbackWorkers)
+	}
+
 	e.Running = true
 
 	e.wg.Go(func() { e.eventStreamSelector(watchCtx, refreshOnConfigChange) })
@@ -289,18 +294,25 @@ func (e *Events) eventStreamSelector(ctx context.Context, refreshOnConfigChange 
 			}
 		}
 
-		switch event.Type {
-		case eventStreamStop:
-			return
-		case EventConfigChange:
-			if refreshOnConfigChange {
-				e.serverRefresh(ctx)
-			}
+		if event.Type == EventConfigChange && refreshOnConfigChange {
+			e.serverRefresh(ctx)
 		}
 
 		for _, callback := range e.callbacksFor(event.Type) {
-			if callback != nil {
-				go callback(*event)
+			if callback == nil {
+				continue
+			}
+
+			callbackFn := callback
+
+			select {
+			case e.callbackSem <- struct{}{}:
+				go func() {
+					defer func() { <-e.callbackSem }()
+
+					callbackFn(*event)
+				}()
+			default:
 			}
 		}
 
@@ -360,7 +372,13 @@ func (e *Events) UnmarshalEvent(text string) *Event {
 	}
 
 	newEvent.Msg = parts[3]
-	eventTime = fmt.Sprintf("%v%+03.0f", parts[0], e.server.Info.GmtOffset.Hours())
+
+	gmtOffset := 0.0
+	if e.server.Info != nil {
+		gmtOffset = e.server.Info.GmtOffset.Hours()
+	}
+
+	eventTime = fmt.Sprintf("%v%+03.0f", parts[0], gmtOffset)
 
 	//nolint:gosmopolitan // The event stream uses the system's local time.
 	if newEvent.When, err = time.ParseInLocation(EventTimeFormat+"-07", eventTime, time.Local); err != nil {
@@ -376,7 +394,7 @@ func (e *Events) UnmarshalEvent(text string) *Event {
 
 	// Parse the camera number.
 	parts[2] = strings.TrimPrefix(parts[2], "CAM")
-	if parts[2] != "X" {
+	if parts[2] != "X" && e.server.Cameras != nil {
 		if cameraNum, err := strconv.Atoi(parts[2]); err != nil {
 			newEvent.Errors = append(newEvent.Errors, ErrCAMParseFail)
 		} else if newEvent.Camera = e.server.Cameras.ByNum(cameraNum); newEvent.Camera == nil {
@@ -392,6 +410,10 @@ func (e *Events) UnmarshalEvent(text string) *Event {
 	if name := EventName(newEvent.Type); name == "" {
 		newEvent.Errors = append(newEvent.Errors, ErrUnknownEvent)
 		newEvent.Type = EventUnknownEvent
+	}
+
+	if newEvent.Type == EventClassify && len(parts) > 1 {
+		parseClassifyFields(parts[1:], newEvent)
 	}
 
 	// If this is a trigger-type event, add the trigger reason(s)
@@ -418,6 +440,24 @@ func (e *Events) UnmarshalEvent(text string) *Event {
 	}
 
 	return newEvent
+}
+
+func parseClassifyFields(parts []string, event *Event) {
+	for idx := 0; idx+1 < len(parts); idx += 2 {
+		value, err := strconv.Atoi(parts[idx+1])
+		if err != nil {
+			continue
+		}
+
+		switch parts[idx] {
+		case "HUMAN":
+			event.ClassifyHuman = value
+		case "VEHICLE":
+			event.ClassifyVehicle = value
+		case "ANIMAL":
+			event.ClassifyAnimal = value
+		}
+	}
 }
 
 func (e *Events) enqueue(event *Event) {
