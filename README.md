@@ -25,7 +25,7 @@ It's full of great examples on how to use this library, and can be easily instal
 - Works with SecuritySpy 4, 5, and 6.
 
 ## BREAKING CHANGES 3/7/2026
- 
+
 - The internal `Server.API` override/testing hook was removed.
 - Tests now use `httptest.Server` instead of swapping internal interfaces or generated mocks.
 - If you previously replaced `Server.API` in downstream tests, migrate to an HTTP test server and point

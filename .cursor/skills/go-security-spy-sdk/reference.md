@@ -7,7 +7,7 @@ For live HTTP control without Go, use the sibling skill `securityspy-control`.
 ## Server
 
 | Method | Notes |
-|--------|-------|
+| -------- | ------- |
 | `New(cfg) (*Server, error)` | Connects + `Refresh` |
 | `NewMust(cfg) *Server` | No connect; call `Refresh` before use |
 | `Refresh()` / `RefreshContext(ctx)` | Reloads `Info`, `Cameras`, `Groups` |
@@ -32,7 +32,7 @@ After `New`, `Password` is the base64 auth token (`Config.Auth()`).
 ## Camera control
 
 | Method | Endpoint / notes |
-|--------|------------------|
+| -------- | ------------------ |
 | `SetSchedule(mode, scheduleID)` | `++ssSetSchedule` |
 | `SetScheduleOverride(mode, overrideID)` | `++ssSetOverride` |
 | `ToggleContinuous(arm)` | Often `ErrUnsupported` |
@@ -48,7 +48,7 @@ Cached after Refresh: `ModeC`, `ModeM`, `ModeA`, schedule ID fields on `Camera`.
 ## Media
 
 | Method | Notes |
-|--------|-------|
+| -------- | ------- |
 | `GetJPEG(*VidOps)` | `image.Image`; retries |
 | `SaveJPEG(*VidOps, path)` | No overwrite |
 | `SaveVideo` | Pure-Go RTSP remux to file; length + maxsize; `UseHTTP` unsupported |
@@ -64,7 +64,7 @@ Cached after Refresh: `ModeC`, `ModeM`, `ModeA`, schedule ID fields on `Camera`.
 ## Files
 
 | Method | Notes |
-|--------|-------|
+| -------- | ------- |
 | `GetImages(nums, from, to)` | Captured stills |
 | `GetMCVideos` / `GetCCVideos` / `GetAll` | Motion / continuous / all |
 | `GetFile(name)` | Brittle; avoid |
@@ -76,7 +76,7 @@ Date format for listing: `2006-01-02`.
 ## Settings
 
 | Get | Set | Path |
-|-----|-----|------|
+| ----- | ----- | ------ |
 | `GetGeneralSettings` | `SetGeneralSettings` | `++settings-general` |
 | `GetDisplaySettings` | `SetDisplaySettings` | `++settings-display` |
 | `GetStorageSettings` | `SetStorageSettings` | `++settings-storage` |
@@ -94,7 +94,7 @@ Set methods take `url.Values` for partial updates. POST success: trailing `OK` o
 ## Source files
 
 | Area | File |
-|------|------|
+| ------ | ------ |
 | Construct / Refresh | `securityspy.go`, `securityspy_types.go` |
 | Cameras / media / schedules on cam | `cameras.go`, `cameras_types.go`, `schedules.go` |
 | Files | `files.go` |
