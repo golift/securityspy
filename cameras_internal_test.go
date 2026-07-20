@@ -69,7 +69,8 @@ func TestMakeVideoURLUserinfoAndCodecs(t *testing.T) {
 	})
 	cam := &Camera{Number: 3, Name: "Office", server: srv}
 
-	raw, err := cam.makeVideoURL(&VidOps{Height: 720, ACodec: "aac", Quality: 20}, cam.makeRequestParams(&VidOps{Height: 720, Quality: 20}))
+	raw, err := cam.makeVideoURL(&VidOps{Height: 720, ACodec: "aac", Quality: 20},
+		cam.makeRequestParams(&VidOps{Height: 720, Quality: 20}))
 	require.NoError(t, err)
 	require.Contains(t, raw, "rtsps://admin:s3cret@ss.example:8001/stream?")
 	require.Contains(t, raw, "cameraNum=3")
