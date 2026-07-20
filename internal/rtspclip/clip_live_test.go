@@ -105,13 +105,14 @@ func buildRTSPURL(httpBase, user, pass, camera string) (string, error) {
 	}
 
 	// Query auth= is rejected by SecuritySpy RTSP (401). Use userinfo.
-	out := &url.URL{
-		Scheme:   scheme,
-		User:     url.UserPassword(user, pass),
-		Host:     u.Host,
-		Path:     "/stream",
-		RawQuery: q.Encode(),
-	}
+	out := (&url.URL{
+		Scheme: scheme,
+		Host:   u.Host,
+		Path:   u.Path,
+	}).JoinPath("stream")
+	out.User = url.UserPassword(user, pass)
+	out.RawQuery = q.Encode()
+
 	return out.String(), nil
 }
 

@@ -80,6 +80,22 @@ func TestMakeVideoURLUserinfoAndCodecs(t *testing.T) {
 	require.NotContains(t, raw, "quality=")
 }
 
+func TestMakeVideoURLPreservesBasePath(t *testing.T) {
+	t.Parallel()
+
+	srv := NewMust(&server.Config{
+		URL:      "https://ss.example:8001/securityspy/",
+		Username: "admin",
+		Password: "s3cret",
+		Timeout:  server.Duration{Duration: time.Second},
+	})
+	cam := &Camera{Number: 3, server: srv}
+
+	raw, err := cam.makeVideoURL(nil, cam.makeRequestParams(nil))
+	require.NoError(t, err)
+	require.Contains(t, raw, "rtsps://admin:s3cret@ss.example:8001/securityspy/stream?")
+}
+
 func TestMakeVideoURLOmitsUserinfoWithoutAuth(t *testing.T) {
 	t.Parallel()
 

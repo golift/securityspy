@@ -503,12 +503,12 @@ func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) (string, error) { 
 	params.Set("vcodec", vcodec)
 	params.Set("acodec", acodec)
 
-	out := &url.URL{
-		Scheme:   scheme,
-		Host:     base.Host,
-		Path:     "/stream",
-		RawQuery: params.Encode(),
-	}
+	out := (&url.URL{
+		Scheme: scheme,
+		Host:   base.Host,
+		Path:   base.Path,
+	}).JoinPath("stream")
+	out.RawQuery = params.Encode()
 
 	if user, pass := c.rtspUserPassword(); user != "" {
 		out.User = url.UserPassword(user, pass)
