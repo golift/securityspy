@@ -1,6 +1,7 @@
 package securityspy
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -175,66 +176,131 @@ func (c *Camera) PostG711(audio io.ReadCloser) ([]byte, error) {
 // VidOps defines the image size. ops.FPS is ignored.
 // Makes several attempts in case of an error or time out.
 func (c *Camera) GetJPEG(ops *VidOps) (image.Image, error) {
+	data, err := c.fetchJPEGBytes(ops)
+	if err != nil {
+		return nil, err
+	}
+
+	jpgImage, err := jpeg.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("decoding jpeg: %w", err)
+	}
+
+	return jpgImage, nil
+}
+
+// SaveJPEG gets a picture from a camera and puts it in a file (path).
+// Fails if the path already exists. VidOps defines the image size; ops.FPS is ignored.
+// Writes the server JPEG bytes directly (no decode/re-encode).
+func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
+	data, err := c.fetchJPEGBytes(ops)
+	if err != nil {
+		return fmt.Errorf("getting jpeg: %w", err)
+	}
+
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, jpegFilePerm) //nolint:gosec // caller-chosen path
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return ErrPathExists
+		}
+
+		return fmt.Errorf("creating jpeg: %w", err)
+	}
+
+	_, writeErr := file.Write(data)
+	closeErr := file.Close()
+
+	if writeErr != nil {
+		_ = os.Remove(path)
+
+		return fmt.Errorf("writing jpeg: %w", writeErr)
+	}
+
+	if closeErr != nil {
+		_ = os.Remove(path)
+
+		return fmt.Errorf("closing jpeg: %w", closeErr)
+	}
+
+	return nil
+}
+
+// fetchJPEGBytes downloads a still from ++image. The request context stays alive
+// until the body is fully read — canceling earlier truncates the JPEG.
+// Retries use server.Config.JPEGRetries; each attempt is bounded by Timeout.
+func (c *Camera) fetchJPEGBytes(ops *VidOps) ([]byte, error) {
 	if ops == nil {
 		ops = &VidOps{}
 	}
 
 	ops.FPS = -1 // not used for single image
 
+	client := c.streamHTTPClient() // Timeout=0; context bounds the whole fetch
+
 	var lastErr error
 
 	for range c.server.JPEGTries() {
-		ctx, cancel := context.WithTimeout(context.Background(), c.server.TimeoutDur())
-		resp, err := c.server.GetContext(ctx, "++image", c.makeRequestParams(ops))
-
-		cancel()
-
-		if err != nil {
-			lastErr = fmt.Errorf("getting image: %w", err)
-
-			continue
+		data, err := c.fetchJPEGBytesOnce(ops, client)
+		if err == nil {
+			return data, nil
 		}
 
-		jpgImage, err := jpeg.Decode(resp.Body)
-		_ = resp.Body.Close()
-
-		if err != nil {
-			lastErr = fmt.Errorf("decoding jpeg: %w", err)
-
-			continue
+		lastErr = err
+		// Offline / missing cameras won't recover within this call.
+		if errors.Is(err, ErrCameraUnavailable) {
+			return nil, err
 		}
-
-		return jpgImage, nil
 	}
 
 	return nil, lastErr
 }
 
-// SaveJPEG gets a picture from a camera and puts it in a file (path).
-// The file will be overwritten if it exists.
-// VidOps defines the image size. ops.FPS is ignored.
-func (c *Camera) SaveJPEG(ops *VidOps, path string) error {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return ErrPathExists
-	}
+func (c *Camera) fetchJPEGBytesOnce(ops *VidOps, client *http.Client) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.server.TimeoutDur())
 
-	jpgImage, err := c.GetJPEG(ops)
+	resp, err := c.server.GetContextClient(ctx, "++image", c.makeRequestParams(ops), client)
 	if err != nil {
-		return fmt.Errorf("getting jpeg: %w", err)
+		cancel()
+
+		return nil, fmt.Errorf("getting image: %w", err)
 	}
 
-	oFile, err := os.Create(path) //nolint:gosec // we are creating a file in a safe way.
+	if resp.StatusCode == http.StatusNotFound {
+		_ = resp.Body.Close()
+
+		cancel()
+
+		return nil, fmt.Errorf("%w: %s", ErrCameraUnavailable, c.Name)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		preview, _ := io.ReadAll(io.LimitReader(resp.Body, jpegSOIPreviewMax))
+		_ = resp.Body.Close()
+
+		cancel()
+
+		return nil, fmt.Errorf("%w: status %d (%q)", server.ErrCmdNotOK, resp.StatusCode, preview)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+
+	cancel()
+
 	if err != nil {
-		return fmt.Errorf("os.Create: %w", err)
-	}
-	defer oFile.Close()
-
-	err = jpeg.Encode(oFile, jpgImage, nil)
-	if err != nil {
-		return fmt.Errorf("encoding jpeg: %w", err)
+		return nil, fmt.Errorf("reading image: %w", err)
 	}
 
-	return nil
+	if len(data) < 2 || data[0] != 0xFF || data[1] != 0xD8 {
+		preview := data
+		if len(preview) > jpegSOIPreviewMax {
+			preview = preview[:jpegSOIPreviewMax]
+		}
+
+		return nil, fmt.Errorf("%w: got %q", ErrInvalidJPEG, preview)
+	}
+
+	return data, nil
 }
 
 // ToggleContinuous arms or disarms continuous capture via ++ssControlContinuous.

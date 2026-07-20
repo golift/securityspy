@@ -26,6 +26,17 @@ const DefaultEncoder = "/usr/local/bin/ffmpeg"
 // Those methods remux RTSP only; use StreamMJPG / StreamH264 for HTTP media.
 var ErrHTTPVideoUnsupported = errors.New("HTTP video remux unsupported; use RTSP (UseHTTP=false)")
 
+// ErrCameraUnavailable is returned when ++image responds HTTP 404 (camera offline / missing).
+var ErrCameraUnavailable = errors.New("camera unavailable (HTTP 404)")
+
+// ErrInvalidJPEG is returned when ++image body is not a JPEG (missing SOI marker).
+var ErrInvalidJPEG = errors.New("invalid JPEG format: missing SOI marker")
+
+const (
+	jpegFilePerm      = 0o600
+	jpegSOIPreviewMax = 64
+)
+
 // CameraArmMode locks arming to an integer of 0 or 1.
 type CameraArmMode rune
 
