@@ -15,6 +15,11 @@ import (
 	"golift.io/securityspy/v2/server"
 )
 
+const (
+	userStr = "user"
+	passStr = "pass"
+)
+
 func TestGetServer(t *testing.T) {
 	t.Parallel()
 
@@ -59,7 +64,7 @@ func TestRefresh(t *testing.T) {
 
 	asert := assert.New(t)
 	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: fakeServer.URL + "/", VerifySSL: false})
+		&server.Config{Username: userStr, Password: passStr, URL: fakeServer.URL + "/", VerifySSL: false})
 	require.NoError(t, secspyServer.Refresh(),
 		"an error must not be returned while testing with valid XML")
 
@@ -108,7 +113,7 @@ func TestGetSounds(t *testing.T) { //nolint:dupl // it just looks like a duplica
 
 	asert := assert.New(t)
 	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: fakeServer.URL + "/", VerifySSL: false})
+		&server.Config{Username: userStr, Password: passStr, URL: fakeServer.URL + "/", VerifySSL: false})
 
 	sounds, err := secspyServer.GetSounds()
 	require.NoError(t, err, "the method must not return an error when given valid XML to unmarshal")
@@ -144,7 +149,7 @@ func TestGetScripts(t *testing.T) { //nolint:dupl // it just looks like a duplic
 
 	asert := assert.New(t)
 	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: fakeServer.URL + "/", VerifySSL: false})
+		&server.Config{Username: userStr, Password: passStr, URL: fakeServer.URL + "/", VerifySSL: false})
 
 	scripts, err := secspyServer.GetScripts()
 	require.NoError(t, err, "the method must not return an error when given valid XML to unmarshal")
@@ -221,7 +226,7 @@ func TestRefreshHandlesNilPTZAndMissingSchedules(t *testing.T) {
 	defer fakeServer.Close()
 
 	secspyServer := securityspy.NewMust(
-		&server.Config{Username: "user", Password: "pass", URL: fakeServer.URL + "/", VerifySSL: false})
+		&server.Config{Username: userStr, Password: passStr, URL: fakeServer.URL + "/", VerifySSL: false})
 
 	require.NoError(t, secspyServer.Refresh())
 	require.Empty(t, secspyServer.Cameras.ByNum(1).ScheduleIDA.Name)
