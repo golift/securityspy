@@ -53,3 +53,18 @@ func TestMonoAAC64kASC(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{0x11, 0x08}, asc)
 }
+
+func TestHighSampleRateASCStillMarshals(t *testing.T) {
+	t.Parallel()
+
+	// 96000 does not fit in mp4a sample_rate uint16; ASC still carries the real rate.
+	cfg := mpeg4audio.AudioSpecificConfig{
+		Type:          mpeg4audio.ObjectTypeAACLC,
+		SampleRate:    96000,
+		ChannelCount:  2,
+		ChannelConfig: 2,
+	}
+	asc, err := cfg.Marshal()
+	require.NoError(t, err)
+	require.NotEmpty(t, asc)
+}

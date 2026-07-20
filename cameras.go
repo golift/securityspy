@@ -53,9 +53,9 @@ func (c *Cameras) ByName(name string) *Camera {
 	return nil
 }
 
-// StreamVideo streams a short RTSP remux (H.264 + AAC when present) as fragmented MP4.
-// VidOps defines the video options for the video stream.
-// Returns an io.ReadCloser with the video stream. Close() it when finished.
+// StreamVideo returns a ReadCloser that yields a short RTSP remux (H.264 + AAC when present)
+// as fragmented MP4. Capture runs to completion (or Close/cancel) before bytes are written —
+// not a progressive/live pipe. Close() cancels an in-progress capture.
 // UseHTTP is not supported (returns ErrHTTPVideoUnsupported).
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
 	rtspURL, err := c.makeVideoURL(ops, c.makeRequestParams(ops))
@@ -519,22 +519,22 @@ func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) (string, error) { 
 
 // rtspUserPassword recovers plaintext credentials from the library auth blob
 // (base64 of username:password) for RTSP userinfo.
+// Returns empty strings when the blob is missing or invalid so makeVideoURL omits userinfo
+// instead of emitting rtsps://user:@host/... with a useless username.
 func (c *Camera) rtspUserPassword() (string, string) {
-	user := c.server.Username
 	blob := c.server.Auth()
-
 	if blob == "" {
-		return user, ""
+		return "", ""
 	}
 
 	raw, err := base64.URLEncoding.DecodeString(blob)
 	if err != nil {
-		return user, ""
+		return "", ""
 	}
 
 	parts := strings.SplitN(string(raw), ":", authColonParts)
-	if len(parts) != authColonParts {
-		return user, ""
+	if len(parts) != authColonParts || parts[0] == "" {
+		return "", ""
 	}
 
 	return parts[0], parts[1]

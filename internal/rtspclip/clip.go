@@ -93,15 +93,19 @@ func SaveMP4(ctx context.Context, rtspURL, path string, opts Options) (*Result, 
 }
 
 // StreamMP4 captures like SaveMP4 but writes to an io.Pipe ReadCloser.
-// Close the returned closer when finished; the capture runs in a goroutine.
+// Samples are buffered until capture finishes, then the fMP4 is written in one shot
+// (not progressive). Close() cancels the RTSP session if still running.
 func StreamMP4(ctx context.Context, rtspURL string, opts Options) (io.ReadCloser, error) {
 	if opts.Duration <= 0 {
 		return nil, ErrBadDuration
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
 	reader, writer := io.Pipe()
 
 	go func() {
+		defer cancel()
+
 		_, err := capture(ctx, rtspURL, opts, writer)
 		if err != nil {
 			_ = writer.CloseWithError(err)
@@ -112,7 +116,24 @@ func StreamMP4(ctx context.Context, rtspURL string, opts Options) (io.ReadCloser
 		_ = writer.Close()
 	}()
 
-	return reader, nil
+	return &cancelReadCloser{ReadCloser: reader, cancel: cancel}, nil
+}
+
+// cancelReadCloser cancels the capture context when the pipe is closed early.
+type cancelReadCloser struct {
+	io.ReadCloser
+
+	cancel context.CancelFunc
+}
+
+func (c *cancelReadCloser) Close() error {
+	c.cancel()
+
+	if err := c.ReadCloser.Close(); err != nil {
+		return fmt.Errorf("close stream: %w", err)
+	}
+
+	return nil
 }
 
 func capture(ctx context.Context, rtspURL string, opts Options, writer io.Writer) (*Result, error) {
@@ -632,7 +653,13 @@ func setMPEG4AudioDescriptor(trak *mp4.TrakBox, cfg *mpeg4audio.AudioSpecificCon
 		channels = 1
 	}
 
-	sampleRate := uint16(cfg.SampleRate) //nolint:gosec // AAC rates fit uint16
+	// AudioSampleEntry.sample_rate is a 16.16 fixed field (uint16 integer part).
+	// Rates above 65535 (e.g. 88200/96000) cannot fit; store 0 and rely on ASC/esds.
+	var sampleRate uint16
+	if cfg.SampleRate > 0 && cfg.SampleRate <= 0xFFFF {
+		sampleRate = uint16(cfg.SampleRate)
+	}
+
 	esds := mp4.CreateEsdsBox(ascBytes)
 	mp4a := mp4.CreateAudioSampleEntryBox("mp4a", channels, aacBitsPerSample, sampleRate, esds)
 	trak.Mdia.Minf.Stbl.Stsd.AddChild(mp4a)
