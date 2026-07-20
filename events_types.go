@@ -47,31 +47,35 @@ const (
 // connect to the event stream. The Running bool is true when the event stream
 // watcher routine is active.
 type Events struct {
-	server     *Server
-	stream     io.ReadCloser
-	eventChan  chan *Event
-	ctx        context.Context //nolint:containedctx // this is the context for the event stream.
-	cancel     context.CancelFunc
-	wg         sync.WaitGroup
-	mu         sync.RWMutex
-	eventBinds map[EventType][]func(event Event)
-	eventChans map[EventType][]chan Event
-	binds      sync.RWMutex
-	chans      sync.RWMutex
-	Running    bool
+	server      *Server
+	stream      io.ReadCloser
+	eventChan   chan *Event
+	ctx         context.Context //nolint:containedctx // this is the context for the event stream.
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
+	mu          sync.RWMutex
+	eventBinds  map[EventType][]func(event Event)
+	eventChans  map[EventType][]chan Event
+	binds       sync.RWMutex
+	chans       sync.RWMutex
+	Running     bool
+	callbackSem chan struct{}
 }
 
 // Event represents a SecuritySpy event from the Stream Reply.
 // This is the INPUT data for an event that is sent to a bound callback method or channel.
 type Event struct {
-	Time    time.Time      // Local time event was recorded.
-	When    time.Time      // Event time according to server.
-	ID      int            // Negative numbers are custom events.
-	Camera  *Camera        // Each event gets a camera interface.
-	Type    EventType      // Event identifier
-	Msg     string         // Event Text
-	Errors  []error        // Errors populated by parse errors.
-	Reasons []TriggerEvent // Bitmask of trigger reasons.
+	Time            time.Time      // Local time event was recorded.
+	When            time.Time      // Event time according to server.
+	ID              int            // Negative numbers are custom events.
+	Camera          *Camera        // Each event gets a camera interface.
+	Type            EventType      // Event identifier
+	Msg             string         // Event Text
+	Errors          []error        // Errors populated by parse errors.
+	Reasons         []TriggerEvent // Bitmask of trigger reasons.
+	ClassifyHuman   int            // CLASSIFY event human score (-99 when absent).
+	ClassifyVehicle int            // CLASSIFY event vehicle score (-99 when absent).
+	ClassifyAnimal  int            // CLASSIFY event animal score (-99 when absent).
 }
 
 // EventType is a set of constant strings validated by the EventNames map.
@@ -109,7 +113,6 @@ const (
 	EventWatcherRefreshed   EventType = "REFRESH"
 	EventWatcherRefreshFail EventType = "REFRESHFAIL"
 	EventStreamCustom       EventType = "CUSTOM"
-	eventStreamStop         EventType = "STOP"
 )
 
 // EventName returns the human readable names for each event.
@@ -146,7 +149,14 @@ func EventName(eventType EventType) string {
 // TriggerEvent represent the "Reason" a motion or action trigger occurred. v5+ only.
 type TriggerEvent int
 
-// These are the trigger reasons SecuritySpy exposes. v5+ only.
+// Trigger reason bitmasks for TRIGGER_M and TRIGGER_A events.
+//
+// These constants follow the SecuritySpy v6 web-server specification. On SecuritySpy v5
+// the table stops at Animal: bit 512 means Animal detection, not HomeKit. v6 inserts
+// HomeKit at 512 and shifts Animal to 1024, then adds arrival/departure bits above that.
+// This library keeps the v6 layout so v6 servers decode correctly; v5 servers that emit
+// bit 512 for animal motion will surface TriggerByHomeKitEvent in Reasons() even though
+// the server meant Animal — check Classify* fields or raw Msg on v5 when that matters.
 const (
 	TriggerByMotion = TriggerEvent(1) << iota
 	TriggerByAudio
@@ -157,7 +167,9 @@ const (
 	TriggerByManual
 	TriggerByHumanDetection
 	TriggerByVehicleDetection
+	// TriggerByHomeKitEvent is 512 on v6. On SecuritySpy v5, bit 512 is Animal detection.
 	TriggerByHomeKitEvent
+	// TriggerByAnimalDetection is 1024 on v6. On SecuritySpy v5, Animal is bit 512 instead.
 	TriggerByAnimalDetection
 	TriggerByHumanArrival
 	TriggerByHumanDeparture

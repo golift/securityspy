@@ -12,6 +12,8 @@ import (
 	"golift.io/securityspy/v2/server"
 )
 
+const maxCallbackWorkers = 32
+
 // New returns an interface to interact with SecuritySpy.
 func New(c *server.Config) (*Server, error) {
 	s := NewMust(c)
@@ -35,9 +37,10 @@ func NewMust(config *server.Config) *Server {
 	secspyServer := &Server{Config: config, Encoder: DefaultEncoder}
 	secspyServer.Files = &Files{server: secspyServer}
 	secspyServer.Events = &Events{
-		server:     secspyServer,
-		eventBinds: make(map[EventType][]func(Event)),
-		eventChans: make(map[EventType][]chan Event),
+		server:      secspyServer,
+		eventBinds:  make(map[EventType][]func(Event)),
+		eventChans:  make(map[EventType][]chan Event),
+		callbackSem: make(chan struct{}, maxCallbackWorkers),
 	}
 
 	return secspyServer

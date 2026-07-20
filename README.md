@@ -5,7 +5,13 @@
 ## OVERVIEW
 
 (Nearly) Full Featured Go Library for [SecuritySpy](https://www.bensoftware.com/securityspy/)'s
-web API. Read about the [API here](https://www.bensoftware.com/securityspy/web-server-spec.html).
+web API. Offline v5/v6 specs are archived in [`.archive/`](.archive/README.md).
+
+- Targets **SecuritySpy v5 and v6** (validated against 5.5.11).
+- Authentication uses the `auth=` query parameter (base64 `username:password`), set automatically from `server.Config` credentials.
+- `ToggleContinuous` may return `ErrUnsupported` on v5 builds without `++ssControlContinuous`; use `SetSchedule` with continuous mode instead.
+- Trigger reason bit **512** means **Animal** on v5 and **HomeKit** on v6; this library uses the v6 layout.
+- There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy/v2).
 
 Everything is reasonably tested and working. Feedback is welcomed!
 
@@ -15,8 +21,7 @@ A command line interface app that uses this library exists. Most of the testing 
 Find it here: [https://github.com/davidnewhall/SecSpyCLI](https://github.com/davidnewhall/SecSpyCLI)
 It's full of great examples on how to use this library, and can be easily installed with homebrew.
 
-- Works with SecuritySpy 4 and 5 and probably 6.
-- There's a lot more to learn about this package in [GODOC](https://godoc.org/golift.io/securityspy/v2).
+- Works with SecuritySpy 4, 5, and 6.
 
 ## BREAKING CHANGES 3/7/2026
 
@@ -43,6 +48,7 @@ It's full of great examples on how to use this library, and can be easily instal
 - Submit G711 audio (files or microphone) to a camera from an `io.ReadCloser`.
 - Save live video snippets locally (requires `FFMPEG`).
 - Get live JPEG images in `image` format, or save files locally.
+- Read armed/disarmed status via `Camera.Modes()` and build HLS URLs via `Camera.HLSURL()`.
 - Arm and Disarm actions, motion capture and continuous capture.
 - Trigger Motion.
 - Set schedules and schedule overrides.
