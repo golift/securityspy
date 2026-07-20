@@ -5,6 +5,8 @@ Live test (`go test -tags=live ./internal/rtspclip/`) against SecuritySpy 6.20:
 - **PASS**: `SaveMP4` wrote a playable fMP4 (`format_name=mov,mp4,…`, `codec_name=h264`).
 - Example run: ~37 frames, ~2.5 MiB in ~1.7 s (stopped on `MaxBytes`), `ffprobe` duration ≈ 1.83 s.
 - Package is the production remux path for `Camera.SaveVideo` / `StreamVideo`.
+- **SaveMP4 / SaveVideo**: buffer samples until capture ends, then write one fMP4 (AAC track only if samples were received — empty AAC freezes Telegram).
+- **StreamMP4 / StreamVideo**: progressive fMP4 — write init after first IDR, flush moof/mdat every ~15 video frames so readers get bytes during capture. AAC is included in init only if a sample was already buffered (no mid-stream track add).
 
 ## Critical finding: RTSP auth
 

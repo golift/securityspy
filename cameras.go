@@ -53,9 +53,9 @@ func (c *Cameras) ByName(name string) *Camera {
 	return nil
 }
 
-// StreamVideo returns a ReadCloser that yields a short RTSP remux (H.264 + AAC when present)
-// as fragmented MP4. Capture runs to completion (or Close/cancel) before bytes are written —
-// not a progressive/live pipe. Close() cancels an in-progress capture.
+// StreamVideo returns a ReadCloser that yields a progressive fragmented MP4
+// (H.264 + AAC when present at init time). Init is written after the first IDR;
+// media fragments flush while capture continues. Close() cancels an in-progress capture.
 // UseHTTP is not supported (returns ErrHTTPVideoUnsupported).
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
 	rtspURL, err := c.makeVideoURL(ops, c.makeRequestParams(ops))

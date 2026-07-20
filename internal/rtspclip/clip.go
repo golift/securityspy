@@ -42,6 +42,7 @@ const (
 	audioTrackID          = 2
 	captureTimeoutPadding = 5 * time.Second
 	aacBitsPerSample      = 16
+	fragmentFrames        = 15 // ~0.5s at 30fps between progressive flushes
 )
 
 // Options control a timed RTSP clip capture.
@@ -82,7 +83,7 @@ func SaveMP4(ctx context.Context, rtspURL, path string, opts Options) (*Result, 
 
 	defer file.Close()
 
-	res, err := capture(ctx, rtspURL, opts, file)
+	res, err := capture(ctx, rtspURL, opts, file, false)
 	if err != nil {
 		_ = os.Remove(path)
 
@@ -92,9 +93,9 @@ func SaveMP4(ctx context.Context, rtspURL, path string, opts Options) (*Result, 
 	return res, nil
 }
 
-// StreamMP4 captures like SaveMP4 but writes to an io.Pipe ReadCloser.
-// Samples are buffered until capture finishes, then the fMP4 is written in one shot
-// (not progressive). Close() cancels the RTSP session if still running.
+// StreamMP4 captures like SaveMP4 but writes progressive fMP4 to an io.Pipe ReadCloser.
+// Init is written after the first IDR; media fragments flush periodically so readers get
+// bytes while capture is still running. Close() cancels the RTSP session if still running.
 func StreamMP4(ctx context.Context, rtspURL string, opts Options) (io.ReadCloser, error) {
 	if opts.Duration <= 0 {
 		return nil, ErrBadDuration
@@ -106,7 +107,7 @@ func StreamMP4(ctx context.Context, rtspURL string, opts Options) (io.ReadCloser
 	go func() {
 		defer cancel()
 
-		_, err := capture(ctx, rtspURL, opts, writer)
+		_, err := capture(ctx, rtspURL, opts, writer, true)
 		if err != nil {
 			_ = writer.CloseWithError(err)
 
@@ -136,7 +137,7 @@ func (c *cancelReadCloser) Close() error {
 	return nil
 }
 
-func capture(ctx context.Context, rtspURL string, opts Options, writer io.Writer) (*Result, error) {
+func capture(ctx context.Context, rtspURL string, opts Options, writer io.Writer, progressive bool) (*Result, error) {
 	parsed, err := base.ParseURL(rtspURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse url: %w", err)
@@ -160,7 +161,7 @@ func capture(ctx context.Context, rtspURL string, opts Options, writer io.Writer
 		return nil, err
 	}
 
-	mux := newFMP4Muxer(writer, tracks.h264.SPS, tracks.h264.PPS, tracks.aac)
+	mux := newFMP4Muxer(writer, tracks.h264.SPS, tracks.h264.PPS, tracks.aac, progressive)
 
 	captureCtx, cancel := context.WithTimeout(ctx, opts.Duration+captureTimeoutPadding)
 	defer cancel()
@@ -461,24 +462,38 @@ func (s *captureState) result(hasAudio bool) (*Result, error) {
 }
 
 type fmp4Muxer struct {
-	w         io.Writer
-	sps, pps  []byte
-	aacFormat *format.MPEG4Audio
+	w           io.Writer
+	sps, pps    []byte
+	aacFormat   *format.MPEG4Audio
+	progressive bool
 
-	mu           sync.Mutex
-	dtsExtractor *h264.DTSExtractor
-	started      bool
-	videoDecode  uint64
-	audioDecode  uint64
-	prevVideoPTS int64
-	prevAudioPTS int64
-	videoSamples []mp4.FullSample
-	audioSamples []mp4.FullSample
-	audioRate    uint32
+	mu            sync.Mutex
+	dtsExtractor  *h264.DTSExtractor
+	started       bool
+	initWritten   bool
+	includeAudio  bool
+	hadAudio      bool
+	seqNum        uint32
+	videoDecode   uint64
+	audioDecode   uint64
+	prevVideoPTS  int64
+	prevAudioPTS  int64
+	havePrevVideo bool
+	havePrevAudio bool
+	videoSamples  []mp4.FullSample
+	audioSamples  []mp4.FullSample
+	audioRate     uint32
 }
 
-func newFMP4Muxer(writer io.Writer, sps, pps []byte, aacFmt *format.MPEG4Audio) *fmp4Muxer {
-	mux := &fmp4Muxer{w: writer, sps: sps, pps: pps, aacFormat: aacFmt}
+func newFMP4Muxer(writer io.Writer, sps, pps []byte, aacFmt *format.MPEG4Audio, progressive bool) *fmp4Muxer {
+	mux := &fmp4Muxer{
+		w:           writer,
+		sps:         sps,
+		pps:         pps,
+		aacFormat:   aacFmt,
+		progressive: progressive,
+		seqNum:      1,
+	}
 	if aacFmt != nil {
 		mux.audioRate = uint32(aacFmt.ClockRate()) //nolint:gosec // sample rates fit uint32
 	}
@@ -490,7 +505,7 @@ func (m *fmp4Muxer) hasAudio() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return len(m.audioSamples) > 0
+	return m.hadAudio || len(m.audioSamples) > 0
 }
 
 func (m *fmp4Muxer) writeVideo(accessUnit [][]byte, pts int64) (int, error) {
@@ -510,22 +525,53 @@ func (m *fmp4Muxer) writeVideo(accessUnit [][]byte, pts int64) (int, error) {
 		return 0, nil
 	}
 
-	if m.dtsExtractor == nil {
-		if !idr {
-			return 0, nil
-		}
-
-		if len(m.sps) == 0 || len(m.pps) == 0 {
-			return 0, ErrNoParameter
-		}
-
-		m.dtsExtractor = &h264.DTSExtractor{}
-		m.dtsExtractor.Initialize()
-		m.started = true
-		m.prevVideoPTS = pts
+	if err := m.ensureVideoStarted(idr, pts); err != nil {
+		return 0, err
 	}
 
-	return m.appendVideo(filtered, pts, idr)
+	if m.dtsExtractor == nil {
+		return 0, nil
+	}
+
+	nbytes, err := m.appendVideo(filtered, pts, idr)
+	if err != nil || nbytes == 0 {
+		return nbytes, err
+	}
+
+	return nbytes, m.afterVideoSample()
+}
+
+func (m *fmp4Muxer) ensureVideoStarted(idr bool, pts int64) error {
+	if m.dtsExtractor != nil {
+		return nil
+	}
+
+	if !idr {
+		return nil
+	}
+
+	if len(m.sps) == 0 || len(m.pps) == 0 {
+		return ErrNoParameter
+	}
+
+	m.dtsExtractor = &h264.DTSExtractor{}
+	m.dtsExtractor.Initialize()
+	m.started = true
+	m.prevVideoPTS = pts
+
+	return nil
+}
+
+func (m *fmp4Muxer) afterVideoSample() error {
+	if !m.progressive {
+		return nil
+	}
+
+	if err := m.maybeInitProgressive(); err != nil {
+		return err
+	}
+
+	return m.maybeFlush(false)
 }
 
 func (m *fmp4Muxer) appendVideo(filtered [][]byte, pts int64, idr bool) (int, error) {
@@ -539,8 +585,9 @@ func (m *fmp4Muxer) appendVideo(filtered [][]byte, pts int64, idr bool) (int, er
 	}
 
 	sampleData := avccFromNALUs(filtered)
-	dur := sampleDuration(pts, m.prevVideoPTS, defaultFrameTicks, len(m.videoSamples) > 0)
+	dur := sampleDuration(pts, m.prevVideoPTS, defaultFrameTicks, m.havePrevVideo)
 	m.prevVideoPTS = pts
+	m.havePrevVideo = true
 
 	flags := mp4.NonSyncSampleFlags
 	if idr {
@@ -566,15 +613,20 @@ func (m *fmp4Muxer) writeAudio(frame []byte, pts int64) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Defer init until close so we only declare AAC when samples exist.
 	// Drop early audio until the first video IDR (short clips; negligible).
 	if !m.started || m.aacFormat == nil || len(frame) == 0 {
 		return 0, nil
 	}
 
+	// Progressive init without AAC: cannot add a track mid-stream.
+	if m.initWritten && !m.includeAudio {
+		return 0, nil
+	}
+
 	fallback := uint32(mpeg4audio.SamplesPerAccessUnit)
-	dur := sampleDuration(pts, m.prevAudioPTS, fallback, len(m.audioSamples) > 0)
+	dur := sampleDuration(pts, m.prevAudioPTS, fallback, m.havePrevAudio)
 	m.prevAudioPTS = pts
+	m.havePrevAudio = true
 
 	data := append([]byte(nil), frame...)
 	m.audioSamples = append(m.audioSamples, mp4.FullSample{
@@ -587,6 +639,7 @@ func (m *fmp4Muxer) writeAudio(frame []byte, pts int64) (int, error) {
 		Data:       data,
 	})
 	m.audioDecode += uint64(dur)
+	m.hadAudio = true
 
 	return len(data), nil
 }
@@ -667,22 +720,43 @@ func setMPEG4AudioDescriptor(trak *mp4.TrakBox, cfg *mpeg4audio.AudioSpecificCon
 	return nil
 }
 
-func (m *fmp4Muxer) close() error { //nolint:cyclop // init + multi-track fragment
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if !m.started || len(m.videoSamples) == 0 {
+// maybeInitProgressive writes moov after the first video sample (caller holds mu).
+func (m *fmp4Muxer) maybeInitProgressive() error {
+	if m.initWritten || !m.started || len(m.videoSamples) == 0 {
 		return nil
 	}
 
-	includeAudio := len(m.audioSamples) > 0
-	if err := m.writeInit(includeAudio); err != nil {
+	m.includeAudio = len(m.audioSamples) > 0 && m.aacFormat != nil && m.aacFormat.Config != nil
+	if err := m.writeInit(m.includeAudio); err != nil {
 		return err
 	}
 
+	m.initWritten = true
+
+	return nil
+}
+
+// maybeFlush writes a media fragment when enough video samples are buffered (caller holds mu).
+func (m *fmp4Muxer) maybeFlush(force bool) error {
+	if !m.progressive || !m.initWritten {
+		return nil
+	}
+
+	if !force && len(m.videoSamples) < fragmentFrames {
+		return nil
+	}
+
+	if len(m.videoSamples) == 0 && len(m.audioSamples) == 0 {
+		return nil
+	}
+
+	return m.flushFragment()
+}
+
+func (m *fmp4Muxer) flushFragment() error {
 	seg := mp4.NewMediaSegment()
 
-	frag, err := m.newFragment(includeAudio)
+	frag, err := m.newFragment(m.includeAudio)
 	if err != nil {
 		return err
 	}
@@ -695,7 +769,7 @@ func (m *fmp4Muxer) close() error { //nolint:cyclop // init + multi-track fragme
 		}
 	}
 
-	if includeAudio {
+	if m.includeAudio {
 		for _, sample := range m.audioSamples {
 			if err := frag.AddFullSampleToTrack(sample, audioTrackID); err != nil {
 				return fmt.Errorf("add audio sample: %w", err)
@@ -707,12 +781,51 @@ func (m *fmp4Muxer) close() error { //nolint:cyclop // init + multi-track fragme
 		return fmt.Errorf("encode segment: %w", err)
 	}
 
+	m.videoSamples = m.videoSamples[:0]
+	m.audioSamples = m.audioSamples[:0]
+	m.seqNum++
+
 	return nil
+}
+
+func (m *fmp4Muxer) close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if !m.started {
+		return nil
+	}
+
+	if m.progressive {
+		if err := m.maybeInitProgressive(); err != nil {
+			return err
+		}
+
+		return m.maybeFlush(true)
+	}
+
+	if len(m.videoSamples) == 0 {
+		return nil
+	}
+
+	includeAudio := len(m.audioSamples) > 0
+	if includeAudio {
+		m.hadAudio = true
+	}
+
+	if err := m.writeInit(includeAudio); err != nil {
+		return err
+	}
+
+	m.includeAudio = includeAudio
+	m.initWritten = true
+
+	return m.flushFragment()
 }
 
 func (m *fmp4Muxer) newFragment(includeAudio bool) (*mp4.Fragment, error) {
 	if includeAudio {
-		frag, err := mp4.CreateMultiTrackFragment(1, []uint32{videoTrackID, audioTrackID})
+		frag, err := mp4.CreateMultiTrackFragment(m.seqNum, []uint32{videoTrackID, audioTrackID})
 		if err != nil {
 			return nil, fmt.Errorf("create fragment: %w", err)
 		}
@@ -720,7 +833,7 @@ func (m *fmp4Muxer) newFragment(includeAudio bool) (*mp4.Fragment, error) {
 		return frag, nil
 	}
 
-	frag, err := mp4.CreateFragment(1, videoTrackID)
+	frag, err := mp4.CreateFragment(m.seqNum, videoTrackID)
 	if err != nil {
 		return nil, fmt.Errorf("create fragment: %w", err)
 	}

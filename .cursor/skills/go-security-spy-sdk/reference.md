@@ -51,7 +51,8 @@ Cached after Refresh: `ModeC`, `ModeM`, `ModeA`, schedule ID fields on `Camera`.
 |--------|-------|
 | `GetJPEG(*VidOps)` | `image.Image`; retries |
 | `SaveJPEG(*VidOps, path)` | No overwrite |
-| `StreamVideo` / `SaveVideo` | Pure-Go RTSP remux; length + maxsize; `UseHTTP` unsupported |
+| `SaveVideo` | Pure-Go RTSP remux to file; length + maxsize; `UseHTTP` unsupported |
+| `StreamVideo` | Progressive fMP4 pipe (init after IDR, periodic fragments); Close cancels |
 | `StreamMJPG` / `StreamH264` / `StreamG711` | `io.ReadCloser`; Close when done |
 | `PostG711(r)` | Talk-back audio |
 | `HLSURL` / `HLSMediaPlaylistURL(q)` / `LiveURL` | URL strings |
