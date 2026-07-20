@@ -16,14 +16,20 @@ import (
 	"golift.io/securityspy/v2/server"
 )
 
+const (
+	userStr = "user"
+	passStr = "pass"
+	urlStr  = "http://some.host:5678/"
+)
+
 func TestGet(t *testing.T) {
 	t.Parallel()
 
 	asert := assert.New(t)
 	config := &server.Config{
-		Username:  "user",
-		Password:  "pass",
-		URL:       "http://some.host:5678/",
+		Username:  userStr,
+		Password:  passStr,
+		URL:       urlStr,
 		VerifySSL: false,
 		Timeout:   server.Duration{time.Second},
 	}
@@ -59,9 +65,9 @@ func TestPostAudioContentType(t *testing.T) {
 
 	asert := assert.New(t)
 	config := &server.Config{
-		Username:  "user",
-		Password:  "pass",
-		URL:       "http://some.host:5678/",
+		Username:  userStr,
+		Password:  passStr,
+		URL:       urlStr,
 		VerifySSL: false,
 		Timeout:   server.Duration{time.Second},
 	}
@@ -104,7 +110,7 @@ func TestGetXMLStatusAndDecodeErrors(t *testing.T) {
 	t.Parallel()
 
 	config := &server.Config{
-		URL:       "http://some.host:5678/",
+		URL:       urlStr,
 		VerifySSL: false,
 		Timeout:   server.Duration{time.Second},
 	}
@@ -145,7 +151,7 @@ func TestSimpleReqOKAndFail(t *testing.T) {
 	t.Parallel()
 
 	config := &server.Config{
-		URL:       "http://some.host:5678/",
+		URL:       urlStr,
 		VerifySSL: false,
 		Timeout:   server.Duration{time.Second},
 	}

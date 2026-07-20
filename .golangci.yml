@@ -9,6 +9,7 @@ linters:
     - noinlineerr
     - exhaustive
     - nlreturn
+    - gomodguard
   settings:
     gocritic:
       enable-all: true

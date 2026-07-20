@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"sync"
 	"testing"
 
@@ -38,9 +39,9 @@ func (r *requestRecorder) findLast(path string) (recordedRequest, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for idx := len(r.reqs) - 1; idx >= 0; idx-- {
-		if r.reqs[idx].Path == path {
-			return r.reqs[idx], true
+	for _, v := range slices.Backward(r.reqs) {
+		if v.Path == path {
+			return v, true
 		}
 	}
 
@@ -54,8 +55,8 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) *securityspy.Server {
 	t.Cleanup(fakeServer.Close)
 
 	return securityspy.NewMust(&server.Config{
-		Username: "user",
-		Password: "pass",
+		Username: userStr,
+		Password: passStr,
 		URL:      fakeServer.URL + "/",
 	})
 }
