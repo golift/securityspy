@@ -20,17 +20,17 @@ Pass credentials every time (or via env). Never commit passwords.
 | `--url` / `SECURITYSPY_URL` | Base URL, default `http://127.0.0.1:8000` |
 | `--user` / `SECURITYSPY_USER` | Username (required) |
 | `--password` / `SECURITYSPY_PASS` | Password (required) |
-| `--insecure` | Skip TLS verify (default **on** for LAN self-signed) |
+| `--insecure` | Skip TLS verify (opt-in; use for self-signed HTTPS) |
 
-Auth is the `auth=` query parameter: base64url(`user:pass`).
+Auth is the `auth=` query parameter: base64url(`user:pass`). TLS is verified by default; add `--insecure` for typical LAN self-signed certs.
 
 ## Preferred commands
 
 Resolve `SCRIPT` to this skill’s script path (repo: `.cursor/skills/securityspy-control/scripts/ss_ctl.py`).
 
 ```bash
-# Inspect
-python3 "$SCRIPT" --user USER --password PASS info
+# Inspect (add --insecure for https:// with a self-signed cert)
+python3 "$SCRIPT" --url https://HOST:8001 --insecure --user USER --password PASS info
 python3 "$SCRIPT" --user USER --password PASS cameras
 python3 "$SCRIPT" --user USER --password PASS schedules
 python3 "$SCRIPT" --user USER --password PASS modes Door

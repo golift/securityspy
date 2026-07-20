@@ -55,7 +55,8 @@ class SSClient:
 
     def get_ok(self, api: str, params: dict[str, Any] | None = None) -> None:
         body = self.get_text(api, params).strip()
-        if body.endswith("OK") or '"result":"OK"' in body.replace(" ", ""):
+        compact = "".join(body.split())
+        if body.endswith("OK") or '"result":"OK"' in compact:
             return
         raise RuntimeError(f"{api} unexpected response: {body[:200]!r}")
 
@@ -246,7 +247,7 @@ def cmd_clip(ss: SSClient, args: argparse.Namespace) -> None:
         "copy",
         str(out),
     ]
-    print("running:", " ".join(cmd[:4]), "...", out)
+    print(f"recording {args.seconds}s from ++stream camera={cam['number']}:{cam['name']} -> {out}")
     subprocess.run(cmd, check=True)
     print(f"saved {out} camera={cam['number']}:{cam['name']}")
 
@@ -274,13 +275,14 @@ def cmd_list_files(ss: SSClient, args: argparse.Namespace) -> None:
     # Files appear as item/entry with title + link href depending on version
     items = root.findall(".//item") or root.findall(".//entry") or root.findall(".//file")
     if not items:
-        # dump any download links
+        found = 0
         for el in root.iter():
             href = el.attrib.get("href") or (el.findtext("link") or "")
             title = el.findtext("title") or el.findtext("name") or el.tag
             if href and ("getfile" in href or href.startswith("++")):
                 print(f"{title}\t{href}")
-        if not any(True for _ in root.iter()):
+                found += 1
+        if found == 0:
             print(text[:1000])
         return
     for item in items:
@@ -319,8 +321,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--insecure",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="skip TLS verify (default: true)",
+        default=False,
+        help="skip TLS verify (needed for self-signed HTTPS; default: verify)",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
