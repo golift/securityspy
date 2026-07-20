@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+  <allowSleep>false</allowSleep>
+  <audioDeviceIndex>0</audioDeviceIndex>
+  <audioDeviceName>Built-in Microphone</audioDeviceName>
+  <audioDeviceVol>100</audioDeviceVol>
+  <audioDeviceVolText>100</audioDeviceVolText>
+  <autoReopen>true</autoReopen>
+  <dateFormat>1</dateFormat>
+  <dismissAlerts>true</dismissAlerts>
+  <errWindow>false</errWindow>
+  <fullVol>false</fullVol>
+  <hissReduction>true</hissReduction>
+  <imageShare>true</imageShare>
+  <mingSave>false</mingSave>
+  <muteIncoming>false</muteIncoming>
+  <sendDiagnostics>true</sendDiagnostics>
+  <sharePermission>1</sharePermission>
+  <suspendDecoding>true</suspendDecoding>
+  <sysName>Example Server</sysName>
+  <thumbCrop>18</thumbCrop>
+  <timeFormat>1</timeFormat>
+  <updateNotify>1</updateNotify>
+</settings>

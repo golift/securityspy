@@ -15,8 +15,8 @@ func TestGetFileValidName(t *testing.T) {
 	file, err := secspyServer.Files.GetFile("01-18-2019 10-17-53 M Porch.m4v")
 	require.NoError(t, err)
 	require.Equal(t, "video/quicktime", file.Link.Type)
-	require.Equal(t, 1, file.CameraNum)
-	require.Contains(t, file.Link.HREF, "++getfile/1/2019-01-18/")
+	require.Equal(t, 2, file.CameraNum)
+	require.Contains(t, file.Link.HREF, "++getfile/2/2019-01-18/")
 }
 
 func TestGetFileInvalidNames(t *testing.T) {

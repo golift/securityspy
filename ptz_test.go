@@ -19,14 +19,14 @@ func TestPTZPresetCommandMapping(t *testing.T) {
 	req, found := recorder.findLast("/++ptz/command")
 	require.True(t, found)
 	require.Equal(t, "12", req.Query.Get("command"))
-	require.Equal(t, "1", req.Query.Get("cameraNum"))
+	require.Equal(t, "3", req.Query.Get("cameraNum"))
 
 	require.NoError(t, camera.PTZ.PresetSave(securityspy.PTZpreset1))
 
 	req, found = recorder.findLast("/++ptz/command")
 	require.True(t, found)
 	require.Equal(t, "112", req.Query.Get("command"))
-	require.Equal(t, "1", req.Query.Get("cameraNum"))
+	require.Equal(t, "3", req.Query.Get("cameraNum"))
 }
 
 func TestPTZCapabilitiesSpeedAndContinuous(t *testing.T) {

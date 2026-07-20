@@ -55,7 +55,7 @@ func (s *Server) Refresh() error {
 }
 
 // RefreshContext gets fresh camera and serverInfo data from SecuritySpy with context support.
-func (s *Server) RefreshContext(ctx context.Context) error {
+func (s *Server) RefreshContext(ctx context.Context) error { //nolint:cyclop // schedule name wiring
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -66,12 +66,17 @@ func (s *Server) RefreshContext(ctx context.Context) error {
 	}
 
 	s.Info = sysInfo.Server
-	s.Cameras = &Cameras{cameras: sysInfo.CameraList.Cameras, server: s}
+	if s.Info == nil {
+		s.Info = &ServerInfo{}
+	}
+
+	s.Cameras = &Cameras{cameras: sysInfo.cameras(), server: s}
+	s.Groups = sysInfo.GroupList.Groups
 	s.Info.Refreshed = time.Now()
 	// Point all the unmarshalled data into an exported struct. Better-formatted data.
-	s.Info.ServerSchedules = sysInfo.Schedules
-	s.Info.SchedulePresets = sysInfo.SchedulePresets
-	s.Info.ScheduleOverrides = sysInfo.ScheduleOverrides
+	s.Info.ServerSchedules = sysInfo.schedules()
+	s.Info.SchedulePresets = sysInfo.schedulePresets()
+	s.Info.ScheduleOverrides = sysInfo.scheduleOverrides()
 
 	for idx, cam := range s.Cameras.cameras {
 		s.Cameras.cameras[idx].server = s

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+  <audioCodec>3</audioCodec>
+  <audioCodecName>AAC</audioCodecName>
+  <audioQuality>100</audioQuality>
+  <audioQualityText>100</audioQualityText>
+  <jpegQuality>81</jpegQuality>
+  <jpegQualityText>81</jpegQualityText>
+  <videoCodec>5</videoCodec>
+  <videoCodecName>H.264</videoCodecName>
+  <videoQuality>53</videoQuality>
+  <videoQualityText>53</videoQualityText>
+</settings>

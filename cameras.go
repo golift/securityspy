@@ -331,9 +331,72 @@ func (c *Camera) HLSURL() string {
 	return c.server.BaseURL() + "++hls?" + params.Encode()
 }
 
+// HLSMediaPlaylistURL returns the fixed-quality HLS media playlist URL (v6+).
+// quality: 0 low, 1 medium, 2 high.
+func (c *Camera) HLSMediaPlaylistURL(quality int) string {
+	params := c.makeRequestParams(nil)
+	params.Set("quality", strconv.Itoa(quality))
+
+	if auth := c.server.Auth(); auth != "" {
+		params.Set("auth", auth)
+	}
+
+	return c.server.BaseURL() + "++hls_mediaplaylist?" + params.Encode()
+}
+
+// LiveURL returns the HTML live-view page URL for this camera.
+func (c *Camera) LiveURL() string {
+	params := c.makeRequestParams(nil)
+	if auth := c.server.Auth(); auth != "" {
+		params.Set("auth", auth)
+	}
+
+	return c.server.BaseURL() + "++live?" + params.Encode()
+}
+
+// MultiplexURL builds an authenticated ++multiplex grid URL (v6+).
+func (s *Server) MultiplexURL(ops *MultiplexOps) string {
+	params := make(url.Values)
+
+	if ops != nil {
+		if len(ops.Cameras) > 0 {
+			cams := make([]string, len(ops.Cameras))
+			for i, n := range ops.Cameras {
+				cams[i] = strconv.Itoa(n)
+			}
+
+			params.Set("cameras", strings.Join(cams, ","))
+		}
+
+		params.Set("cropMode", strconv.Itoa(ops.CropMode))
+		params.Set("format", strconv.Itoa(ops.Format))
+
+		if ops.FPS > 0 {
+			params.Set("fps", strconv.Itoa(ops.FPS))
+		}
+
+		params.Set("border", strconv.Itoa(ops.Border))
+
+		if ops.CamInfo {
+			params.Set("camInfo", "1")
+		}
+
+		if ops.HiRes {
+			params.Set("hiRes", "1")
+		}
+	}
+
+	if auth := s.Auth(); auth != "" {
+		params.Set("auth", auth)
+	}
+
+	return s.BaseURL() + "++multiplex?" + params.Encode()
+}
+
 // SetSchedule configures a camera mode's primary schedule.
-// Get a list of schedules IDs you can use here from server.Info.Schedules.
+// Get a list of schedules IDs you can use here from server.Info.ServerSchedules.
 // CameraModes are constants with names that start with CameraMode*.
+// Uses ++ssSetSchedule (also available as documented ++setSchedule on the server).
 func (c *Camera) SetSchedule(mode CameraMode, scheduleID int) error {
 	params := make(url.Values)
 	params.Set("mode", string(mode))

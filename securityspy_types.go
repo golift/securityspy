@@ -23,34 +23,78 @@ type Server struct {
 	Files   *Files       // Files interface.
 	Events  *Events      // Events interface.
 	Cameras *Cameras     // Cameras & PTZ interfaces.
+	Groups  []*Group     // Camera groups from systemInfo (v6+).
 	Info    *ServerInfo  // ServerInfo struct (no methods).
 	mu      sync.RWMutex // Lock for Refresh().
+}
+
+// Group is a named camera group from ++systemInfo (v6+).
+type Group struct {
+	Number  int    `xml:"number"`
+	Name    string `xml:"name"`
+	Cameras string `xml:"cameras"` // comma-separated camera numbers
+}
+
+// CameraNumbers returns the camera numbers listed in the group.
+func (g *Group) CameraNumbers() []int {
+	if g == nil || g.Cameras == "" {
+		return nil
+	}
+
+	parts := strings.Split(g.Cameras, ",")
+	nums := make([]int, 0, len(parts))
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			continue
+		}
+
+		nums = append(nums, n)
+	}
+
+	return nums
 }
 
 // ServerInfo represents all the SecuritySpy server's information.
 // This becomes available as server.Info.
 type ServerInfo struct {
 	Name             string    `xml:"name"`               // SecuritySpy
-	Version          string    `xml:"version"`            // 4.2.10
-	UUID             string    `xml:"uuid"`               // C03L1333F8J3AkXIZS1O
-	EventStreamCount int64     `xml:"eventstreamcount"`   // 99270
+	Version          string    `xml:"version"`            // 6.20
+	UUID             string    `xml:"uuid"`               // EXAMPLEUUID000000001
+	EventStreamCount int64     `xml:"eventstreamcount"`   // legacy v5
 	DDNSName         string    `xml:"ddns-name"`          // domain.name.dyn
-	WanAddress       string    `xml:"wan-address"`        // domain.name
-	ServerName       string    `xml:"server-name"`        // <usually empty>
-	BonjourName      string    `xml:"bonjour-name"`       // <usually empty>
-	IP1              string    `xml:"ip1"`                // 192.168.3.1
-	IP2              string    `xml:"ip2"`                // 192.168.69.3
-	HTTPEnabled      YesNoBool `xml:"http-enabled"`       // yes
+	WanAddress       string    `xml:"wan-address"`        // wan.example.test
+	ServerName       string    `xml:"server-name"`        // display name
+	BonjourName      string    `xml:"bonjour-name"`       // securityspy.local
+	IP1              string    `xml:"ip1"`                // 192.0.2.1
+	IP2              string    `xml:"ip2"`                // 198.51.100.1
+	HTTPEnabled      YesNoBool `xml:"http-enabled"`       // true/false or yes/no
 	HTTPPort         int       `xml:"http-port"`          // 8000
 	HTTPPortWan      int       `xml:"http-port-wan"`      // 8000
-	HTTPSEnabled     YesNoBool `xml:"https-enabled"`      // no
+	HTTPSEnabled     YesNoBool `xml:"https-enabled"`      // true/false
 	HTTPSPort        int       `xml:"https-port"`         // 8001
 	HTTPSPortWan     int       `xml:"https-port-wan"`     // 8001
 	CurrentTime      time.Time `xml:"current-local-time"` // 2019-02-10T03:08:12-08:00
 	GmtOffset        Duration  `xml:"seconds-from-gmt"`   // -28800
 	DateFormat       string    `xml:"date-format"`        // MM/DD/YYYY
 	TimeFormat       string    `xml:"time-format"`        // 12, 24
-	CPUUsage         int       `xml:"cpu-usage"`          // 37 (v5+)
+	CPUUsage         int       `xml:"cpu-usage"`          // 37
+	// v6+ server fields
+	CameraCount         int       `xml:"camera-count"`
+	MemoryPressure      int       `xml:"memory-pressure"`
+	CertExpiryDays      int       `xml:"cert-expiry-days"`
+	CertExpiryTime      time.Time `xml:"cert-expiry-time"`
+	ArchiveStatus       string    `xml:"archive-status"`
+	WanProxy            YesNoBool `xml:"wan-proxy"`
+	WanProxyProtocol    int       `xml:"wan-proxy-protocol"`
+	NewVersion          string    `xml:"new-version"`
+	CurrentAbsoluteTime float64   `xml:"current-absolute-time"`
 	// These are all copied in/created by Refresh()
 	Refreshed         time.Time
 	ServerSchedules   map[int]string
@@ -58,17 +102,58 @@ type ServerInfo struct {
 	ScheduleOverrides map[int]string
 }
 
-// systemInfo reresents ++systemInfo api path.
+// systemInfo represents ++systemInfo api path (v6 primary tags + v5 legacy lists).
 type systemInfo struct {
 	XMLName    xml.Name    `xml:"system"`
 	Server     *ServerInfo `xml:"server"`
 	CameraList struct {
 		Cameras []*Camera `xml:"camera"`
+	} `xml:"camera-list"`
+	CameraListLegacy struct {
+		Cameras []*Camera `xml:"camera"`
 	} `xml:"cameralist"`
-	// All of these sub-lists get copied into ServerInfo by Refresh()
-	Schedules         ScheduleContainer `xml:"schedulelist"`
-	SchedulePresets   ScheduleContainer `xml:"schedulepresetlist"`
-	ScheduleOverrides ScheduleContainer `xml:"scheduleoverridelist"`
+	GroupList struct {
+		Groups []*Group `xml:"group"`
+	} `xml:"group-list"`
+	Schedules               ScheduleContainer `xml:"schedule-list"`
+	SchedulesLegacy         ScheduleContainer `xml:"schedulelist"`
+	SchedulePresets         ScheduleContainer `xml:"schedule-preset-list"`
+	SchedulePresetsLegacy   ScheduleContainer `xml:"schedulepresetlist"`
+	ScheduleOverrides       ScheduleContainer `xml:"schedule-override-list"`
+	ScheduleOverridesLegacy ScheduleContainer `xml:"scheduleoverridelist"`
+}
+
+// cameras returns the v6 camera list, falling back to the legacy v5 list.
+func (s *systemInfo) cameras() []*Camera {
+	if len(s.CameraList.Cameras) > 0 {
+		return s.CameraList.Cameras
+	}
+
+	return s.CameraListLegacy.Cameras
+}
+
+func (s *systemInfo) schedules() ScheduleContainer {
+	if len(s.Schedules) > 0 {
+		return s.Schedules
+	}
+
+	return s.SchedulesLegacy
+}
+
+func (s *systemInfo) schedulePresets() ScheduleContainer {
+	if len(s.SchedulePresets) > 0 {
+		return s.SchedulePresets
+	}
+
+	return s.SchedulePresetsLegacy
+}
+
+func (s *systemInfo) scheduleOverrides() ScheduleContainer {
+	if len(s.ScheduleOverrides) > 0 {
+		return s.ScheduleOverrides
+	}
+
+	return s.ScheduleOverridesLegacy
 }
 
 // YesNoBool is used to capture strings into boolean format. If the string has

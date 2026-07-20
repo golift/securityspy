@@ -36,8 +36,8 @@ func TestByNum(t *testing.T) {
 
 	secspyServer, _, _ := testServerWithCamera(t)
 
-	cam := secspyServer.Cameras.ByNum(1)
-	asert.Equal("Porch", cam.Name, "camera 1 is Porch in the test data")
+	cam := secspyServer.Cameras.ByNum(2)
+	asert.Equal("Porch", cam.Name, "camera 2 is Porch in the v6 test data")
 	require.Nil(t, secspyServer.Cameras.ByNum(99), "a non-existent camera must return nil")
 }
 
@@ -48,14 +48,14 @@ func TestByName(t *testing.T) {
 	secspyServer, _, _ := testServerWithCamera(t)
 
 	cam := secspyServer.Cameras.ByName("Porch")
-	asert.Equal(1, cam.Number, "camera 1 is Porch in the test data")
+	asert.Equal(2, cam.Number, "camera 2 is Porch in the v6 test data")
 	require.Nil(t, secspyServer.Cameras.ByName("not here"), "a non-existent camera must return nil")
 
 	cam = secspyServer.Cameras.ByName("porch2")
 	require.Nil(t, cam, "there is no camera named porch2")
 
 	cam = secspyServer.Cameras.ByName("porch")
-	asert.Equal(1, cam.Number, "camera 1 is Porch in the test data")
+	asert.Equal(2, cam.Number, "camera 2 is Porch in the v6 test data")
 	require.Nil(t, secspyServer.Cameras.ByName("not here"), "a non-existent camera must return nil")
 }
 
