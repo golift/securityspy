@@ -73,11 +73,15 @@ func TestMakeVideoURLUserinfoAndCodecs(t *testing.T) {
 		cam.makeRequestParams(&VidOps{Height: 720, Quality: 20}))
 	require.NoError(t, err)
 	require.Contains(t, raw, "rtsps://admin:s3cret@ss.example:8001/stream?")
-	require.Contains(t, raw, "cameraNum=3")
-	require.Contains(t, raw, "vcodec=h264")
-	require.Contains(t, raw, "acodec=aac")
+	// cameraNum/vcodec before acodec — SS ignores vcodec=h265 if acodec leads the query.
+	require.Contains(t, raw, "stream?cameraNum=3&vcodec=h264&acodec=aac&height=720")
 	require.NotContains(t, raw, "auth=")
 	require.NotContains(t, raw, "quality=")
+
+	raw, err = cam.makeVideoURL(&VidOps{Height: 720, VCodec: "h265", ACodec: "aac"},
+		cam.makeRequestParams(&VidOps{Height: 720}))
+	require.NoError(t, err)
+	require.Contains(t, raw, "stream?cameraNum=3&vcodec=h265&acodec=aac&height=720")
 }
 
 func TestMakeVideoURLPreservesBasePath(t *testing.T) {

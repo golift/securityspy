@@ -512,15 +512,29 @@ func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) (string, error) { 
 	params.Del("req_fps")
 	params.Del("auth")
 	params.Del("quality") // JPEG ++image/++video only; ignored/harmful on RTSP
-	params.Set("vcodec", vcodec)
-	params.Set("acodec", acodec)
+	params.Del("vcodec")
+	params.Del("acodec")
+	params.Del("cameraNum")
+
+	// SecuritySpy mishandles vcodec when acodec is the first query key.
+	// url.Values.Encode() sorts alphabetically (acodec, cameraNum, ..., vcodec)
+	// and that order makes SS serve H.264 even when vcodec=h265. Keep cameraNum
+	// and codecs first; append the rest in Encode() order.
+	parts := []string{
+		"cameraNum=" + url.QueryEscape(strconv.Itoa(c.Number)),
+		"vcodec=" + url.QueryEscape(vcodec),
+		"acodec=" + url.QueryEscape(acodec),
+	}
+	if encoded := params.Encode(); encoded != "" {
+		parts = append(parts, encoded)
+	}
 
 	out := (&url.URL{
 		Scheme: scheme,
 		Host:   base.Host,
 		Path:   base.Path,
 	}).JoinPath("stream")
-	out.RawQuery = params.Encode()
+	out.RawQuery = strings.Join(parts, "&")
 
 	if user, pass := c.rtspUserPassword(); user != "" {
 		out.User = url.UserPassword(user, pass)
