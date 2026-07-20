@@ -57,3 +57,88 @@ func TestGetJPEGRetriesAndSucceeds(t *testing.T) {
 	assert.NotNil(t, got)
 	assert.Equal(t, retryAttempts, requests)
 }
+
+func TestMakeVideoURLUserinfoAndCodecs(t *testing.T) {
+	t.Parallel()
+
+	srv := NewMust(&server.Config{
+		URL:      "https://ss.example:8001/",
+		Username: "admin",
+		Password: "s3cret",
+		Timeout:  server.Duration{Duration: time.Second},
+	})
+	cam := &Camera{Number: 3, Name: "Office", server: srv}
+
+	raw, err := cam.makeVideoURL(&VidOps{Height: 720, ACodec: aacStr, Quality: 20},
+		cam.makeRequestParams(&VidOps{Height: 720, Quality: 20}))
+	require.NoError(t, err)
+	require.Contains(t, raw, "rtsps://admin:s3cret@ss.example:8001/stream?")
+	// cameraNum/vcodec before acodec — SS ignores vcodec=h265 if acodec leads the query.
+	require.Contains(t, raw, "stream?cameraNum=3&vcodec=h264&acodec=aac&height=720")
+	require.NotContains(t, raw, "auth=")
+	require.NotContains(t, raw, "quality=")
+
+	raw, err = cam.makeVideoURL(&VidOps{Height: 720, VCodec: "h265", ACodec: aacStr},
+		cam.makeRequestParams(&VidOps{Height: 720}))
+	require.NoError(t, err)
+	require.Contains(t, raw, "stream?cameraNum=3&vcodec=h265&acodec=aac&height=720")
+}
+
+func TestMakeVideoURLPreservesBasePath(t *testing.T) {
+	t.Parallel()
+
+	srv := NewMust(&server.Config{
+		URL:      "https://ss.example:8001/securityspy/",
+		Username: "admin",
+		Password: "s3cret",
+		Timeout:  server.Duration{Duration: time.Second},
+	})
+	cam := &Camera{Number: 3, server: srv}
+
+	raw, err := cam.makeVideoURL(nil, cam.makeRequestParams(nil))
+	require.NoError(t, err)
+	require.Contains(t, raw, "rtsps://admin:s3cret@ss.example:8001/securityspy/stream?")
+}
+
+func TestMakeVideoURLOmitsUserinfoWithoutAuth(t *testing.T) {
+	t.Parallel()
+
+	srv := NewMust(&server.Config{
+		URL:     "https://ss.example:8001/",
+		Timeout: server.Duration{Duration: time.Second},
+	})
+	cam := &Camera{Number: 1, server: srv}
+
+	raw, err := cam.makeVideoURL(nil, cam.makeRequestParams(nil))
+	require.NoError(t, err)
+	require.Contains(t, raw, "rtsps://ss.example:8001/stream?")
+	require.NotContains(t, raw, "@")
+}
+
+func TestPreferredVCodec(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "h264", (&Camera{VideoFormat: "H.264"}).PreferredVCodec())
+	require.Equal(t, "h265", (&Camera{VideoFormat: "H.265"}).PreferredVCodec())
+	require.Equal(t, "h265", (&Camera{VideoFormat: "HEVC"}).PreferredVCodec())
+	require.Equal(t, "h264", (&Camera{}).PreferredVCodec())
+}
+
+func TestMakeVideoURLRejectsUseHTTP(t *testing.T) {
+	t.Parallel()
+
+	srv := NewMust(&server.Config{
+		URL:     "http://ss.example:8000/",
+		Timeout: server.Duration{Duration: time.Second},
+	})
+	cam := &Camera{Number: 1, server: srv}
+
+	_, err := cam.makeVideoURL(&VidOps{UseHTTP: true}, cam.makeRequestParams(nil))
+	require.ErrorIs(t, err, ErrHTTPVideoUnsupported)
+
+	_, err = cam.StreamVideo(&VidOps{UseHTTP: true}, time.Second, 0)
+	require.ErrorIs(t, err, ErrHTTPVideoUnsupported)
+
+	err = cam.SaveVideo(&VidOps{UseHTTP: true}, time.Second, 0, t.TempDir()+"/x.mp4")
+	require.ErrorIs(t, err, ErrHTTPVideoUnsupported)
+}

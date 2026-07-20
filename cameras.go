@@ -2,6 +2,7 @@ package securityspy
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"image"
@@ -10,12 +11,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"golift.io/ffmpeg"
+	"golift.io/securityspy/v2/internal/rtspclip"
 	"golift.io/securityspy/v2/server"
 )
 
@@ -53,64 +53,55 @@ func (c *Cameras) ByName(name string) *Camera {
 	return nil
 }
 
-// StreamVideo streams a segment of video from a camera using FFMPEG.
-// VidOps defines the video options for the video stream.
-// Returns an io.ReadCloser with the video stream. Close() it when finished.
+// StreamVideo returns a ReadCloser that yields a progressive fragmented MP4
+// (H.264 or H.265 + AAC when present at init time). Init is written after the first IDR;
+// media fragments flush while capture continues. Close() cancels an in-progress capture.
+// UseHTTP is not supported (returns ErrHTTPVideoUnsupported).
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
-	ffmpg := ffmpeg.Get(&ffmpeg.Config{
-		FFMPEG: c.server.Encoder,
-		Time:   int(length.Seconds()),
-		Audio:  true,    // Sure why not.
-		Size:   maxsize, // max file size (always goes over). use 2000000 for 2.5MB
-		Copy:   true,    // Always copy securityspy RTSP urls.
-	})
-
-	params := c.makeRequestParams(ops)
-
-	if p := c.server.Auth(); p != "" {
-		params.Set("auth", p)
+	rtspURL, err := c.makeVideoURL(ops, c.makeRequestParams(ops))
+	if err != nil {
+		return nil, err
 	}
 
-	args, video, err := ffmpg.GetVideo(c.makeVideoURL(ops, params), c.Name)
+	video, err := rtspclip.StreamMP4(context.Background(), rtspURL, c.rtspclipOptions(length, maxsize))
 	if err != nil {
-		return nil, fmt.Errorf("capturing stream for %s: %w; ffmpeg command: %s",
-			c.Name, err, redactAuth(strings.ReplaceAll(args, "\n", " ")))
+		return nil, fmt.Errorf("capturing stream for %s: %w", c.Name, err)
 	}
 
 	return video, nil
 }
 
-// SaveVideo saves a segment of video from a camera to a file using FFMPEG.
+// SaveVideo saves a short RTSP remux (H.264 or H.265 + AAC when present) to an MP4/MOV path.
+// UseHTTP is not supported (returns ErrHTTPVideoUnsupported).
+// Set VidOps.VCodec to "h265" for HEVC cameras (see PreferredVCodec).
 func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, outputFile string) error {
 	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
 		return ErrPathExists
 	}
 
-	ffmpg := ffmpeg.Get(&ffmpeg.Config{
-		FFMPEG: c.server.Encoder,
-		Time:   int(length.Seconds()),
-		Audio:  true,
-		Size:   maxsize, // max file size (always goes over). use 2000000 for 2.5MB
-		Copy:   true,    // Always copy securityspy RTSP urls.
-	})
-
-	params := c.makeRequestParams(ops)
-
-	if p := c.server.Auth(); p != "" {
-		params.Set("auth", p)
+	rtspURL, err := c.makeVideoURL(ops, c.makeRequestParams(ops))
+	if err != nil {
+		return err
 	}
 
-	cmd, out, err := ffmpg.SaveVideo(c.makeVideoURL(ops, params), outputFile, c.Name)
+	_, err = rtspclip.SaveMP4(context.Background(), rtspURL, outputFile, c.rtspclipOptions(length, maxsize))
 	if err != nil {
-		return fmt.Errorf("capturing video for %s: %w; ffmpeg command: %s; ffmpeg output: %s",
-			c.Name,
-			err,
-			redactAuth(strings.ReplaceAll(cmd, "\n", " ")),
-			redactAuth(trimTail(strings.ReplaceAll(out, "\n", " "), ffmpegOutputTail)),
-		)
+		if errors.Is(err, os.ErrExist) {
+			return ErrPathExists
+		}
+
+		return fmt.Errorf("capturing video for %s: %w", c.Name, err)
 	}
 
 	return nil
+}
+
+func (c *Camera) rtspclipOptions(length time.Duration, maxsize int64) rtspclip.Options {
+	return rtspclip.Options{
+		Duration:           length,
+		MaxBytes:           maxsize,
+		InsecureSkipVerify: !c.server.VerifySSL,
+	}
 }
 
 // StreamMJPG makes a web request to retrieve a motion JPEG stream.
@@ -427,10 +418,11 @@ func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 const (
-	maxQuality       = 100
-	maxFPS           = 60
-	ffmpegOutputTail = 2048
-	modeKeyParts     = 2
+	maxQuality     = 100
+	maxFPS         = 60
+	modeKeyParts   = 2
+	authColonParts = 2
+	aacStr         = "aac"
 )
 
 // makeRequestParams converts passed in ops to url.Values.
@@ -476,29 +468,40 @@ func (c *Camera) streamHTTPClient() *http.Client {
 	return client
 }
 
-// makeVideoURL creates a video URL for the camera based on if it's rtsp or not, and other input options.
-func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) string { //nolint:cyclop // oh well?
+// PreferredVCodec returns the RTSP vcodec query value that matches this camera's
+// native VideoFormat from ++systemInfo ("h265" for H.265/HEVC, otherwise "h264").
+func (c *Camera) PreferredVCodec() string {
+	format := strings.ToUpper(c.VideoFormat)
+	if strings.Contains(format, "265") || strings.Contains(format, "HEVC") {
+		return "h265"
+	}
+
+	return "h264"
+}
+
+// makeVideoURL builds an RTSP(S) ++stream URL with userinfo credentials.
+// SecuritySpy rejects query auth= on RTSP; HTTP auth= is unchanged elsewhere.
+// UseHTTP is unsupported for SaveVideo/StreamVideo.
+func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) (string, error) { //nolint:cyclop // ops/codec branches
 	if ops != nil && ops.UseHTTP {
-		if ops.FPS > 0 {
-			params.Set("fps", strconv.Itoa(ops.FPS))
-		}
+		return "", ErrHTTPVideoUnsupported
+	}
 
-		vcodec := "h264"
-		if ops.VCodec != "" {
-			vcodec = ops.VCodec
-		}
+	base, err := url.Parse(c.server.BaseURL())
+	if err != nil {
+		return "", fmt.Errorf("parse base url: %w", err)
+	}
 
-		params.Del("req_fps")
-		params.Set("vcodec", vcodec)
-
-		return c.server.BaseURL() + "video?" + params.Encode()
+	scheme := "rtsp"
+	if base.Scheme == "https" {
+		scheme = "rtsps"
 	}
 
 	if ops != nil && ops.FPS > 0 {
 		params.Set("fps", strconv.Itoa(ops.FPS))
 	}
 
-	vcodec, acodec := "h264", "aac"
+	vcodec, acodec := "h264", aacStr
 	if ops != nil && ops.VCodec != "" {
 		vcodec = ops.VCodec
 	}
@@ -508,27 +511,60 @@ func (c *Camera) makeVideoURL(ops *VidOps, params url.Values) string { //nolint:
 	}
 
 	params.Del("req_fps")
-	params.Set("vcodec", vcodec)
-	params.Set("acodec", acodec)
+	params.Del("auth")
+	params.Del("quality") // JPEG ++image/++video only; ignored/harmful on RTSP
+	params.Del("vcodec")
+	params.Del("acodec")
+	params.Del("cameraNum")
 
-	baseURL := strings.Replace(c.server.BaseURL(), "https://", "rtsps://", 1)
-	baseURL = strings.Replace(baseURL, "http://", "rtsp://", 1)
-
-	return baseURL + "stream?" + params.Encode()
-}
-
-var authRegex = regexp.MustCompile(`auth=[^&\s]+`)
-
-func redactAuth(input string) string {
-	return authRegex.ReplaceAllString(input, "auth=REDACTED")
-}
-
-func trimTail(input string, maximum int) string {
-	if maximum <= 0 || len(input) <= maximum {
-		return input
+	// SecuritySpy mishandles vcodec when acodec is the first query key.
+	// url.Values.Encode() sorts alphabetically (acodec, cameraNum, ..., vcodec)
+	// and that order makes SS serve H.264 even when vcodec=h265. Keep cameraNum
+	// and codecs first; append the rest in Encode() order.
+	parts := []string{
+		"cameraNum=" + url.QueryEscape(strconv.Itoa(c.Number)),
+		"vcodec=" + url.QueryEscape(vcodec),
+		"acodec=" + url.QueryEscape(acodec),
+	}
+	if encoded := params.Encode(); encoded != "" {
+		parts = append(parts, encoded)
 	}
 
-	return input[len(input)-maximum:]
+	out := (&url.URL{
+		Scheme: scheme,
+		Host:   base.Host,
+		Path:   base.Path,
+	}).JoinPath("stream")
+	out.RawQuery = strings.Join(parts, "&")
+
+	if user, pass := c.rtspUserPassword(); user != "" {
+		out.User = url.UserPassword(user, pass)
+	}
+
+	return out.String(), nil
+}
+
+// rtspUserPassword recovers plaintext credentials from the library auth blob
+// (base64 of username:password) for RTSP userinfo.
+// Returns empty strings when the blob is missing or invalid so makeVideoURL omits userinfo
+// instead of emitting rtsps://user:@host/... with a useless username.
+func (c *Camera) rtspUserPassword() (string, string) {
+	blob := c.server.Auth()
+	if blob == "" {
+		return "", ""
+	}
+
+	raw, err := base64.URLEncoding.DecodeString(blob)
+	if err != nil {
+		return "", ""
+	}
+
+	parts := strings.SplitN(string(raw), ":", authColonParts)
+	if len(parts) != authColonParts || parts[0] == "" {
+		return "", ""
+	}
+
+	return parts[0], parts[1]
 }
 
 func parseCameraModes(text string) (*CameraModes, error) {
