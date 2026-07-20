@@ -290,8 +290,8 @@ func replyOK(body []byte) bool {
 		return true
 	}
 
-	// v6 settings POST returns JSON: {"result":"OK"}
-	return strings.Contains(text, `"result"`) && strings.Contains(text, `"OK"`)
+	// v6 settings POST returns JSON: {"result":"OK"} (allow spaces around tokens)
+	return strings.Contains(strings.Join(strings.Fields(text), ""), `"result":"OK"`)
 }
 
 // PostFormContext POSTs application/x-www-form-urlencoded data and requires an OK reply.
