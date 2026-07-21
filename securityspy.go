@@ -34,8 +34,9 @@ func NewMust(config *server.Config) *Server {
 	}
 
 	// Assign all the sub-interface structs.
-	secspyServer := &Server{Config: config, Encoder: DefaultEncoder}
+	secspyServer := &Server{Config: config, Encoder: DefaultEncoder, Info: &ServerInfo{}}
 	secspyServer.Files = &Files{server: secspyServer}
+	secspyServer.Cameras = &Cameras{server: secspyServer}
 	secspyServer.Events = &Events{
 		server:      secspyServer,
 		eventBinds:  make(map[EventType][]func(Event)),

@@ -197,6 +197,7 @@ func (e *Events) custom(eventType EventType, eventID, cam int, msg string) {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // eventStreamScanner connects to the securityspy event stream and fires events into a channel.
+// EventStreamDisconnect is only emitted after a live stream ends, not on failed dials.
 //
 //nolint:cyclop // but it runs forever!
 func (e *Events) eventStreamScanner(ctx context.Context, retryInterval time.Duration) {
@@ -207,8 +208,6 @@ func (e *Events) eventStreamScanner(ctx context.Context, retryInterval time.Dura
 
 		stream, err := e.eventStreamConnect(ctx)
 		if err != nil {
-			e.custom(EventStreamDisconnect, -10000, -1, err.Error())
-
 			select {
 			case <-ctx.Done():
 				return

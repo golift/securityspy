@@ -10,6 +10,7 @@ linters:
     - exhaustive
     - nlreturn
     - gomodguard
+    - goconst
   settings:
     gocritic:
       enable-all: true
