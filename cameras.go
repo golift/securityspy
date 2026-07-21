@@ -122,17 +122,17 @@ func (c *Camera) RedactedVideoURL(ops *VidOps) (string, error) {
 		return "", err
 	}
 
-	u, err := url.Parse(raw)
+	videoURL, err := url.Parse(raw)
 	if err != nil {
 		return raw, nil //nolint:nilerr // best-effort redaction for logging
 	}
 
-	if u.User != nil {
-		user := u.User.Username()
-		u.User = url.UserPassword(user, "REDACTED")
+	if videoURL.User != nil {
+		user := videoURL.User.Username()
+		videoURL.User = url.UserPassword(user, "REDACTED")
 	}
 
-	return u.String(), nil
+	return videoURL.String(), nil
 }
 
 func (c *Camera) rtspclipOptions(length time.Duration, maxsize int64) rtspclip.Options {
