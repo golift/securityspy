@@ -124,7 +124,7 @@ func (c *Camera) RedactedVideoURL(ops *VidOps) (string, error) {
 
 	videoURL, err := url.Parse(raw)
 	if err != nil {
-		return raw, nil //nolint:nilerr // best-effort redaction for logging
+		return "", fmt.Errorf("parsing video URL: %w", err)
 	}
 
 	if videoURL.User != nil {
