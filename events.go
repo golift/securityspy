@@ -197,9 +197,12 @@ func (e *Events) custom(eventType EventType, eventID, cam int, msg string) {
 /* INTERFACE HELPER METHODS FOLLOW */
 
 // eventStreamScanner connects to the securityspy event stream and fires events into a channel.
+// EventStreamDisconnect is only emitted after a successful connect (not on every failed dial).
 //
 //nolint:cyclop // but it runs forever!
 func (e *Events) eventStreamScanner(ctx context.Context, retryInterval time.Duration) {
+	var wasConnected bool
+
 	for {
 		if ctx.Err() != nil {
 			return
@@ -207,7 +210,10 @@ func (e *Events) eventStreamScanner(ctx context.Context, retryInterval time.Dura
 
 		stream, err := e.eventStreamConnect(ctx)
 		if err != nil {
-			e.custom(EventStreamDisconnect, -10000, -1, err.Error())
+			if wasConnected {
+				e.custom(EventStreamDisconnect, -10000, -1, err.Error())
+				wasConnected = false
+			}
 
 			select {
 			case <-ctx.Done():
@@ -217,6 +223,7 @@ func (e *Events) eventStreamScanner(ctx context.Context, retryInterval time.Dura
 			}
 		}
 
+		wasConnected = true
 		scanner := bufio.NewScanner(stream)
 		scanner.Split(scanLinesCR)
 
@@ -245,6 +252,7 @@ func (e *Events) eventStreamScanner(ctx context.Context, retryInterval time.Dura
 		}
 
 		e.custom(EventStreamDisconnect, -10000, -1, msg)
+		wasConnected = false
 
 		select {
 		case <-ctx.Done():

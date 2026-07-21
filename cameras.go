@@ -22,11 +22,19 @@ import (
 
 // All returns interfaces for every camera.
 func (c *Cameras) All() []*Camera {
+	if c == nil {
+		return nil
+	}
+
 	return c.cameras
 }
 
 // ByNum returns an interface for a single camera.
 func (c *Cameras) ByNum(number int) *Camera {
+	if c == nil {
+		return nil
+	}
+
 	for _, cam := range c.cameras {
 		if cam.Number == number {
 			return cam
@@ -38,6 +46,10 @@ func (c *Cameras) ByNum(number int) *Camera {
 
 // ByName returns an interface for a single camera, using the name.
 func (c *Cameras) ByName(name string) *Camera {
+	if c == nil {
+		return nil
+	}
+
 	for _, cam := range c.cameras {
 		if cam.Name == name {
 			return cam
@@ -59,7 +71,7 @@ func (c *Cameras) ByName(name string) *Camera {
 // media fragments flush while capture continues. Close() cancels an in-progress capture.
 // UseHTTP is not supported (returns ErrHTTPVideoUnsupported).
 func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (io.ReadCloser, error) {
-	rtspURL, err := c.makeVideoURL(ops, c.makeRequestParams(ops))
+	rtspURL, err := c.VideoURL(ops)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +92,7 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 		return ErrPathExists
 	}
 
-	rtspURL, err := c.makeVideoURL(ops, c.makeRequestParams(ops))
+	rtspURL, err := c.VideoURL(ops)
 	if err != nil {
 		return err
 	}
@@ -95,6 +107,32 @@ func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, out
 	}
 
 	return nil
+}
+
+// VideoURL returns the RTSP(S) ++stream URL SaveVideo/StreamVideo would use.
+// Credentials are included as userinfo; redact before logging if needed.
+func (c *Camera) VideoURL(ops *VidOps) (string, error) {
+	return c.makeVideoURL(ops, c.makeRequestParams(ops))
+}
+
+// RedactedVideoURL is like VideoURL but replaces the password with "REDACTED".
+func (c *Camera) RedactedVideoURL(ops *VidOps) (string, error) {
+	raw, err := c.VideoURL(ops)
+	if err != nil {
+		return "", err
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw, nil //nolint:nilerr // best-effort redaction for logging
+	}
+
+	if u.User != nil {
+		user := u.User.Username()
+		u.User = url.UserPassword(user, "REDACTED")
+	}
+
+	return u.String(), nil
 }
 
 func (c *Camera) rtspclipOptions(length time.Duration, maxsize int64) rtspclip.Options {
