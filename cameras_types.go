@@ -337,7 +337,7 @@ type cameraXML struct {
 
 // UnmarshalXML decodes v5 or v6 ++systemInfo camera elements into Camera.
 //
-//nolint:cyclop,funlen // dual schema mapping
+//nolint:funlen // dual schema mapping
 func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var raw cameraXML
 	if err := d.DecodeElement(&raw, &start); err != nil {
