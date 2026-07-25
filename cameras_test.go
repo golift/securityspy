@@ -20,6 +20,38 @@ func TestUnmarshalXMLCameraSchedule(t *testing.T) {
 	asert.Equal(3, s.ID, "the data was not unmarshalled properly")
 }
 
+// SS 5.5 keeps v5 width/height tags but also emits video-format (a v6-era field).
+func TestUnmarshalXMLCameraSS55WithVideoFormat(t *testing.T) {
+	t.Parallel()
+
+	const camXML = `<camera>
+		<number>1</number>
+		<connected>yes</connected>
+		<width>3072</width>
+		<height>1728</height>
+		<mode-c>armed</mode-c>
+		<mode-m>armed</mode-m>
+		<mode-a>armed</mode-a>
+		<hasaudio>yes</hasaudio>
+		<name>Mailbox</name>
+		<devicename>Dahua Technology</devicename>
+		<video-format>H.265</video-format>
+		<audio-format>AAC</audio-format>
+	</camera>`
+
+	var cam securityspy.Camera
+	require.NoError(t, xml.Unmarshal([]byte(camXML), &cam))
+	require.Equal(t, "Mailbox", cam.Name)
+	require.Equal(t, 3072, cam.Width)
+	require.Equal(t, 1728, cam.Height)
+	require.Equal(t, "H.265", cam.VideoFormat)
+	require.Equal(t, "AAC", cam.AudioFormat)
+	require.True(t, cam.ModeM.Val)
+	require.True(t, cam.HasAudio.Val)
+	require.Equal(t, "Dahua Technology", cam.DeviceName)
+	require.Equal(t, "h265", cam.PreferredVCodec())
+}
+
 func TestAll(t *testing.T) {
 	t.Parallel()
 	asert := assert.New(t)

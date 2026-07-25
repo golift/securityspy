@@ -337,16 +337,12 @@ type cameraXML struct {
 
 // UnmarshalXML decodes v5 or v6 ++systemInfo camera elements into Camera.
 //
-//nolint:cyclop,funlen // dual schema mapping
+//nolint:funlen // dual schema mapping
 func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var raw cameraXML
 	if err := d.DecodeElement(&raw, &start); err != nil {
 		return fmt.Errorf("decoding camera xml: %w", err)
 	}
-
-	isV6 := raw.WidthV6 != 0 || raw.HeightV6 != 0 || raw.CapturePathV6 != "" ||
-		raw.DeviceNameV6 != "" || raw.ModeCV6.Txt != "" || raw.HasAudioV6.Txt != "" ||
-		raw.PTZV6 != nil || raw.VideoFormat != "" || raw.StoragePathSet()
 
 	c.Number = raw.Number
 	c.Connected = raw.Connected
@@ -363,7 +359,7 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	c.Overlay = raw.Overlay
 	c.OverlayText = firstNonEmpty(raw.OverlayTextV6, raw.OverlayText)
 
-	if isV6 {
+	if raw.isV6() {
 		c.Width = raw.WidthV6
 		c.Height = raw.HeightV6
 		c.ModeC = raw.ModeCV6
@@ -440,6 +436,15 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 		c.TLrecordAudio = raw.TLrecordAudio
 	}
 
+	// Prefer the other schema's dimensions when the chosen branch left them unset.
+	if c.Width == 0 {
+		c.Width = firstNonZero(raw.WidthV5, raw.WidthV6)
+	}
+
+	if c.Height == 0 {
+		c.Height = firstNonZero(raw.HeightV5, raw.HeightV6)
+	}
+
 	c.NetworkAudio = c.AudioNetwork
 	c.ActionSoundCam = raw.ActionSoundCam
 	c.ActionSoundMac = raw.ActionSoundMac
@@ -474,8 +479,14 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return nil
 }
 
-func (x *cameraXML) StoragePathSet() bool {
-	return x.CapturePathV6 != ""
+// isV6 reports whether this camera element used SecuritySpy 6+ tags
+// (video-width/height, storage-path, device-name, cc-mode, has-audio, ptz-features).
+// Shared fields like video-format also appear on SS 5.5's v5 schema, so they
+// must not be used as the sole signal.
+func (x *cameraXML) isV6() bool {
+	return x.WidthV6 != 0 || x.HeightV6 != 0 || x.CapturePathV6 != "" ||
+		x.DeviceNameV6 != "" || x.ModeCV6.Txt != "" || x.HasAudioV6.Txt != "" ||
+		x.PTZV6 != nil
 }
 
 func firstNonEmpty(values ...string) string {
@@ -486,4 +497,14 @@ func firstNonEmpty(values ...string) string {
 	}
 
 	return ""
+}
+
+func firstNonZero(values ...int) int {
+	for _, v := range values {
+		if v != 0 {
+			return v
+		}
+	}
+
+	return 0
 }
