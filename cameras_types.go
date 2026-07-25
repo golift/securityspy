@@ -344,12 +344,6 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 		return fmt.Errorf("decoding camera xml: %w", err)
 	}
 
-	// SS 5.5+ emits video-format / audio-format on the v5 schema; do not treat
-	// those alone as v6 (that left Width/Height at 0 from empty video-width tags).
-	isV6 := raw.WidthV6 != 0 || raw.HeightV6 != 0 || raw.CapturePathV6 != "" ||
-		raw.DeviceNameV6 != "" || raw.ModeCV6.Txt != "" || raw.HasAudioV6.Txt != "" ||
-		raw.PTZV6 != nil || raw.StoragePathSet()
-
 	c.Number = raw.Number
 	c.Connected = raw.Connected
 	c.Name = raw.Name
@@ -365,7 +359,7 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	c.Overlay = raw.Overlay
 	c.OverlayText = firstNonEmpty(raw.OverlayTextV6, raw.OverlayText)
 
-	if isV6 {
+	if raw.isV6() {
 		c.Width = raw.WidthV6
 		c.Height = raw.HeightV6
 		c.ModeC = raw.ModeCV6
@@ -446,6 +440,7 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	if c.Width == 0 {
 		c.Width = firstNonZero(raw.WidthV5, raw.WidthV6)
 	}
+
 	if c.Height == 0 {
 		c.Height = firstNonZero(raw.HeightV5, raw.HeightV6)
 	}
@@ -484,8 +479,14 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return nil
 }
 
-func (x *cameraXML) StoragePathSet() bool {
-	return x.CapturePathV6 != ""
+// isV6 reports whether this camera element used SecuritySpy 6+ tags
+// (video-width/height, storage-path, device-name, cc-mode, has-audio, ptz-features).
+// Shared fields like video-format also appear on SS 5.5's v5 schema, so they
+// must not be used as the sole signal.
+func (x *cameraXML) isV6() bool {
+	return x.WidthV6 != 0 || x.HeightV6 != 0 || x.CapturePathV6 != "" ||
+		x.DeviceNameV6 != "" || x.ModeCV6.Txt != "" || x.HasAudioV6.Txt != "" ||
+		x.PTZV6 != nil
 }
 
 func firstNonEmpty(values ...string) string {
