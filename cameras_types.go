@@ -344,9 +344,11 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 		return fmt.Errorf("decoding camera xml: %w", err)
 	}
 
+	// SS 5.5+ emits video-format / audio-format on the v5 schema; do not treat
+	// those alone as v6 (that left Width/Height at 0 from empty video-width tags).
 	isV6 := raw.WidthV6 != 0 || raw.HeightV6 != 0 || raw.CapturePathV6 != "" ||
 		raw.DeviceNameV6 != "" || raw.ModeCV6.Txt != "" || raw.HasAudioV6.Txt != "" ||
-		raw.PTZV6 != nil || raw.VideoFormat != "" || raw.StoragePathSet()
+		raw.PTZV6 != nil || raw.StoragePathSet()
 
 	c.Number = raw.Number
 	c.Connected = raw.Connected
@@ -440,6 +442,14 @@ func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 		c.TLrecordAudio = raw.TLrecordAudio
 	}
 
+	// Prefer the other schema's dimensions when the chosen branch left them unset.
+	if c.Width == 0 {
+		c.Width = firstNonZero(raw.WidthV5, raw.WidthV6)
+	}
+	if c.Height == 0 {
+		c.Height = firstNonZero(raw.HeightV5, raw.HeightV6)
+	}
+
 	c.NetworkAudio = c.AudioNetwork
 	c.ActionSoundCam = raw.ActionSoundCam
 	c.ActionSoundMac = raw.ActionSoundMac
@@ -486,4 +496,14 @@ func firstNonEmpty(values ...string) string {
 	}
 
 	return ""
+}
+
+func firstNonZero(values ...int) int {
+	for _, v := range values {
+		if v != 0 {
+			return v
+		}
+	}
+
+	return 0
 }
