@@ -3,7 +3,7 @@ module golift.io/securityspy/v2
 go 1.26.5
 
 require (
-	github.com/Eyevinn/mp4ff v0.54.0
+	github.com/Eyevinn/mp4ff v0.55.0
 	github.com/bluenviron/gortsplib/v5 v5.6.2
 	github.com/bluenviron/mediacommon/v2 v2.9.2
 	github.com/pion/rtp v1.10.5
