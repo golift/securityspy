@@ -6,6 +6,8 @@ github.com/bluenviron/gortsplib/v5 v5.6.1 h1:EMVUGhDIb1aqR7s26YcxvwwEDuhLVWZAiss
 github.com/bluenviron/gortsplib/v5 v5.6.1/go.mod h1:QRCxdG4uP4jgV1/Ai9D+SHGbIrrdnvcGSZkzhDw/8L8=
 github.com/bluenviron/gortsplib/v5 v5.6.2 h1:Zb0fU6TPDkw7hW2IE79QUeV59PntwftPMt2/rR7lR44=
 github.com/bluenviron/gortsplib/v5 v5.6.2/go.mod h1:kzHgUtvl8NWNsQ5Vsez6Vuugk6ItFT4ByCPm8J/kbSQ=
+github.com/bluenviron/gortsplib/v5 v5.6.3 h1:OXvHthQZ9fZbLh6r3Go2wuF4XQ4/QW4WTIM2f4bv/W4=
+github.com/bluenviron/gortsplib/v5 v5.6.3/go.mod h1:kzHgUtvl8NWNsQ5Vsez6Vuugk6ItFT4ByCPm8J/kbSQ=
 github.com/bluenviron/mediacommon/v2 v2.9.1 h1:GpNnZgBwAamQO9ZE+JbNkQo82N1Jh/koSSfg7mf6QQk=
 github.com/bluenviron/mediacommon/v2 v2.9.1/go.mod h1:jMf/OJDaJl02xRgkLM2zbidUHnDYqLnO1dMMveCmyyU=
 github.com/bluenviron/mediacommon/v2 v2.9.2 h1:jvYeBjvhHKFOBRMTMm4hvrSjyOlCelkOkx6708DidQM=
