@@ -31,8 +31,9 @@ type Server struct {
 	// Groups is replaced by Refresh(); use GetGroups() when a refresh can race the read.
 	Groups []*Group // Camera groups from systemInfo (v6+).
 	// Info is replaced by Refresh(); use GetInfo() when a refresh can race the read.
-	Info *ServerInfo  // ServerInfo struct (no methods).
-	mu   sync.RWMutex // Guards the three fields Refresh() replaces.
+	Info      *ServerInfo  // ServerInfo struct (no methods).
+	mu        sync.RWMutex // Guards the three fields Refresh() replaces.
+	refreshMu sync.Mutex   // Serializes refreshes; held across the systemInfo request.
 }
 
 // Group is a named camera group from ++systemInfo (v6+).
