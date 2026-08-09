@@ -49,10 +49,40 @@ func NewMust(config *server.Config) *Server {
 
 // Refresh gets fresh camera and serverInfo data from SecuritySpy,
 // run this after every action to keep the data pool up to date.
-// This is not at all thread safe. Do not run this if other methods
-// may run in a different go routine.
+// It replaces the Cameras, Groups and Info fields, so other goroutines must
+// read those through GetCameras(), GetGroups() and GetInfo() while this can run.
 func (s *Server) Refresh() error {
 	return s.RefreshContext(context.Background())
+}
+
+// GetCameras returns the camera list. Use this instead of the Cameras field
+// when another goroutine may call Refresh(), which replaces it.
+// The returned *Cameras is a snapshot: a later refresh builds a new one.
+func (s *Server) GetCameras() *Cameras {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.Cameras
+}
+
+// GetInfo returns the server info. Use this instead of the Info field when
+// another goroutine may call Refresh(), which replaces it.
+// The returned *ServerInfo is a snapshot: a later refresh builds a new one.
+func (s *Server) GetInfo() *ServerInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.Info
+}
+
+// GetGroups returns the camera groups. Use this instead of the Groups field
+// when another goroutine may call Refresh(), which replaces it.
+// The returned slice is a snapshot: a later refresh builds a new one.
+func (s *Server) GetGroups() []*Group {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.Groups
 }
 
 // RefreshContext gets fresh camera and serverInfo data from SecuritySpy with context support.

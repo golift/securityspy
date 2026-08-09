@@ -180,8 +180,8 @@ func (e *Events) custom(eventType EventType, eventID, cam int, msg string) {
 	now := time.Now().Round(time.Second)
 
 	var camera *Camera
-	if e.server.Cameras != nil {
-		camera = e.server.Cameras.ByNum(cam)
+	if cams := e.server.GetCameras(); cams != nil {
+		camera = cams.ByNum(cam)
 	}
 
 	e.enqueue(&Event{
@@ -373,8 +373,8 @@ func (e *Events) UnmarshalEvent(text string) *Event {
 	newEvent.Msg = parts[3]
 
 	gmtOffset := 0.0
-	if e.server.Info != nil {
-		gmtOffset = e.server.Info.GmtOffset.Hours()
+	if info := e.server.GetInfo(); info != nil {
+		gmtOffset = info.GmtOffset.Hours()
 	}
 
 	eventTime = fmt.Sprintf("%v%+03.0f", parts[0], gmtOffset)
@@ -393,10 +393,11 @@ func (e *Events) UnmarshalEvent(text string) *Event {
 
 	// Parse the camera number.
 	parts[2] = strings.TrimPrefix(parts[2], "CAM")
-	if parts[2] != "X" && e.server.Cameras != nil {
+
+	if cams := e.server.GetCameras(); parts[2] != "X" && cams != nil {
 		if cameraNum, err := strconv.Atoi(parts[2]); err != nil {
 			newEvent.Errors = append(newEvent.Errors, ErrCAMParseFail)
-		} else if newEvent.Camera = e.server.Cameras.ByNum(cameraNum); newEvent.Camera == nil {
+		} else if newEvent.Camera = cams.ByNum(cameraNum); newEvent.Camera == nil {
 			newEvent.Errors = append(newEvent.Errors, ErrCAMMissing)
 		}
 	}
