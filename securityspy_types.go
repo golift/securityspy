@@ -13,9 +13,10 @@ import (
 // Server is the main interface for this library.
 // Contains sub-interfaces for cameras, ptz, files & events
 // This is provided in exchange for a url, username and password.
-// If your app calls Refresh(), it is your duty to use Rlock() on
-// this struct if there's a chance you may call methods while
-// Refresh() is running.
+//
+// Refresh() replaces Cameras, Groups and Info, so an app that calls it from
+// one goroutine must read those three through GetCameras(), GetGroups() and
+// GetInfo() everywhere else. Reading the fields directly races the refresh.
 type Server struct {
 	*server.Config
 
@@ -23,12 +24,16 @@ type Server struct {
 	//
 	// Deprecated: unused; video capture is pure Go and does not shell out to ffmpeg.
 	Encoder string
-	Files   *Files       // Files interface.
-	Events  *Events      // Events interface.
-	Cameras *Cameras     // Cameras & PTZ interfaces.
-	Groups  []*Group     // Camera groups from systemInfo (v6+).
-	Info    *ServerInfo  // ServerInfo struct (no methods).
-	mu      sync.RWMutex // Lock for Refresh().
+	Files   *Files  // Files interface.
+	Events  *Events // Events interface.
+	// Cameras is replaced by Refresh(); use GetCameras() when a refresh can race the read.
+	Cameras *Cameras
+	// Groups is replaced by Refresh(); use GetGroups() when a refresh can race the read.
+	Groups []*Group // Camera groups from systemInfo (v6+).
+	// Info is replaced by Refresh(); use GetInfo() when a refresh can race the read.
+	Info      *ServerInfo  // ServerInfo struct (no methods).
+	mu        sync.RWMutex // Guards the three fields Refresh() replaces.
+	refreshMu sync.Mutex   // Serializes refreshes; held across the systemInfo request.
 }
 
 // Group is a named camera group from ++systemInfo (v6+).

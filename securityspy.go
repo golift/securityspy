@@ -49,68 +49,117 @@ func NewMust(config *server.Config) *Server {
 
 // Refresh gets fresh camera and serverInfo data from SecuritySpy,
 // run this after every action to keep the data pool up to date.
-// This is not at all thread safe. Do not run this if other methods
-// may run in a different go routine.
+// It replaces the Cameras, Groups and Info fields, so other goroutines must
+// read those through GetCameras(), GetGroups() and GetInfo() while this can run.
 func (s *Server) Refresh() error {
 	return s.RefreshContext(context.Background())
 }
 
+// GetCameras returns the camera list. Use this instead of the Cameras field
+// when another goroutine may call Refresh(), which replaces it.
+// The returned *Cameras is a snapshot: a later refresh builds a new one.
+func (s *Server) GetCameras() *Cameras {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.Cameras
+}
+
+// GetInfo returns the server info. Use this instead of the Info field when
+// another goroutine may call Refresh(), which replaces it.
+// The returned *ServerInfo is a snapshot: a later refresh builds a new one.
+func (s *Server) GetInfo() *ServerInfo {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.Info
+}
+
+// GetGroups returns the camera groups. Use this instead of the Groups field
+// when another goroutine may call Refresh(), which replaces it.
+// The returned slice is a snapshot: a later refresh builds a new one.
+func (s *Server) GetGroups() []*Group {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.Groups
+}
+
 // RefreshContext gets fresh camera and serverInfo data from SecuritySpy with context support.
-func (s *Server) RefreshContext(ctx context.Context) error { //nolint:cyclop // schedule name wiring
-	s.mu.Lock()
-	defer s.mu.Unlock()
+//
+// The systemInfo request and all the wiring happen off to the side, so readers
+// keep serving the previous snapshot for the length of the round trip and only
+// block for the swap at the end. A refresh that times out never stalls them.
+func (s *Server) RefreshContext(ctx context.Context) error {
+	// refreshMu serializes refreshes with each other, mu only guards the swap.
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
 
 	var sysInfo systemInfo
 
-	if err := s.GetXMLContext(ctx, "++systemInfo", nil, &sysInfo); err != nil {
+	err := s.GetXMLContext(ctx, "++systemInfo", nil, &sysInfo)
+	if err != nil {
 		return fmt.Errorf("getting systemInfo: %w", err)
 	}
 
-	s.Info = sysInfo.Server
-	if s.Info == nil {
-		s.Info = &ServerInfo{}
+	info := sysInfo.Server
+	if info == nil {
+		info = &ServerInfo{}
 	}
 
-	s.Cameras = &Cameras{cameras: sysInfo.cameras(), server: s}
-	s.Groups = sysInfo.GroupList.Groups
-	s.Info.Refreshed = time.Now()
+	info.Refreshed = time.Now()
 	// Point all the unmarshalled data into an exported struct. Better-formatted data.
-	s.Info.ServerSchedules = sysInfo.schedules()
-	s.Info.SchedulePresets = sysInfo.schedulePresets()
-	s.Info.ScheduleOverrides = sysInfo.scheduleOverrides()
+	info.ServerSchedules = sysInfo.schedules()
+	info.SchedulePresets = sysInfo.schedulePresets()
+	info.ScheduleOverrides = sysInfo.scheduleOverrides()
 
-	for idx, cam := range s.Cameras.cameras {
-		s.Cameras.cameras[idx].server = s
-		if s.Cameras.cameras[idx].PTZ != nil {
-			s.Cameras.cameras[idx].PTZ.camera = s.Cameras.cameras[idx]
-		}
-		// Fill in the missing schedule names (all we have are IDs, so fetch the names from systemInfo)
-		if name, ok := s.Info.ServerSchedules[cam.ScheduleIDA.ID]; ok {
-			s.Cameras.cameras[idx].ScheduleIDA.Name = name
-		}
+	cameras := &Cameras{cameras: sysInfo.cameras(), server: s}
+	s.wireCameras(cameras.cameras, info)
 
-		if name, ok := s.Info.ServerSchedules[cam.ScheduleIDCC.ID]; ok {
-			s.Cameras.cameras[idx].ScheduleIDCC.Name = name
-		}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-		if name, ok := s.Info.ServerSchedules[cam.ScheduleIDMC.ID]; ok {
-			s.Cameras.cameras[idx].ScheduleIDMC.Name = name
-		}
-
-		if name, ok := s.Info.ScheduleOverrides[cam.ScheduleOverrideA.ID]; ok {
-			s.Cameras.cameras[idx].ScheduleOverrideA.Name = name
-		}
-
-		if name, ok := s.Info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]; ok {
-			s.Cameras.cameras[idx].ScheduleOverrideCC.Name = name
-		}
-
-		if name, ok := s.Info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]; ok {
-			s.Cameras.cameras[idx].ScheduleOverrideMC.Name = name
-		}
-	}
+	s.Info = info
+	s.Cameras = cameras
+	s.Groups = sysInfo.GroupList.Groups
 
 	return nil
+}
+
+// wireCameras points every camera back at the server and fills in the schedule
+// names, which systemInfo only provides as IDs. Runs on a new camera list before
+// it is published, so no lock is needed.
+func (s *Server) wireCameras(cameras []*Camera, info *ServerInfo) {
+	for idx, cam := range cameras {
+		cameras[idx].server = s
+		if cameras[idx].PTZ != nil {
+			cameras[idx].PTZ.camera = cameras[idx]
+		}
+
+		if name, ok := info.ServerSchedules[cam.ScheduleIDA.ID]; ok {
+			cameras[idx].ScheduleIDA.Name = name
+		}
+
+		if name, ok := info.ServerSchedules[cam.ScheduleIDCC.ID]; ok {
+			cameras[idx].ScheduleIDCC.Name = name
+		}
+
+		if name, ok := info.ServerSchedules[cam.ScheduleIDMC.ID]; ok {
+			cameras[idx].ScheduleIDMC.Name = name
+		}
+
+		if name, ok := info.ScheduleOverrides[cam.ScheduleOverrideA.ID]; ok {
+			cameras[idx].ScheduleOverrideA.Name = name
+		}
+
+		if name, ok := info.ScheduleOverrides[cam.ScheduleOverrideCC.ID]; ok {
+			cameras[idx].ScheduleOverrideCC.Name = name
+		}
+
+		if name, ok := info.ScheduleOverrides[cam.ScheduleOverrideMC.ID]; ok {
+			cameras[idx].ScheduleOverrideMC.Name = name
+		}
+	}
 }
 
 // GetScripts fetches and returns the list of script files.

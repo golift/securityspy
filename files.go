@@ -106,8 +106,9 @@ func (f *Files) GetFile(name string) (*File, error) {
 	file := &File{
 		Title:     name,
 		server:    f.server,
-		GmtOffset: f.server.Info.GmtOffset.Duration,
+		GmtOffset: f.server.GetInfo().GmtOffset.Duration,
 	}
+	cams := f.server.GetCameras()
 
 	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != fileParts {
 		return file, ErrInvalidName
@@ -115,7 +116,7 @@ func (f *Files) GetFile(name string) (*File, error) {
 		return file, ErrInvalidName
 	} else if file.Updated, err = time.Parse(FileDateFormat, nameDateSplit[0]); err != nil {
 		return file, ErrInvalidName
-	} else if file.Camera = f.server.Cameras.ByName(nameDateSplit[len(nameDateSplit)-1]); file.Camera == nil {
+	} else if file.Camera = cams.ByName(nameDateSplit[len(nameDateSplit)-1]); file.Camera == nil {
 		return file, ErrCAMMissing
 	} else if file.Link.Type = "video/quicktime"; fileExtSplit[1] == "jpg" {
 		file.Link.Type = "image/jpeg"
@@ -190,9 +191,11 @@ func (f *Files) getFiles(cameraNums []int, start, end time.Time, fileTypes, cont
 		return nil, fmt.Errorf("getting download: %w", err)
 	}
 
+	cams := f.server.GetCameras()
+
 	for i := range feed.Entries {
 		// Add the camera, server and file interfaces to every file entry.
-		feed.Entries[i].Camera = f.server.Cameras.ByNum(feed.Entries[i].CameraNum)
+		feed.Entries[i].Camera = cams.ByNum(feed.Entries[i].CameraNum)
 		feed.Entries[i].server = f.server
 		feed.Entries[i].GmtOffset = feed.GmtOffset.Duration
 		entries = append(entries, feed.Entries[i])
