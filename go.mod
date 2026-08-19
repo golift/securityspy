@@ -7,7 +7,7 @@ require (
 	github.com/bluenviron/gortsplib/v5 v5.6.4
 	github.com/bluenviron/mediacommon/v2 v2.9.3
 	github.com/pion/rtp v1.10.5
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 )
 
 require (
@@ -21,6 +21,7 @@ require (
 	github.com/pion/srtp/v3 v3.0.13 // indirect
 	github.com/pion/transport/v4 v4.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
