@@ -1,6 +1,6 @@
 module golift.io/securityspy/v2
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/Eyevinn/mp4ff v0.55.0
