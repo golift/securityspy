@@ -110,15 +110,28 @@ func (f *Files) GetFile(name string) (*File, error) {
 	}
 	cams := f.server.GetCameras()
 
-	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != fileParts {
+	fileExtSplit := strings.Split(name, ".")
+	if len(fileExtSplit) != fileParts {
 		return file, ErrInvalidName
-	} else if nameDateSplit := strings.Split(fileExtSplit[0], " "); len(fileExtSplit) < fileParts {
+	}
+
+	nameDateSplit := strings.Split(fileExtSplit[0], " ")
+	if len(fileExtSplit) < fileParts {
 		return file, ErrInvalidName
-	} else if file.Updated, err = time.Parse(FileDateFormat, nameDateSplit[0]); err != nil {
+	}
+
+	file.Updated, err = time.Parse(FileDateFormat, nameDateSplit[0])
+	if err != nil {
 		return file, ErrInvalidName
-	} else if file.Camera = cams.ByName(nameDateSplit[len(nameDateSplit)-1]); file.Camera == nil {
+	}
+
+	file.Camera = cams.ByName(nameDateSplit[len(nameDateSplit)-1])
+	if file.Camera == nil {
 		return file, ErrCAMMissing
-	} else if file.Link.Type = "video/quicktime"; fileExtSplit[1] == "jpg" {
+	}
+
+	file.Link.Type = "video/quicktime"
+	if fileExtSplit[1] == "jpg" {
 		file.Link.Type = "image/jpeg"
 	}
 
@@ -134,7 +147,8 @@ func (f *Files) GetFile(name string) (*File, error) {
 // Save downloads a saved media File from SecuritySpy and saves it to a local file.
 // Returns an error if path exists.
 func (f *File) Save(path string) (int64, error) {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	_, statErr := os.Stat(path)
+	if !os.IsNotExist(statErr) {
 		return 0, ErrPathExists
 	}
 
@@ -142,13 +156,13 @@ func (f *File) Save(path string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	newFile, err := os.Create(path) //nolint:gosec // we are creating a file in a safe way.
 	if err != nil {
 		return 0, fmt.Errorf("os.Create(): %w", err)
 	}
-	defer newFile.Close()
+	defer func() { _ = newFile.Close() }()
 
 	size, err := io.Copy(newFile, body)
 	if err != nil {
@@ -187,7 +201,8 @@ func (f *Files) getFiles(cameraNums []int, start, end time.Time, fileTypes, cont
 		params  = makeFilesParams(cameraNums, start, end, fileTypes, continuation)
 	)
 
-	if err := f.server.GetXML("++download", params, &feed); err != nil {
+	err := f.server.GetXML("++download", params, &feed)
+	if err != nil {
 		return nil, fmt.Errorf("getting download: %w", err)
 	}
 

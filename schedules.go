@@ -46,7 +46,8 @@ func (m *ScheduleContainer) UnmarshalXML(decoder *xml.Decoder, start xml.StartEl
 
 		switch xmlToken := token.(type) {
 		case xml.StartElement:
-			if err = decoder.DecodeElement(&schedule, &xmlToken); err != nil {
+			err = decoder.DecodeElement(&schedule, &xmlToken)
+			if err != nil {
 				return fmt.Errorf("XML decode: %w", err)
 			}
 
@@ -65,7 +66,8 @@ func (s *Server) SetSchedulePreset(presetID int) error {
 	params := make(url.Values)
 	params.Set("id", strconv.Itoa(presetID))
 
-	if err := s.SimpleReq("++ssSetPreset", params, -1); err != nil {
+	err := s.SimpleReq("++ssSetPreset", params, -1)
+	if err != nil {
 		return fmt.Errorf("http request: %w", err)
 	}
 

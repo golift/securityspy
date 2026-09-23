@@ -46,7 +46,6 @@ func TestMonoAAC64kASC(t *testing.T) {
 	cfg := mpeg4audio.AudioSpecificConfig{
 		Type:          mpeg4audio.ObjectTypeAACLC,
 		SampleRate:    64000,
-		ChannelCount:  1,
 		ChannelConfig: 1,
 	}
 	asc, err := cfg.Marshal()
@@ -61,7 +60,6 @@ func TestHighSampleRateASCStillMarshals(t *testing.T) {
 	cfg := mpeg4audio.AudioSpecificConfig{
 		Type:          mpeg4audio.ObjectTypeAACLC,
 		SampleRate:    96000,
-		ChannelCount:  2,
 		ChannelConfig: 2,
 	}
 	asc, err := cfg.Marshal()

@@ -198,24 +198,11 @@ func (z *PTZ) Stop() error {
 	return z.ptzReq(ptzCommandStop)
 }
 
-/* INTERFACE HELPER METHODS FOLLOW */
-
-// ptzReq wraps all the ptz-specific calls.
-func (z *PTZ) ptzReq(command ptzCommand) error {
-	params := make(url.Values)
-	params.Set("command", strconv.Itoa(int(command)))
-
-	if err := z.camera.server.SimpleReq("++ptz/command", params, z.camera.Number); err != nil {
-		return fmt.Errorf("ptz failed: %w", err)
-	}
-
-	return nil
-}
-
 // UnmarshalXML method converts ptzCapbilities bitmask from an XML payload into true/false abilities.
 // This isn't a method you should ever call directly; it is only used during data initialization.
 func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	if err := d.DecodeElement(&z.rawCaps, &start); err != nil {
+	err := d.DecodeElement(&z.rawCaps, &start)
+	if err != nil {
 		return fmt.Errorf("ptz caps: %w", err)
 	}
 
@@ -225,6 +212,19 @@ func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	z.HasPresets = z.rawCaps&ptzPresets == ptzPresets
 	z.HasSpeed = z.rawCaps&ptzSpeedControl == ptzSpeedControl
 	z.Continuous = z.rawCaps&ptzContinuous == ptzContinuous
+
+	return nil
+}
+
+// ptzReq wraps all the ptz-specific calls.
+func (z *PTZ) ptzReq(command ptzCommand) error {
+	params := make(url.Values)
+	params.Set("command", strconv.Itoa(int(command)))
+
+	err := z.camera.server.SimpleReq("++ptz/command", params, z.camera.Number)
+	if err != nil {
+		return fmt.Errorf("ptz failed: %w", err)
+	}
 
 	return nil
 }

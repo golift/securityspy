@@ -169,7 +169,8 @@ func (s *Server) GetScripts() ([]string, error) {
 		Names []string `xml:"name"`
 	}
 
-	if err := s.GetXML("++scripts", nil, &val); err != nil {
+	err := s.GetXML("++scripts", nil, &val)
+	if err != nil {
 		return nil, fmt.Errorf("getting scripts: %w", err)
 	}
 
@@ -183,7 +184,8 @@ func (s *Server) GetSounds() ([]string, error) {
 		Names []string `xml:"name"`
 	}
 
-	if err := s.GetXML("++sounds", nil, &val); err != nil {
+	err := s.GetXML("++sounds", nil, &val)
+	if err != nil {
 		return nil, fmt.Errorf("getting sounds: %w", err)
 	}
 

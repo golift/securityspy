@@ -325,7 +325,8 @@ func (e *Events) eventStreamSelector(ctx context.Context, refreshOnConfigChange 
 }
 
 func (e *Events) serverRefresh(ctx context.Context) {
-	if err := e.server.RefreshContext(ctx); err != nil {
+	err := e.server.RefreshContext(ctx)
+	if err != nil {
 		e.custom(EventWatcherRefreshFail, -9997, -1, err.Error())
 
 		return
@@ -380,13 +381,15 @@ func (e *Events) UnmarshalEvent(text string) *Event {
 	eventTime = fmt.Sprintf("%v%+03.0f", parts[0], gmtOffset)
 
 	//nolint:gosmopolitan // The event stream uses the system's local time.
-	if newEvent.When, err = time.ParseInLocation(EventTimeFormat+"-07", eventTime, time.Local); err != nil {
+	newEvent.When, err = time.ParseInLocation(EventTimeFormat+"-07", eventTime, time.Local)
+	if err != nil {
 		newEvent.When = time.Now()
 		newEvent.Errors = append(newEvent.Errors, ErrDateParseFail)
 	}
 
 	// Parse the ID
-	if newEvent.ID, err = strconv.Atoi(parts[1]); err != nil {
+	newEvent.ID, err = strconv.Atoi(parts[1])
+	if err != nil {
 		newEvent.ID = BadID
 		newEvent.Errors = append(newEvent.Errors, ErrIDParseFail)
 	}
@@ -395,7 +398,8 @@ func (e *Events) UnmarshalEvent(text string) *Event {
 	parts[2] = strings.TrimPrefix(parts[2], "CAM")
 
 	if cams := e.server.GetCameras(); parts[2] != "X" && cams != nil {
-		if cameraNum, err := strconv.Atoi(parts[2]); err != nil {
+		cameraNum, err := strconv.Atoi(parts[2])
+		if err != nil {
 			newEvent.Errors = append(newEvent.Errors, ErrCAMParseFail)
 		} else if newEvent.Camera = cams.ByNum(cameraNum); newEvent.Camera == nil {
 			newEvent.Errors = append(newEvent.Errors, ErrCAMMissing)

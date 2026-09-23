@@ -105,7 +105,8 @@ type CameraSchedule struct {
 // UnmarshalXML stores a schedule ID into a CameraSchedule type.
 // This isn't a method you should ever call directly; it is only used during data initialization.
 func (bit *CameraSchedule) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	if err := d.DecodeElement(&bit.ID, &start); err != nil {
+	err := d.DecodeElement(&bit.ID, &start)
+	if err != nil {
 		return fmt.Errorf("decoding xml: %w", err)
 	}
 
@@ -340,7 +341,9 @@ type cameraXML struct {
 //nolint:funlen // dual schema mapping
 func (c *Camera) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var raw cameraXML
-	if err := d.DecodeElement(&raw, &start); err != nil {
+
+	err := d.DecodeElement(&raw, &start)
+	if err != nil {
 		return fmt.Errorf("decoding camera xml: %w", err)
 	}
 
