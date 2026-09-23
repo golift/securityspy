@@ -99,7 +99,7 @@ func SaveMP4(ctx context.Context, rtspURL, path string, opts Options) (*Result, 
 		return nil, fmt.Errorf("create output: %w", err)
 	}
 
-	defer func() { _ = file.Close() }()
+	defer file.Close()
 
 	res, err := capture(ctx, rtspURL, opts, file, false)
 	if err != nil {

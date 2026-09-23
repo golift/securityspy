@@ -96,7 +96,6 @@ func TestGetSounds(t *testing.T) { //nolint:dupl // it just looks like a duplica
 	fakeServer := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/++sounds" {
 			http.NotFound(resp, req)
-
 			return
 		}
 
@@ -133,7 +132,6 @@ func TestGetScripts(t *testing.T) { //nolint:dupl // it just looks like a duplic
 	fakeServer := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/++scripts" {
 			http.NotFound(resp, req)
-
 			return
 		}
 
@@ -219,7 +217,6 @@ func TestRefreshHandlesNilPTZAndMissingSchedules(t *testing.T) {
 	fakeServer := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/++systemInfo" {
 			http.NotFound(resp, req)
-
 			return
 		}
 

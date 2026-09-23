@@ -407,7 +407,7 @@ func (c *Camera) Modes() (*CameraModes, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getting camera modes: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%w: %s", ErrCameraModesStatus, resp.Status)

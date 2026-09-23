@@ -7,7 +7,12 @@ linters:
     - exhaustruct_v5 # camera and XML structs are filled a field at a time.
     - gomodguard # deprecated.
     - depguard # not useful.
+    - nlreturn
   settings:
+    errcheck:
+      exclude-functions:
+        - (*os.File).Close
+        - (io.Closer).Close
     exhaustive:
       default-signifies-exhaustive: true
     gocritic:

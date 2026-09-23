@@ -156,13 +156,13 @@ func (f *File) Save(path string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = body.Close() }()
+	defer body.Close()
 
 	newFile, err := os.Create(path) //nolint:gosec // we are creating a file in a safe way.
 	if err != nil {
 		return 0, fmt.Errorf("os.Create(): %w", err)
 	}
-	defer func() { _ = newFile.Close() }()
+	defer newFile.Close()
 
 	size, err := io.Copy(newFile, body)
 	if err != nil {

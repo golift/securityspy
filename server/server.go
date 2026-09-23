@@ -206,7 +206,7 @@ func (s *Config) PostContext(
 	if err != nil {
 		return nil, fmt.Errorf("getting body: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer resp.Body.Close()
 
 	reply, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -235,7 +235,7 @@ func (s *Config) GetXMLContext(ctx context.Context, apiPath string, params url.V
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -270,7 +270,7 @@ func (s *Config) SimpleReqContext(ctx context.Context, apiURI string, params url
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return ErrNotFound
@@ -322,7 +322,7 @@ func (s *Config) PostFormContext(ctx context.Context, apiPath string, form url.V
 	if err != nil {
 		return fmt.Errorf("http request: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

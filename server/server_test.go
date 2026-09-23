@@ -51,7 +51,7 @@ func TestGet(t *testing.T) {
 	require.NoError(t, err, "the method must not return an error when given a valid server to query")
 
 	if err == nil {
-		defer func() { _ = resp.Body.Close() }()
+		defer resp.Body.Close()
 
 		check.Equal(http.StatusOK, resp.StatusCode, "the server must return a 200 response code")
 		body, err := io.ReadAll(resp.Body)
