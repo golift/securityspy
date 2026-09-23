@@ -198,7 +198,7 @@ func (z *PTZ) Stop() error {
 	return z.ptzReq(ptzCommandStop)
 }
 
-// UnmarshalXML method converts ptzCapbilities bitmask from an XML payload into true/false abilities.
+// UnmarshalXML method converts ptzCapabilities bitmask from an XML payload into true/false abilities.
 // This isn't a method you should ever call directly; it is only used during data initialization.
 func (z *PTZ) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	err := d.DecodeElement(&z.rawCaps, &start)

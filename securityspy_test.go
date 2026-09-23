@@ -30,7 +30,7 @@ func TestGetServer(t *testing.T) {
 	secspyServer, err := securityspy.New(&server.Config{Username: user, Password: pass, URL: URL, VerifySSL: true})
 
 	require.Error(t, err, "there is no server at the address provided so an error must exist")
-	check.NotNil(secspyServer, "server must not be nil. even wiuth an error it must be returned")
+	check.NotNil(secspyServer, "server must not be nil. even with an error it must be returned")
 
 	if !strings.Contains(err.Error(), "target machine actively refused it") &&
 		!strings.Contains(err.Error(), "connection refused") {
@@ -118,7 +118,7 @@ func TestGetSounds(t *testing.T) { //nolint:dupl // it just looks like a duplica
 	sounds, err := secspyServer.GetSounds()
 	require.NoError(t, err, "the method must not return an error when given valid XML to unmarshal")
 	check.Len(sounds, 20, "all 20 sounds must exist in the slice")
-	check.Equal("Beeps.aif", sounds[0], "the sound files were not properly unmarhsalled")
+	check.Equal("Beeps.aif", sounds[0], "the sound files were not properly unmarshalled")
 
 	_, err = secspyServer.GetSounds()
 	require.Error(t, err)
@@ -154,7 +154,7 @@ func TestGetScripts(t *testing.T) { //nolint:dupl // it just looks like a duplic
 	scripts, err := secspyServer.GetScripts()
 	require.NoError(t, err, "the method must not return an error when given valid XML to unmarshal")
 	check.Len(scripts, 16, "all 16 scripts must exist in the slice")
-	check.Equal("Web-i Activate Relay 1.scpt", scripts[0], "the script files were not properly unmarhsalled")
+	check.Equal("Web-i Activate Relay 1.scpt", scripts[0], "the script files were not properly unmarshalled")
 
 	_, err = secspyServer.GetScripts()
 	require.Error(t, err)

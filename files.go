@@ -17,8 +17,8 @@ import (
 const (
 	// DownloadDateFormat is the format the SecuritySpy ++download method accepts.
 	// This matches the ++download inputs AND the folder names files are saved into.
-	// The file1/file2 inputs this gets passed into are actually undocuemnted and were
-	// created specifically for programmtic SDK access (ie. this library).
+	// The file1/file2 inputs this gets passed into are actually undocumented and were
+	// created specifically for programmatic SDK access (ie. this library).
 	DownloadDateFormat = "2006-01-02"
 	// FileDateFormat is an arbitrary date format used for saved files; we hope doesn't change.
 	// This is used in the actual name of files that are saved. No where else.
@@ -116,9 +116,6 @@ func (f *Files) GetFile(name string) (*File, error) {
 	}
 
 	nameDateSplit := strings.Split(fileExtSplit[0], " ")
-	if len(fileExtSplit) < fileParts {
-		return file, ErrInvalidName
-	}
 
 	file.Updated, err = time.Parse(FileDateFormat, nameDateSplit[0])
 	if err != nil {
