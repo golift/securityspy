@@ -24,14 +24,14 @@ func TestSetSchedulePreset(t *testing.T) {
 func TestUnmarshalXMLscheduleContainer(t *testing.T) {
 	t.Parallel()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 
 	var schedule securityspy.ScheduleContainer
 
 	err := xml.Unmarshal([]byte(testScheduleList), &schedule)
 	require.NoError(t, err, "valid data must not produce an error")
-	asert.Equal("Armed 24/7", schedule[1], "the scheduleContainer data did not unmarshal properly")
-	asert.Len(schedule, 6)
+	check.Equal("Armed 24/7", schedule[1], "the scheduleContainer data did not unmarshal properly")
+	check.Len(schedule, 6)
 
 	err = xml.Unmarshal([]byte("<gotrekt>"), &schedule)
 	require.Error(t, err, "invalid data must produce an error")

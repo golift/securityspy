@@ -1,25 +1,22 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base", "default:automergeDigest"],
+  "extends": [
+    "config:base",
+    "default:automergeDigest",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
   "packageRules": [
     {
-      "description": "Group Go stdlib / toolchain updates and automerge when tests pass",
+      "description": "Automerge non-major Go module updates when checks pass",
       "matchManagers": ["gomod"],
-      "matchDepNames": ["go"],
-      "matchDepTypes": ["golang", "toolchain"],
-      "groupName": "go",
-      "rangeStrategy": "bump",
-      "automerge": true
-    },
-    {
-      "description": "Group GitHub Actions updates and automerge when tests pass",
-      "matchManagers": ["github-actions"],
-      "groupName": "github-actions",
-      "automerge": true
-    },
-    {
-      "matchDatasources": ["go", "github-releases", "github-tags"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Automerge GitHub Actions updates, including majors, when checks pass",
+      "matchManagers": ["github-actions"],
       "automerge": true
     }
   ]

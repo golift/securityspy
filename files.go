@@ -50,7 +50,7 @@ type fileFeed struct {
 	Entries      []*File  `xml:"entry"`        // List of File pointers
 }
 
-// File represents a saved media file. This is all the data retreived from
+// File represents a saved media file. This is all the data retrieved from
 // the ++download method for a particular file. Contains a camera interface
 // for the camera that created the file. All of the Files type methods return this type.
 type File struct {
@@ -214,7 +214,7 @@ func (f *Files) getFiles(cameraNums []int, start, end time.Time, fileTypes, cont
 	return entries, nil
 }
 
-// makeFilesParams makes the url Values for a file retreival.
+// makeFilesParams makes the url Values for a file retrieval.
 func makeFilesParams(cameraNums []int, from, to time.Time, fileTypes, continuation string) url.Values {
 	params := make(url.Values)
 	params.Set("results", "1000")

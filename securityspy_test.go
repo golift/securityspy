@@ -23,14 +23,14 @@ const (
 func TestGetServer(t *testing.T) {
 	t.Parallel()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 	URL := "http://127.0.0.1:5678"
 	user := "user123"
 	pass := "pass456"
 	secspyServer, err := securityspy.New(&server.Config{Username: user, Password: pass, URL: URL, VerifySSL: true})
 
 	require.Error(t, err, "there is no server at the address provided so an error must exist")
-	asert.NotNil(secspyServer, "server must not be nil. even wiuth an error it must be returned")
+	check.NotNil(secspyServer, "server must not be nil. even wiuth an error it must be returned")
 
 	if !strings.Contains(err.Error(), "target machine actively refused it") &&
 		!strings.Contains(err.Error(), "connection refused") {
@@ -62,26 +62,26 @@ func TestRefresh(t *testing.T) {
 	}))
 	defer fakeServer.Close()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 	secspyServer := securityspy.NewMust(
 		&server.Config{Username: userStr, Password: passStr, URL: fakeServer.URL + "/", VerifySSL: false})
 	require.NoError(t, secspyServer.Refresh(),
 		"an error must not be returned while testing with valid XML")
 
 	// Make sure Refresh() did all the things it is supposed to do.
-	asert.WithinDuration(time.Now(), secspyServer.Info.Refreshed, time.Second,
+	check.WithinDuration(time.Now(), secspyServer.Info.Refreshed, time.Second,
 		"Refreshed field must be updated by Refresh() method")
 
 	// Test that the data was unmarshalled properly.
 	// These tests assume the test data does not change.
-	asert.Equal("SecuritySpy", secspyServer.Info.Name, "the server's name was not properly unmarshalled")
-	asert.Equal("2019-02-10T15:53:23", secspyServer.Info.CurrentTime.Format("2006-01-02T15:04:05"),
+	check.Equal("SecuritySpy", secspyServer.Info.Name, "the server's name was not properly unmarshalled")
+	check.Equal("2019-02-10T15:53:23", secspyServer.Info.CurrentTime.Format("2006-01-02T15:04:05"),
 		"the server's current time was not properly unmarshalled")
-	asert.Equal(2304, secspyServer.Cameras.ByNum(1).Width, "camera info was not properly unmarshalled")
-	asert.Equal("Road", secspyServer.Cameras.ByNum(2).Name, "camera info was not properly unmarshalled")
-	asert.Equal("Unarmed 24/7", secspyServer.Info.ServerSchedules[0], "schedule info was not properly unmarshalled")
-	asert.Equal("None", secspyServer.Info.ScheduleOverrides[0], "schedule override info was not properly unmarshalled")
-	asert.Equal("MyFirstPreset", secspyServer.Info.SchedulePresets[1930238093],
+	check.Equal(2304, secspyServer.Cameras.ByNum(1).Width, "camera info was not properly unmarshalled")
+	check.Equal("Road", secspyServer.Cameras.ByNum(2).Name, "camera info was not properly unmarshalled")
+	check.Equal("Unarmed 24/7", secspyServer.Info.ServerSchedules[0], "schedule info was not properly unmarshalled")
+	check.Equal("None", secspyServer.Info.ScheduleOverrides[0], "schedule override info was not properly unmarshalled")
+	check.Equal("MyFirstPreset", secspyServer.Info.SchedulePresets[1930238093],
 		"schedule preset info was not properly unmarshalled")
 
 	// second call returns an HTTP error response.
@@ -111,14 +111,14 @@ func TestGetSounds(t *testing.T) { //nolint:dupl // it just looks like a duplica
 	}))
 	defer fakeServer.Close()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 	secspyServer := securityspy.NewMust(
 		&server.Config{Username: userStr, Password: passStr, URL: fakeServer.URL + "/", VerifySSL: false})
 
 	sounds, err := secspyServer.GetSounds()
 	require.NoError(t, err, "the method must not return an error when given valid XML to unmarshal")
-	asert.Len(sounds, 20, "all 20 sounds must exist in the slice")
-	asert.Equal("Beeps.aif", sounds[0], "the sound files were not properly unmarhsalled")
+	check.Len(sounds, 20, "all 20 sounds must exist in the slice")
+	check.Equal("Beeps.aif", sounds[0], "the sound files were not properly unmarhsalled")
 
 	_, err = secspyServer.GetSounds()
 	require.Error(t, err)
@@ -147,14 +147,14 @@ func TestGetScripts(t *testing.T) { //nolint:dupl // it just looks like a duplic
 	}))
 	defer fakeServer.Close()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 	secspyServer := securityspy.NewMust(
 		&server.Config{Username: userStr, Password: passStr, URL: fakeServer.URL + "/", VerifySSL: false})
 
 	scripts, err := secspyServer.GetScripts()
 	require.NoError(t, err, "the method must not return an error when given valid XML to unmarshal")
-	asert.Len(scripts, 16, "all 16 scripts must exist in the slice")
-	asert.Equal("Web-i Activate Relay 1.scpt", scripts[0], "the script files were not properly unmarhsalled")
+	check.Len(scripts, 16, "all 16 scripts must exist in the slice")
+	check.Equal("Web-i Activate Relay 1.scpt", scripts[0], "the script files were not properly unmarhsalled")
 
 	_, err = secspyServer.GetScripts()
 	require.Error(t, err)
@@ -163,7 +163,7 @@ func TestGetScripts(t *testing.T) { //nolint:dupl // it just looks like a duplic
 func TestUnmarshalXMLYesNoBool(t *testing.T) {
 	t.Parallel()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 	good := []string{"true", "yes", "1", "armed", "active", "enabled"}
 	fail := []string{"anything", "else", "returns", "false", "including", "no", "0", "disarmed", "inactive", "disabled"}
 
@@ -171,38 +171,38 @@ func TestUnmarshalXMLYesNoBool(t *testing.T) {
 
 	for _, val := range good {
 		require.NoError(t, xml.Unmarshal([]byte("<tag>"+val+"</tag>"), &bit), "unmarshalling must not produce an error")
-		asert.True(bit.Val, "the value must unmarshal to true")
-		asert.Equal(val, bit.Txt, "the value was not unmarshalled correctly")
+		check.True(bit.Val, "the value must unmarshal to true")
+		check.Equal(val, bit.Txt, "the value was not unmarshalled correctly")
 	}
 
 	for _, val := range fail {
 		require.NoError(t, xml.Unmarshal([]byte("<tag>"+val+"</tag>"), &bit), "unmarshalling must not produce an error")
-		asert.False(bit.Val, "the value must unmarshal to false")
-		asert.Equal(val, bit.Txt, "the value was not unmarshalled correctly")
+		check.False(bit.Val, "the value must unmarshal to false")
+		check.Equal(val, bit.Txt, "the value was not unmarshalled correctly")
 	}
 }
 
 func TestUnmarshalXMLDuration(t *testing.T) {
 	t.Parallel()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 	good := []string{"1", "20", "300", "4000", "50000", "666666"}
 
 	var bit securityspy.Duration
 
 	for _, val := range good {
 		require.NoError(t, xml.Unmarshal([]byte("<tag>"+val+"</tag>"), &bit), "unmarshalling must not produce an error")
-		asert.Equal(val, bit.Val, "the value was not unmarshalled correctly")
+		check.Equal(val, bit.Val, "the value was not unmarshalled correctly")
 		num, err := strconv.ParseFloat(val, 64)
 		require.NoError(t, err, "must not be an error parsing test numbers")
-		asert.InDelta(num, bit.Seconds(), 0.000001, "the value was not unmarshalled correctly")
-		asert.Equal(val, bit.Val, "the value was not unmarshalled correctly")
+		check.InDelta(num, bit.Seconds(), 0.000001, "the value was not unmarshalled correctly")
+		check.Equal(val, bit.Val, "the value was not unmarshalled correctly")
 	}
 
 	// Test empty value.
 	require.NoError(t, xml.Unmarshal([]byte("<tag></tag>"), &bit), "unmarshalling must not produce an error")
-	asert.Empty(bit.Val, "the value was not unmarshalled correctly")
-	asert.Equal(int64(-1), bit.Nanoseconds(), "an empty value must produce -1 nano second.")
+	check.Empty(bit.Val, "the value was not unmarshalled correctly")
+	check.Equal(int64(-1), bit.Nanoseconds(), "an empty value must produce -1 nano second.")
 }
 
 func TestRefreshHandlesNilPTZAndMissingSchedules(t *testing.T) {

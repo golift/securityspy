@@ -21,9 +21,9 @@ func New(c *server.Config) (*Server, error) {
 	return s, s.RefreshContext(context.Background()) //nolint:gocritic
 }
 
-// NewMust returns an iterface to interact with SecuritySpy.
+// NewMust returns an interface to interact with SecuritySpy.
 // This does not attempt to connect to SecuritySpy first.
-// You must call s.Refresh() before attempting to access other datas.
+// You must call s.Refresh() before attempting to access other data.
 func NewMust(config *server.Config) *Server {
 	if !strings.HasSuffix(config.URL, "/") {
 		config.URL += "/"

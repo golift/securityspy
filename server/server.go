@@ -251,7 +251,7 @@ func (s *Config) GetXMLContext(ctx context.Context, apiPath string, params url.V
 	return nil
 }
 
-// SimpleReq performes HTTP req, checks for OK at end of output.
+// SimpleReq performs HTTP req, checks for OK at end of output.
 func (s *Config) SimpleReq(apiURI string, params url.Values, cameraNum int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutDur())
 	defer cancel()
@@ -259,7 +259,7 @@ func (s *Config) SimpleReq(apiURI string, params url.Values, cameraNum int) erro
 	return s.SimpleReqContext(ctx, apiURI, params, cameraNum)
 }
 
-// SimpleReqContext performes HTTP req, checks for OK at end of output.
+// SimpleReqContext performs HTTP req, checks for OK at end of output.
 func (s *Config) SimpleReqContext(ctx context.Context, apiURI string, params url.Values, cameraNum int) error {
 	if cameraNum >= 0 {
 		params.Set("cameraNum", strconv.Itoa(cameraNum))
