@@ -89,7 +89,8 @@ func SaveMP4(ctx context.Context, rtspURL, path string, opts Options) (*Result, 
 		return nil, ErrBadPath
 	}
 
-	if _, err := os.Stat(path); err == nil {
+	_, statErr := os.Stat(path)
+	if statErr == nil {
 		return nil, os.ErrExist
 	}
 
@@ -147,7 +148,8 @@ type cancelReadCloser struct {
 func (c *cancelReadCloser) Close() error {
 	c.cancel()
 
-	if err := c.ReadCloser.Close(); err != nil {
+	err := c.ReadCloser.Close()
+	if err != nil {
 		return fmt.Errorf("close stream: %w", err)
 	}
 
@@ -162,7 +164,8 @@ func capture(ctx context.Context, rtspURL string, opts Options, writer io.Writer
 
 	client := newRTSPClient(parsed, opts.InsecureSkipVerify)
 
-	if err := client.Start(); err != nil {
+	err = client.Start()
+	if err != nil {
 		return nil, fmt.Errorf("rtsp start: %w", err)
 	}
 
@@ -186,22 +189,26 @@ func capture(ctx context.Context, rtspURL string, opts Options, writer io.Writer
 	state := &captureState{}
 	stop := makeStopper(state, cancel, client)
 
-	if err := client.SetupAll(session.BaseURL, session.Medias); err != nil {
+	err = client.SetupAll(session.BaseURL, session.Medias)
+	if err != nil {
 		return nil, fmt.Errorf("rtsp setup: %w", err)
 	}
 
 	attachVideo(client, tracks, mux, state, opts, stop)
 	attachAudio(client, tracks, mux, state, opts, stop)
 
-	if _, err := client.Play(nil); err != nil {
+	_, err = client.Play(nil)
+	if err != nil {
 		return nil, fmt.Errorf("rtsp play: %w", err)
 	}
 
-	if err := waitCapture(captureCtx, client, state, stop); err != nil {
+	err = waitCapture(captureCtx, client, state, stop)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := mux.close(); err != nil {
+	err = mux.close()
+	if err != nil {
 		return nil, err
 	}
 
@@ -620,7 +627,8 @@ func (m *fmp4Muxer) writeVideo(accessUnit [][]byte, pts int64) (int, error) {
 		return 0, nil
 	}
 
-	if err := m.ensureVideoStarted(idr, pts); err != nil {
+	err := m.ensureVideoStarted(idr, pts)
+	if err != nil {
 		return 0, err
 	}
 
@@ -674,7 +682,8 @@ func (m *fmp4Muxer) afterVideoSample() error {
 		return nil
 	}
 
-	if err := m.maybeInitProgressive(); err != nil {
+	err := m.maybeInitProgressive()
+	if err != nil {
 		return err
 	}
 
@@ -787,8 +796,11 @@ func (m *fmp4Muxer) writeInit(includeAudio bool) error {
 		if err != nil {
 			return fmt.Errorf("hevc descriptor: %w", err)
 		}
-	} else if err := init.Moov.Trak.SetAVCDescriptor("avc1", [][]byte{m.sps}, [][]byte{m.pps}, true); err != nil {
-		return fmt.Errorf("avc descriptor: %w", err)
+	} else {
+		err := init.Moov.Trak.SetAVCDescriptor("avc1", [][]byte{m.sps}, [][]byte{m.pps}, true)
+		if err != nil {
+			return fmt.Errorf("avc descriptor: %w", err)
+		}
 	}
 
 	if includeAudio && m.aacFormat != nil && m.aacFormat.Config != nil && m.audioRate > 0 {
@@ -797,12 +809,14 @@ func (m *fmp4Muxer) writeInit(includeAudio bool) error {
 		traks := init.Moov.Traks
 		audioTrak := traks[len(traks)-1]
 
-		if err := setMPEG4AudioDescriptor(audioTrak, m.aacFormat.Config); err != nil {
+		err := setMPEG4AudioDescriptor(audioTrak, m.aacFormat.Config)
+		if err != nil {
 			return err
 		}
 	}
 
-	if err := init.Encode(m.w); err != nil {
+	err := init.Encode(m.w)
+	if err != nil {
 		return fmt.Errorf("write init: %w", err)
 	}
 
@@ -844,7 +858,9 @@ func (m *fmp4Muxer) maybeInitProgressive() error {
 	}
 
 	m.includeAudio = len(m.audioSamples) > 0 && m.aacFormat != nil && m.aacFormat.Config != nil
-	if err := m.writeInit(m.includeAudio); err != nil {
+
+	err := m.writeInit(m.includeAudio)
+	if err != nil {
 		return err
 	}
 
@@ -881,20 +897,23 @@ func (m *fmp4Muxer) flushFragment() error {
 	seg.AddFragment(frag)
 
 	for _, sample := range m.videoSamples {
-		if err := frag.AddFullSampleToTrack(sample, videoTrackID); err != nil {
+		err := frag.AddFullSampleToTrack(sample, videoTrackID)
+		if err != nil {
 			return fmt.Errorf("add video sample: %w", err)
 		}
 	}
 
 	if m.includeAudio {
 		for _, sample := range m.audioSamples {
-			if err := frag.AddFullSampleToTrack(sample, audioTrackID); err != nil {
+			err := frag.AddFullSampleToTrack(sample, audioTrackID)
+			if err != nil {
 				return fmt.Errorf("add audio sample: %w", err)
 			}
 		}
 	}
 
-	if err := seg.Encode(m.w); err != nil {
+	err = seg.Encode(m.w)
+	if err != nil {
 		return fmt.Errorf("encode segment: %w", err)
 	}
 
@@ -914,7 +933,8 @@ func (m *fmp4Muxer) close() error {
 	}
 
 	if m.progressive {
-		if err := m.maybeInitProgressive(); err != nil {
+		err := m.maybeInitProgressive()
+		if err != nil {
 			return err
 		}
 
@@ -930,7 +950,8 @@ func (m *fmp4Muxer) close() error {
 		m.hadAudio = true
 	}
 
-	if err := m.writeInit(includeAudio); err != nil {
+	err := m.writeInit(includeAudio)
+	if err != nil {
 		return err
 	}
 

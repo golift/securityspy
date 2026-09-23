@@ -25,7 +25,7 @@ const (
 func TestGet(t *testing.T) {
 	t.Parallel()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 	config := &server.Config{
 		Username:  userStr,
 		Password:  passStr,
@@ -34,13 +34,13 @@ func TestGet(t *testing.T) {
 		Timeout:   server.Duration{time.Second},
 	}
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		asert.Equal("xml", req.URL.Query().Get("format"), "format parameter was not added")
-		asert.Equal(config.Password, req.URL.Query().Get("auth"), "auth parameter was not added")
-		asert.Equal("application/xml", req.Header.Get("Accept"), "accept header is not correct")
+		check.Equal("xml", req.URL.Query().Get("format"), "format parameter was not added")
+		check.Equal(config.Password, req.URL.Query().Get("auth"), "auth parameter was not added")
+		check.Equal("application/xml", req.Header.Get("Accept"), "accept header is not correct")
 
 		_, err := resp.Write([]byte("request OK"))
-		asert.NoError(err, "the fake server must return an error writing to the client")
-		asert.Equal(config.URL, "http://"+req.Host+"/", "the host was not set correctly in the request")
+		check.NoError(err, "the fake server must return an error writing to the client")
+		check.Equal(config.URL, "http://"+req.Host+"/", "the host was not set correctly in the request")
 	})
 
 	httpClient, fakeServer := testingHTTPClient(handler)
@@ -53,17 +53,17 @@ func TestGet(t *testing.T) {
 	if err == nil {
 		defer resp.Body.Close()
 
-		asert.Equal(http.StatusOK, resp.StatusCode, "the server must return a 200 response code")
+		check.Equal(http.StatusOK, resp.StatusCode, "the server must return a 200 response code")
 		body, err := io.ReadAll(resp.Body)
 		require.NoError(t, err, "must not be an error reading the response body")
-		asert.Equal("request OK", string(body), "wrong data was returned from the server")
+		check.Equal("request OK", string(body), "wrong data was returned from the server")
 	}
 }
 
 func TestPostAudioContentType(t *testing.T) {
 	t.Parallel()
 
-	asert := assert.New(t)
+	check := assert.New(t)
 	config := &server.Config{
 		Username:  userStr,
 		Password:  passStr,
@@ -86,7 +86,7 @@ func TestPostAudioContentType(t *testing.T) {
 		}
 
 		_, err := resp.Write([]byte("OK"))
-		asert.NoError(err)
+		check.NoError(err)
 	})
 
 	httpClient, fakeServer := testingHTTPClient(handler)
@@ -96,14 +96,14 @@ func TestPostAudioContentType(t *testing.T) {
 
 	body, err := config.Post("++audio", nil, io.NopCloser(strings.NewReader("audio-data")))
 	require.NoError(t, err)
-	asert.Equal("OK", string(body))
+	check.Equal("OK", string(body))
 
 	body, err = config.Post("++other", nil, io.NopCloser(strings.NewReader("other-data")))
 	require.NoError(t, err)
-	asert.Equal("OK", string(body))
+	check.Equal("OK", string(body))
 
-	asert.Equal("audio/g711-ulaw", audioHeader)
-	asert.Empty(otherHeader)
+	check.Equal("audio/g711-ulaw", audioHeader)
+	check.Empty(otherHeader)
 }
 
 func TestGetXMLStatusAndDecodeErrors(t *testing.T) {

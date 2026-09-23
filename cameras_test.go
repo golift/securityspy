@@ -11,13 +11,13 @@ import (
 
 func TestUnmarshalXMLCameraSchedule(t *testing.T) {
 	t.Parallel()
-	asert := assert.New(t)
+	check := assert.New(t)
 
 	var s securityspy.CameraSchedule
 
 	err := xml.Unmarshal([]byte("<tag>3</tag>"), &s)
 	require.NoError(t, err, "valid data must not produce an error")
-	asert.Equal(3, s.ID, "the data was not unmarshalled properly")
+	check.Equal(3, s.ID, "the data was not unmarshalled properly")
 }
 
 // SS 5.5 keeps v5 width/height tags but also emits video-format (a v6-era field).
@@ -54,40 +54,40 @@ func TestUnmarshalXMLCameraSS55WithVideoFormat(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	t.Parallel()
-	asert := assert.New(t)
+	check := assert.New(t)
 
 	secspyServer, _, _ := testServerWithCamera(t)
 
 	cams := secspyServer.Cameras.All()
-	asert.Len(cams, 2, "the data contains two cameras, two cameras must be returned")
+	check.Len(cams, 2, "the data contains two cameras, two cameras must be returned")
 }
 
 func TestByNum(t *testing.T) {
 	t.Parallel()
-	asert := assert.New(t)
+	check := assert.New(t)
 
 	secspyServer, _, _ := testServerWithCamera(t)
 
 	cam := secspyServer.Cameras.ByNum(2)
-	asert.Equal("Porch", cam.Name, "camera 2 is Porch in the v6 test data")
+	check.Equal("Porch", cam.Name, "camera 2 is Porch in the v6 test data")
 	require.Nil(t, secspyServer.Cameras.ByNum(99), "a non-existent camera must return nil")
 }
 
 func TestByName(t *testing.T) {
 	t.Parallel()
-	asert := assert.New(t)
+	check := assert.New(t)
 
 	secspyServer, _, _ := testServerWithCamera(t)
 
 	cam := secspyServer.Cameras.ByName("Porch")
-	asert.Equal(2, cam.Number, "camera 2 is Porch in the v6 test data")
+	check.Equal(2, cam.Number, "camera 2 is Porch in the v6 test data")
 	require.Nil(t, secspyServer.Cameras.ByName("not here"), "a non-existent camera must return nil")
 
 	cam = secspyServer.Cameras.ByName("porch2")
 	require.Nil(t, cam, "there is no camera named porch2")
 
 	cam = secspyServer.Cameras.ByName("porch")
-	asert.Equal(2, cam.Number, "camera 2 is Porch in the v6 test data")
+	check.Equal(2, cam.Number, "camera 2 is Porch in the v6 test data")
 	require.Nil(t, secspyServer.Cameras.ByName("not here"), "a non-existent camera must return nil")
 }
 

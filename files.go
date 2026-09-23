@@ -17,8 +17,8 @@ import (
 const (
 	// DownloadDateFormat is the format the SecuritySpy ++download method accepts.
 	// This matches the ++download inputs AND the folder names files are saved into.
-	// The file1/file2 inputs this gets passed into are actually undocuemnted and were
-	// created specifically for programmtic SDK access (ie. this library).
+	// The file1/file2 inputs this gets passed into are actually undocumented and were
+	// created specifically for programmatic SDK access (ie. this library).
 	DownloadDateFormat = "2006-01-02"
 	// FileDateFormat is an arbitrary date format used for saved files; we hope doesn't change.
 	// This is used in the actual name of files that are saved. No where else.
@@ -50,7 +50,7 @@ type fileFeed struct {
 	Entries      []*File  `xml:"entry"`        // List of File pointers
 }
 
-// File represents a saved media file. This is all the data retreived from
+// File represents a saved media file. This is all the data retrieved from
 // the ++download method for a particular file. Contains a camera interface
 // for the camera that created the file. All of the Files type methods return this type.
 type File struct {
@@ -110,15 +110,25 @@ func (f *Files) GetFile(name string) (*File, error) {
 	}
 	cams := f.server.GetCameras()
 
-	if fileExtSplit := strings.Split(name, "."); len(fileExtSplit) != fileParts {
+	fileExtSplit := strings.Split(name, ".")
+	if len(fileExtSplit) != fileParts {
 		return file, ErrInvalidName
-	} else if nameDateSplit := strings.Split(fileExtSplit[0], " "); len(fileExtSplit) < fileParts {
+	}
+
+	nameDateSplit := strings.Split(fileExtSplit[0], " ")
+
+	file.Updated, err = time.Parse(FileDateFormat, nameDateSplit[0])
+	if err != nil {
 		return file, ErrInvalidName
-	} else if file.Updated, err = time.Parse(FileDateFormat, nameDateSplit[0]); err != nil {
-		return file, ErrInvalidName
-	} else if file.Camera = cams.ByName(nameDateSplit[len(nameDateSplit)-1]); file.Camera == nil {
+	}
+
+	file.Camera = cams.ByName(nameDateSplit[len(nameDateSplit)-1])
+	if file.Camera == nil {
 		return file, ErrCAMMissing
-	} else if file.Link.Type = "video/quicktime"; fileExtSplit[1] == "jpg" {
+	}
+
+	file.Link.Type = "video/quicktime"
+	if fileExtSplit[1] == "jpg" {
 		file.Link.Type = "image/jpeg"
 	}
 
@@ -134,7 +144,8 @@ func (f *Files) GetFile(name string) (*File, error) {
 // Save downloads a saved media File from SecuritySpy and saves it to a local file.
 // Returns an error if path exists.
 func (f *File) Save(path string) (int64, error) {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	_, statErr := os.Stat(path)
+	if !os.IsNotExist(statErr) {
 		return 0, ErrPathExists
 	}
 
@@ -187,7 +198,8 @@ func (f *Files) getFiles(cameraNums []int, start, end time.Time, fileTypes, cont
 		params  = makeFilesParams(cameraNums, start, end, fileTypes, continuation)
 	)
 
-	if err := f.server.GetXML("++download", params, &feed); err != nil {
+	err := f.server.GetXML("++download", params, &feed)
+	if err != nil {
 		return nil, fmt.Errorf("getting download: %w", err)
 	}
 
@@ -214,7 +226,7 @@ func (f *Files) getFiles(cameraNums []int, start, end time.Time, fileTypes, cont
 	return entries, nil
 }
 
-// makeFilesParams makes the url Values for a file retreival.
+// makeFilesParams makes the url Values for a file retrieval.
 func makeFilesParams(cameraNums []int, from, to time.Time, fileTypes, continuation string) url.Values {
 	params := make(url.Values)
 	params.Set("results", "1000")

@@ -88,7 +88,8 @@ func (c *Camera) StreamVideo(ops *VidOps, length time.Duration, maxsize int64) (
 // UseHTTP is not supported (returns ErrHTTPVideoUnsupported).
 // Set VidOps.VCodec to "h265" for HEVC cameras (see PreferredVCodec).
 func (c *Camera) SaveVideo(ops *VidOps, length time.Duration, maxsize int64, outputFile string) error {
-	if _, err := os.Stat(outputFile); !os.IsNotExist(err) {
+	_, statErr := os.Stat(outputFile)
+	if !os.IsNotExist(statErr) {
 		return ErrPathExists
 	}
 
@@ -351,7 +352,8 @@ func (c *Camera) ToggleContinuous(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 
-	if err := c.server.SimpleReq("++ssControlContinuous", params, c.Number); err != nil {
+	err := c.server.SimpleReq("++ssControlContinuous", params, c.Number)
+	if err != nil {
 		if errors.Is(err, server.ErrNotFound) {
 			return ErrUnsupported
 		}
@@ -367,7 +369,8 @@ func (c *Camera) ToggleMotion(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 
-	if err := c.server.SimpleReq("++ssControlMotionCapture", params, c.Number); err != nil {
+	err := c.server.SimpleReq("++ssControlMotionCapture", params, c.Number)
+	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 
@@ -379,7 +382,8 @@ func (c *Camera) ToggleActions(arm CameraArmMode) error {
 	params := make(url.Values)
 	params.Set("arm", string(arm))
 
-	if err := c.server.SimpleReq("++ssControlActions", params, c.Number); err != nil {
+	err := c.server.SimpleReq("++ssControlActions", params, c.Number)
+	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 
@@ -389,7 +393,8 @@ func (c *Camera) ToggleActions(arm CameraArmMode) error {
 // TriggerMotion sets a camera as currently seeing motion.
 // Other actions likely occur because of this!
 func (c *Camera) TriggerMotion() error {
-	if err := c.server.SimpleReq("++triggermd", make(url.Values), c.Number); err != nil {
+	err := c.server.SimpleReq("++triggermd", make(url.Values), c.Number)
+	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 
@@ -497,7 +502,8 @@ func (c *Camera) SetSchedule(mode CameraMode, scheduleID int) error {
 	params.Set("mode", string(mode))
 	params.Set("id", strconv.Itoa(scheduleID))
 
-	if err := c.server.SimpleReq("++ssSetSchedule", params, c.Number); err != nil {
+	err := c.server.SimpleReq("++ssSetSchedule", params, c.Number)
+	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 
@@ -512,7 +518,8 @@ func (c *Camera) SetScheduleOverride(mode CameraMode, overrideID int) error {
 	params.Set("mode", string(mode))
 	params.Set("id", strconv.Itoa(overrideID))
 
-	if err := c.server.SimpleReq("++ssSetOverride", params, c.Number); err != nil {
+	err := c.server.SimpleReq("++ssSetOverride", params, c.Number)
+	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 

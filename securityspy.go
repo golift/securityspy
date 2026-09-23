@@ -21,9 +21,9 @@ func New(c *server.Config) (*Server, error) {
 	return s, s.RefreshContext(context.Background()) //nolint:gocritic
 }
 
-// NewMust returns an iterface to interact with SecuritySpy.
+// NewMust returns an interface to interact with SecuritySpy.
 // This does not attempt to connect to SecuritySpy first.
-// You must call s.Refresh() before attempting to access other datas.
+// You must call s.Refresh() before attempting to access other data.
 func NewMust(config *server.Config) *Server {
 	if !strings.HasSuffix(config.URL, "/") {
 		config.URL += "/"
@@ -169,7 +169,8 @@ func (s *Server) GetScripts() ([]string, error) {
 		Names []string `xml:"name"`
 	}
 
-	if err := s.GetXML("++scripts", nil, &val); err != nil {
+	err := s.GetXML("++scripts", nil, &val)
+	if err != nil {
 		return nil, fmt.Errorf("getting scripts: %w", err)
 	}
 
@@ -183,7 +184,8 @@ func (s *Server) GetSounds() ([]string, error) {
 		Names []string `xml:"name"`
 	}
 
-	if err := s.GetXML("++sounds", nil, &val); err != nil {
+	err := s.GetXML("++sounds", nil, &val)
+	if err != nil {
 		return nil, fmt.Errorf("getting sounds: %w", err)
 	}
 
