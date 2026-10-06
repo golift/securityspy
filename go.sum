@@ -1,5 +1,7 @@
 github.com/Eyevinn/mp4ff v0.56.0 h1:K81hqadHOLqQP+Rr610dwy7Cn3tLLEejCljzIfcNo+k=
 github.com/Eyevinn/mp4ff v0.56.0/go.mod h1:AhC+bOI7GSZmzuN4zFY9U76qMedbHI+8BdQXWrC9+8U=
+github.com/Eyevinn/mp4ff v0.57.0 h1:/Gr4a5W83BcXyoFZSWSGGGjb5Yq1oYZGtHCnZ0i5hEg=
+github.com/Eyevinn/mp4ff v0.57.0/go.mod h1:3EZTsioPJ4xTLZEBBkVWoyd7UHnGp4vzwoEJ7lmr3CQ=
 github.com/bluenviron/gortsplib/v5 v5.6.6 h1:MNSK9Bt24WDvIbLlyvRRVzXIMWwyV3XuTaFUChvLRNs=
 github.com/bluenviron/gortsplib/v5 v5.6.6/go.mod h1:Hcq+sFCw8JCPbSwCdE39Q93wjXhM3vrzbebsNed3qpc=
 github.com/bluenviron/mediacommon/v2 v2.9.5 h1:6r1vq9qFH5AUUjPOPxRd00BhBNAg1EcmYNvwmpzAibo=
