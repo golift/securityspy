@@ -5,7 +5,7 @@ go 1.26.6
 require (
 	github.com/Eyevinn/mp4ff v0.63.0
 	github.com/bluenviron/gortsplib/v5 v5.6.7
-	github.com/bluenviron/mediacommon/v2 v2.9.7
+	github.com/bluenviron/mediacommon/v2 v2.10.0
 	github.com/pion/rtp v1.10.6
 	github.com/stretchr/testify v1.12.1
 )
